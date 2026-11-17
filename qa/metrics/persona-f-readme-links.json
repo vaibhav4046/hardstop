@@ -9,6 +9,7 @@
     "security/ASSUMPTIONS.md",
     ".github/workflows/ci.yml",
     "EVIDENCE_LOG.md",
+    "qa/",
     "LICENSE"
   ],
   "missing": []

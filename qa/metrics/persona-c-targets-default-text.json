@@ -1,10 +1,11 @@
 {
   "/": {
     "scrollsSideways": [],
-    "targets": 18,
+    "targets": 21,
     "inlineLinksExempt": [
-      "a \"the CoinDesk report\" 149.9x20",
-      "a \"I-HITL: Inalienable Human-in-the-Loop\" 285.3x44.8"
+      "a \"Open a practice vault\" 273.5x39",
+      "a \"the CoinDesk report\" 300.9x45.6",
+      "a \"I-HITL: Inalienable Human-in-the-Loop\" 279.1x20"
     ],
     "smallest": 44
   },
@@ -12,7 +13,7 @@
     "scrollsSideways": [],
     "targets": 22,
     "inlineLinksExempt": [
-      "a \"How it works\" 308.6x38.3"
+      "a \"How it works\" 78.6x18"
     ],
     "smallest": 44
   },
@@ -24,33 +25,33 @@
   },
   "/how-it-works": {
     "scrollsSideways": [
-      "table-scroll: content 544px in a 326px box"
+      "card: content 585px in a 324px box"
     ],
     "targets": 18,
     "inlineLinksExempt": [
-      "a \"activity page\" 94.1x20",
-      "a \"Fe\" 17.4x20",
-      "a \"fe/src/kernel.fe\" 112.6x20",
-      "a \"fe/src/vault.fe\" 101.9x20",
-      "a \"fe/src/adversary.fe\" 138.5x20",
-      "a \"fe/src/cli.fe\" 82.3x20",
-      "a \"web/src/lib/hardstop/sim.ts\" 203.8x20",
-      "a \"the developers page\" 151.1x20"
+      "a \"activity page\" 92.2x20",
+      "a \"Fe\" 17.3x20",
+      "a \"fe/src/kernel.fe\" 109.1x20",
+      "a \"fe/src/vault.fe\" 99.6x20",
+      "a \"fe/src/adversary.fe\" 135.8x20",
+      "a \"fe/src/cli.fe\" 79.8x20",
+      "a \"web/src/lib/hardstop/sim.ts\" 195.6x20",
+      "a \"the developers page\" 144.2x20"
     ],
     "smallest": 44
   },
   "/developers": {
     "scrollsSideways": [
-      "code: content 676px in a 322px box",
-      "code: content 878px in a 322px box",
-      "code: content 605px in a 322px box",
-      "table-scroll: content 576px in a 326px box"
+      "code: content 680px in a 324px box",
+      "code: content 882px in a 324px box",
+      "code: content 609px in a 324px box",
+      "card: content 617px in a 324px box"
     ],
     "targets": 14,
     "inlineLinksExempt": [
-      "a \"kernel.fe\" 64.3x20",
-      "a \"fe/src/kernel.fe\" 98.5x18",
-      "a \"cli.fe\" 34.9x20"
+      "a \"kernel.fe\" 62x20",
+      "a \"fe/src/kernel.fe\" 95.5x18",
+      "a \"cli.fe\" 33.5x20"
     ],
     "smallest": 44
   },
@@ -58,7 +59,7 @@
     "scrollsSideways": [],
     "targets": 24,
     "inlineLinksExempt": [
-      "a \"How it works\" 308.6x38.3"
+      "a \"How it works\" 78.6x18"
     ],
     "smallest": 44
   },

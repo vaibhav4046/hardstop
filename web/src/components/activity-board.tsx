@@ -46,9 +46,9 @@ export function ActivityBoard() {
 
   if (vault.status === 'none' || vault.view === null || vault.session === null) {
     return (
-      <div className="max-w-[38rem]">
-        <h2 className="section-title">You have no practice vault yet</h2>
-        <p className="mt-3">
+      <div className="card card-live max-w-[44rem]">
+        <h2 className="sub-title">You have no practice vault yet</h2>
+        <p className="soft mt-3">
           Start with an example to see how it behaves: $10.00 per payment, $20.00 per day, one approved recipient,
           $100.00 in test dollars. Or set your own rules.
         </p>
@@ -99,12 +99,12 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
   const cooling = formatDuration(schedule.coolingSecs)
 
   return (
-    <div className="grid gap-x-16 gap-y-[var(--gap-part)] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr]">
       <p className="sr-only" role="status" aria-live="polite">
         {fresh?.said ?? ''}
       </p>
 
-      <section aria-labelledby="vault-title" className="lg:col-start-1 lg:row-start-1">
+      <section aria-labelledby="vault-title" className="card card-live lg:col-start-1 lg:row-start-1">
         <h2 id="vault-title" className="label">
           In the vault
         </h2>
@@ -112,25 +112,27 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
         <p className="small soft mt-1">Test dollars</p>
 
         <div className="mt-7">
-          <div
-            className="gauge"
-            role="meter"
-            aria-label="Spent today"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(usedShare * 100)}
-            aria-valuetext={`${formatUsd(day.spent)} spent of ${formatUsd(policy.perWindow)}`}
-          >
-            <div className="gauge-fill" style={{ transform: `scaleX(${usedShare})` }} />
+          <div className="gauge-stop">
+            <div
+              className="gauge"
+              role="meter"
+              aria-label="Spent today"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(usedShare * 100)}
+              aria-valuetext={`${formatUsd(day.spent)} spent of ${formatUsd(policy.perWindow)}`}
+            >
+              <div className="gauge-fill" style={{ transform: `scaleX(${usedShare})` }} />
+            </div>
           </div>
           <dl className="mt-3 flex flex-wrap justify-between gap-x-6 gap-y-1">
             <div>
               <dt className="small soft">Spent today</dt>
-              <dd className="text-xl font-semibold">{formatUsd(day.spent)}</dd>
+              <dd className="text-xl font-medium">{formatUsd(day.spent)}</dd>
             </div>
             <div className="text-right">
               <dt className="small soft">Left today</dt>
-              <dd className="text-xl font-semibold">{formatUsd(view.leftToday)}</dd>
+              <dd className="text-xl font-medium">{formatUsd(view.leftToday)}</dd>
             </div>
           </dl>
           <p className="small soft mt-2">
@@ -147,15 +149,15 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
         )}
       </section>
 
-      <div className="grid content-start gap-[var(--gap-part)] lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <div className="grid content-start gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <AgentPanel view={view} entries={entries} isBusy={isBusy} run={run} />
 
-        <section aria-labelledby="receipts-title">
-          <h2 id="receipts-title" className="section-title">
+        <section aria-labelledby="receipts-title" className="card">
+          <h2 id="receipts-title" className="sub-title">
             Receipts
           </h2>
           {entries.length === 0 ? (
-            <p className="hair-top soft mt-4 max-w-[34rem]">
+            <p className="tile soft mt-4">
               Nothing yet. Press one of the agent&rsquo;s buttons and the vault&rsquo;s answer prints here, newest
               first. Only things you do in this session appear.
             </p>
@@ -171,13 +173,13 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
         </section>
       </div>
 
-      <div className="grid content-start gap-[var(--gap-part)] lg:col-start-1 lg:row-start-2">
-        <section aria-labelledby="worst-title" className="rule-top">
+      <div className="grid content-start gap-6 lg:col-start-1 lg:row-start-2">
+        <section aria-labelledby="worst-title" className="card">
           <h2 id="worst-title" className="label">
             Worst case if your agent goes rogue
           </h2>
-          <p className="figure mt-2">{formatUsd(worstShown)}</p>
-          <p className="mt-3">
+          <p className="figure figure-gold mt-2">{formatUsd(worstShown)}</p>
+          <p className="soft mt-3">
             The most it could take from this vault between now and {formatTime(view.worstCaseUntil)}. No change made
             from now on, by anyone, can raise that before then.
           </p>
@@ -200,8 +202,8 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
           )}
         </section>
 
-        <section aria-labelledby="rules-title">
-          <h2 id="rules-title" className="section-title">
+        <section aria-labelledby="rules-title" className="card">
+          <h2 id="rules-title" className="sub-title">
             Rules in force
           </h2>
           <dl className="rows mt-3">
@@ -230,24 +232,24 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
           {queued !== null && (
             <div className="scheduled mt-5">
               <p className="tag tag-cool">Scheduled</p>
-              <p className="mt-1 font-semibold">Takes effect {formatTime(queued.effectiveAt)}</p>
+              <p className="mt-1 font-medium">Takes effect {formatTime(queued.effectiveAt)}</p>
               <p className="small mt-1">Until then the rules above stay in force. From then:</p>
               <dl className="small mt-2 grid gap-1">
                 <div className="flex justify-between gap-4">
                   <dt>Most per payment</dt>
-                  <dd className="font-semibold">{formatUsd(queued.perPayment)}</dd>
+                  <dd className="font-medium">{formatUsd(queued.perPayment)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt>Most per day</dt>
-                  <dd className="font-semibold">{formatUsd(queued.perWindow)}</dd>
+                  <dd className="font-medium">{formatUsd(queued.perWindow)}</dd>
                 </div>
                 <div className="flex flex-wrap justify-between gap-x-4">
                   <dt>Permission ends</dt>
-                  <dd className="font-semibold">{formatTime(queued.validUntil)}</dd>
+                  <dd className="font-medium">{formatTime(queued.validUntil)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt>Agent</dt>
-                  <dd className="font-semibold">{queued.paused ? 'Paused' : 'Active'}</dd>
+                  <dd className="font-medium">{queued.paused ? 'Paused' : 'Active'}</dd>
                 </div>
               </dl>
               <button type="button" className="btn mt-4" disabled={isBusy} onClick={() => run({ type: 'cancel' })}>
@@ -257,11 +259,11 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
           )}
         </section>
 
-        <section aria-labelledby="clock-title" className="hair-top">
+        <section aria-labelledby="clock-title" className="card">
           <h2 id="clock-title" className="label">
             Practice clock
           </h2>
-          <p className="mt-1 font-display text-2xl font-semibold">{formatTime(now)}</p>
+          <p className="mt-1 font-display text-2xl">{formatTime(now)}</p>
           <div className="mt-3 grid gap-3 min-[26rem]:grid-cols-2">
             <button type="button" className="btn" disabled={isBusy} onClick={() => run({ type: 'skip', seconds: '3600' })}>
               Skip ahead 1 hour

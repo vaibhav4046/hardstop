@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function HowItWorks() {
   return (
-    <div className="wrap pt-[clamp(1.5rem,4vw,3.5rem)]">
+    <div className="wrap page">
       <h1 className="page-title max-w-[44rem]">One door for the agent. Every control for you.</h1>
       <p className="lede mt-5">
         A HARDSTOP vault holds money for one AI agent. The agent and you are treated as two different people, and the
@@ -20,8 +20,8 @@ export default function HowItWorks() {
         <h2 id="who-title" className="section-title">
           Who can do what
         </h2>
-        <div className="table-scroll mt-6">
-          <table className="ledger min-w-[34rem] max-w-[58rem]">
+        <div className="card table-scroll mt-8 max-w-[62rem]">
+          <table className="ledger min-w-[34rem]">
             <thead>
               <tr>
                 <th scope="col">Action</th>
@@ -64,12 +64,12 @@ export default function HowItWorks() {
         </p>
       </section>
 
-      <div className="mt-[var(--gap-section)] grid gap-x-16 gap-y-[var(--gap-part)] lg:grid-cols-2">
-        <section aria-labelledby="how-agent-title" className="rule-top">
-          <h2 id="how-agent-title" className="section-title">
+      <div className="mt-[var(--gap-section)] grid gap-6 lg:grid-cols-2">
+        <section aria-labelledby="how-agent-title" className="card">
+          <h2 id="how-agent-title" className="sub-title">
             What your agent can do
           </h2>
-          <div className="prose mt-4">
+          <div className="prose soft mt-4">
             <p>
               One thing: ask the vault to pay a certain amount to a certain recipient. The vault then checks, in a
               fixed order, that the agent is not paused, that its permission has not ended, that the request is not a
@@ -80,11 +80,11 @@ export default function HowItWorks() {
           </div>
         </section>
 
-        <section aria-labelledby="blocked-title" className="rule-top">
-          <h2 id="blocked-title" className="section-title">
+        <section aria-labelledby="blocked-title" className="card">
+          <h2 id="blocked-title" className="sub-title">
             What happens to a blocked request
           </h2>
-          <div className="prose mt-4">
+          <div className="prose soft mt-4">
             <p>
               The vault refuses it and records what was asked and why it was refused, so there is a trail of what the
               agent tried. A refusal changes nothing else: the balance, the amount spent today and the rules stay
@@ -99,12 +99,12 @@ export default function HowItWorks() {
       </div>
 
       <section className="mt-[var(--gap-section)]" aria-labelledby="ratchet-title">
-        <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="grid items-start gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
           <div>
             <h2 id="ratchet-title" className="section-title">
               Why raising a limit is slow and lowering one is instant
             </h2>
-            <div className="prose mt-4">
+            <div className="prose soft mt-6">
               <p>
                 Making the rules tighter can only reduce what the agent can take, so there is no reason to wait. Making
                 them looser is the dangerous direction: it is exactly what a confused or manipulated agent, or someone
@@ -116,20 +116,20 @@ export default function HowItWorks() {
               </p>
             </div>
           </div>
-          <ol className="timeline self-start lg:mt-2">
+          <ol className="card card-live timeline">
             <li>
-              <p className="font-semibold">You ask for a higher limit</p>
+              <p className="font-medium">You ask for a higher limit</p>
               <p className="soft">Nothing changes yet. The request shows as Scheduled, with the time it takes effect.</p>
             </li>
             <li className="cooling">
-              <p className="font-semibold text-cool">Cooling period</p>
+              <p className="tag tag-cool">Cooling period</p>
               <p className="soft">
                 The old limit still applies to every request. You can cancel at any moment. This is your chance to
                 notice a change you did not make.
               </p>
             </li>
             <li>
-              <p className="font-semibold">The higher limit is in force</p>
+              <p className="font-medium">The higher limit is in force</p>
               <p className="soft">From this second on, and not one second earlier.</p>
             </li>
           </ol>
@@ -140,7 +140,7 @@ export default function HowItWorks() {
         <h2 id="how-worst-title" className="section-title">
           The worst-case number
         </h2>
-        <div className="prose mt-4">
+        <div className="prose soft mt-6">
           <p>
             Because nothing can get looser before the cooling period ends, the vault can work out the most the agent
             could possibly take between now and then: what is left of today&rsquo;s limit, plus a full day&rsquo;s
@@ -162,7 +162,7 @@ export default function HowItWorks() {
         <h2 id="deeper-title" className="section-title">
           For technical readers
         </h2>
-        <details className="disclosure mt-4 border-t border-rule">
+        <details className="card disclosure mt-6 !py-2">
           <summary>How the rules are written and checked</summary>
           <div className="prose">
             <p>

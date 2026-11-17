@@ -13,19 +13,19 @@
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 184,
+    "line": 186,
     "text": "{worstShown < view.worstCase && (",
     "judgement": "Display: whether to show the \"capped at what the vault holds\" note."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 189,
+    "line": 191,
     "text": "{view.worstCaseUntil >= day.resetsAt && !policy.paused && (",
     "judgement": "Display: whether to show the \"more than one day\" note."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 195,
+    "line": 197,
     "text": "{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (",
     "judgement": "Display: whether to show the \"upper limit\" note."
   },
@@ -73,7 +73,7 @@
   },
   {
     "file": "lib/describe.ts",
-    "line": 73,
+    "line": 65,
     "text": "return proposed && proposed.effectiveAt !== 0n",
     "judgement": "Wording: reads the PolicyProposed event the contract emitted to say \"Scheduled\" or \"in force at once\". The contract decided which."
   },

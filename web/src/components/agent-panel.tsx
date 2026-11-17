@@ -42,8 +42,8 @@ export function AgentPanel({ view, entries, isBusy, run }: Props) {
   }
 
   return (
-    <section aria-labelledby="agent-title">
-      <h2 id="agent-title" className="section-title">
+    <section aria-labelledby="agent-title" className="card card-live">
+      <h2 id="agent-title" className="sub-title">
         What the agent tries
       </h2>
       <p className="soft mt-2 max-w-[36rem]">

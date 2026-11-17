@@ -55,6 +55,18 @@ export function verdict(entry: Extract<Entry, { kind: 'payment' | 'agentRaise' }
   }
 }
 
+/**
+ * When an owner's change takes effect, if the contract queued it; undefined
+ * if the contract applied it at once. Read from the event the contract emitted.
+ */
+export function scheduledFor(entry: Extract<Entry, { kind: 'owner' | 'skip' }>): bigint | undefined {
+  if (entry.kind !== 'owner' || entry.action.type !== 'propose') return undefined
+  const proposed = entry.outcome.events.find((event) => event.name === 'PolicyProposed')
+  return proposed && proposed.effectiveAt !== 0n
+    ? proposed.effectiveAt
+    : undefined
+}
+
 /** One line for something the owner did, or for a clock skip. */
 export function note(entry: Extract<Entry, { kind: 'owner' | 'skip' }>, nameOf: (address: string) => string): string {
   if (entry.kind === 'skip') {
@@ -69,10 +81,10 @@ export function note(entry: Extract<Entry, { kind: 'owner' | 'skip' }>, nameOf: 
   }
   switch (action.type) {
     case 'propose': {
-      const proposed = outcome.events.find((event) => event.name === 'PolicyProposed')
-      return proposed && proposed.effectiveAt !== 0n
-        ? `You asked for looser rules. Scheduled: they take effect ${formatTime(proposed.effectiveAt)}.`
-        : 'You changed the rules. Nothing in the change was looser, so it is in force at once.'
+      const takesEffect = scheduledFor(entry)
+      return takesEffect === undefined
+        ? 'You changed the rules. Nothing in the change was looser, so it is in force at once.'
+        : `You asked for looser rules. Scheduled: they take effect ${formatTime(takesEffect)}.`
     }
     case 'cancel':
       return 'You cancelled the scheduled change. The rules stay as they are.'

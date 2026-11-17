@@ -25,8 +25,8 @@ export function OwnerControls({ view, isBusy, run, onReset }: Props) {
   const pending = queued ?? policy
 
   return (
-    <section aria-labelledby="owner-title">
-      <h2 id="owner-title" className="section-title">
+    <section aria-labelledby="owner-title" className="card">
+      <h2 id="owner-title" className="sub-title">
         What only you can do
       </h2>
 
@@ -81,7 +81,7 @@ export function OwnerControls({ view, isBusy, run, onReset }: Props) {
             {view.recipients.map((recipient) => (
               <li key={recipient.address} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <span>
-                  <span className="font-semibold">{recipient.name}</span>
+                  <span className="font-medium">{recipient.name}</span>
                   {recipient.approvedFrom > now ? (
                     <span className="tag tag-cool block">Can be paid from {formatTime(recipient.approvedFrom)}</span>
                   ) : (

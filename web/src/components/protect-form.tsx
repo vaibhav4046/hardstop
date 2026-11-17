@@ -139,12 +139,12 @@ export function ProtectForm() {
     const coolingText = formatDuration(BigInt(setup.coolingSecs))
     const shown = view.worstCase < view.state.vaultBalance ? view.worstCase : view.state.vaultBalance
     return (
-      <section aria-labelledby="review-title" className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-        <div>
+      <section aria-labelledby="review-title" className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div className="card">
           <h2 id="review-title" className="section-title" tabIndex={-1} ref={reviewRef}>
             Check the rules before you create the vault
           </h2>
-          <ul className="prose mt-6 grid gap-3 text-lg">
+          <ul className="bullets mt-6 max-w-[40rem] text-lg">
             <li>
               Your agent may pay up to <strong>{formatUsd(view.state.policy.perPayment)}</strong> at a time, and up to{' '}
               <strong>{formatUsd(view.state.policy.perWindow)}</strong> in a day.
@@ -193,12 +193,12 @@ export function ProtectForm() {
           )}
         </div>
 
-        <aside className="rule-top self-start" aria-labelledby="review-worst-title">
+        <aside className="card card-live self-start" aria-labelledby="review-worst-title">
           <h3 id="review-worst-title" className="label">
             Worst case in the next {coolingText}
           </h3>
-          <p className="figure mt-3">{formatUsd(shown)}</p>
-          <p className="mt-4">
+          <p className="figure figure-gold mt-3">{formatUsd(shown)}</p>
+          <p className="soft mt-4">
             That is the most your agent could take from this vault between now and {formatTime(view.worstCaseUntil)},
             whatever it tries and whatever anyone signs as you in that time.
           </p>
@@ -232,7 +232,7 @@ export function ProtectForm() {
   const busy = phase === 'checking'
 
   return (
-    <form onSubmit={review} noValidate className="grid max-w-[42rem] gap-[var(--gap-part)]">
+    <form onSubmit={review} noValidate className="grid max-w-[44rem] gap-5">
       <div ref={summaryRef} tabIndex={-1} role="alert" className={errorList.length > 0 ? 'notice' : 'sr-only'}>
         {errorList.length > 0 && (
           <>
@@ -250,7 +250,7 @@ export function ProtectForm() {
         )}
       </div>
 
-      <fieldset className="grid gap-5">
+      <fieldset className="card">
         <legend className="sub-title mb-4">How much may your agent spend?</legend>
         <div className="grid gap-5 sm:grid-cols-2">
           <MoneyField id="perPayment" label="Most per payment" value={perPayment} onChange={setPerPayment} error={errors.perPayment} />
@@ -265,7 +265,7 @@ export function ProtectForm() {
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset className="card">
         <legend className="sub-title mb-4">Who may it pay?</legend>
         <p className="hint mb-4">
           Up to {MAX_RECIPIENTS} to start with. You only choose a name: each gets a practice address made up for you.
@@ -317,7 +317,7 @@ export function ProtectForm() {
         )}
       </fieldset>
 
-      <fieldset>
+      <fieldset className="card">
         <legend className="sub-title mb-4">How long does the permission last?</legend>
         <div className="grid gap-3 sm:grid-cols-3">
           {DURATIONS.map((option) => (
@@ -330,7 +330,7 @@ export function ProtectForm() {
         <p className="hint mt-3">After that the agent can pay nothing until you extend it.</p>
       </fieldset>
 
-      <fieldset>
+      <fieldset className="card">
         <legend className="sub-title mb-4">How long must a looser rule wait?</legend>
         <p className="hint mb-4">
           This is the cooling period. Raising a limit, moving the end date later, adding a recipient or resuming after
@@ -341,7 +341,7 @@ export function ProtectForm() {
             <label key={option.label} className="choice">
               <input type="radio" name="cooling" checked={cooling === option.secs} onChange={() => setCooling(option.secs)} />
               <span>
-                <span className="font-semibold">{option.label}</span>
+                <span className="font-medium">{option.label}</span>
                 <span className="hint block">{option.hint}</span>
               </span>
             </label>
@@ -349,7 +349,7 @@ export function ProtectForm() {
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset className="card">
         <legend className="sub-title mb-4">How much goes in the vault?</legend>
         <div className="max-w-[20rem]">
           <MoneyField
@@ -363,7 +363,7 @@ export function ProtectForm() {
         </div>
       </fieldset>
 
-      <div className="rule-top">
+      <div className="mt-4">
         <button type="submit" className="btn btn-primary btn-large" disabled={busy}>
           {busy ? 'Checking the rules…' : 'Review the rules'}
         </button>

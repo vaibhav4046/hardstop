@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function Activity() {
   return (
-    <div className="wrap pt-[clamp(1.5rem,4vw,3.5rem)]">
+    <div className="wrap page">
       <h1 className="page-title mb-[var(--gap-part)]">Your practice vault</h1>
       <ActivityBoard />
     </div>

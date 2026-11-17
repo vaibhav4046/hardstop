@@ -8,21 +8,21 @@
   },
   "cache": "empty",
   "withNoVault": {
-    "files": 7,
-    "transferred": 151521,
-    "decoded": 499786,
+    "files": 9,
+    "transferred": 167178,
+    "decoded": 530378,
     "encodings": [
       "gzip"
     ]
   },
   "afterStartingAVault": {
     "files": 10,
-    "transferred": 304410,
-    "decoded": 1018328,
+    "transferred": 312410,
+    "decoded": 1028385,
     "encodings": [
       "gzip"
     ]
   },
-  "firstContentfulPaintMs": 2004,
-  "largestContentfulPaintMs": 6968
+  "firstContentfulPaintMs": 2140,
+  "largestContentfulPaintMs": 5836
 }

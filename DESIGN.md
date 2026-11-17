@@ -1,142 +1,245 @@
 # HARDSTOP design
 
 This describes the web app in `web/` as built. Tokens live in
-`web/src/app/globals.css`; nothing here is aspirational.
+`web/src/app/globals.css`, the parts in `web/src/app/styles/pieces.css`, and
+the home page in `web/src/app/styles/home.css`. Nothing here is aspirational.
+
+The visual direction (near-black page, serif display type over a sans, one
+gold accent, pill buttons, glass top bar, product cards beside numbered
+steps) was requested by the project owner with xade.xyz as the visual
+reference. No assets, copy, logo, typeface files, data or code from that site
+are used: every word, figure, component and the hero picture are HARDSTOP's
+own.
 
 ## Brand idea
 
 A hard stop is a physical thing: the block a mechanism cannot travel past.
-The interface is a counter where an agent hands over a request and the vault
-hands back a printed slip, stamped PAID or BLOCKED. It should feel like a
-bank ledger and a till roll, not a crypto dashboard.
+The interface is a dark vault room. An agent hands a request to the vault and
+the vault hands back a receipt labelled PAID or BLOCKED. Three devices carry
+that:
 
-Three devices carry that, and nothing else is decorative:
+1. **The receipt.** Every verdict is a card with a label, the amount, the
+   contract's sentence, and the facts under it.
+2. **The stop.** The wordmark ends in a small square in the refusal colour.
+   The same square closes the "spent today" gauge, marks a refused receipt,
+   and marks "Never" on the permissions card.
+3. **The door.** The home hero is a vault door with a bar across it, drawn
+   in dithered gold dots.
 
-1. **The slip.** Every verdict is a receipt on lighter paper with a torn
-   lower edge, dashed and dotted rules, and a stamp.
-2. **The full stop.** The wordmark ends in a square full stop in the stop
-   colour. The same block closes the "spent today" gauge: the fill runs
-   toward it and cannot pass it.
-3. **Clarendon.** Headlines and money figures are set in Besley, a Clarendon
-   revival: the letterform of cheques, ledgers and bank notes.
-
-The page is light only. There is no dark theme.
+The page is dark only. There is no light theme; `color-scheme: dark` makes
+the browser's own controls (select lists, scrollbars) match.
 
 ## Type
 
-Loaded with `next/font/google`, self-hosted at build time.
+Loaded with `next/font/google`, self-hosted at build time (the site's
+Content-Security-Policy allows fonts from its own origin only).
 
 | Role | Face | Use |
 |---|---|---|
-| Display | Besley 600 to 800 | h1 to h3, money figures, stamps, wordmark |
-| Text and UI | Schibsted Grotesk 400 to 700 | everything else |
+| Display | Instrument Serif 400 | h1 to h3, legends, money figures |
+| Text and UI | Outfit 400 to 600 | everything else, including the wordmark and receipt labels |
 | Technical | IBM Plex Mono 400 | only inside "Technical details", code blocks and inline code names |
 
-Scale (rem): 0.8125, 0.875, 1, 1.125, 1.3125, 1.5, 2.25, 3. The home
-headline is fluid, `clamp(2.25rem, 1.35rem + 4.4vw, 4.5rem)`; page titles
-`clamp(2rem, 1.5rem + 2.4vw, 3rem)`.
+Instrument Serif has one weight, so display type is never bold; hierarchy
+comes from size.
 
-Headings: line-height 1.02 to 1.15, letter-spacing -0.012em to -0.022em,
-`text-wrap: balance`. Body: 1rem at 1.55, measure capped at 38 to 40rem.
-Labels are sentence case; the only capitals are the stamps and the wordmark.
+| Class | Size | Notes |
+|---|---|---|
+| `.hero-title` | `clamp(2.5rem, 1.5rem + 4.6vw, 4.875rem)` (40 to 78px) | line-height 1, two lines |
+| `.page-title` | `clamp(2.25rem, 1.6rem + 2.8vw, 3.6875rem)` (36 to 59px) | h1 of the other four routes |
+| `.section-title` | `clamp(2rem, 1.5rem + 2.2vw, 3.25rem)` (32 to 52px) | h2 |
+| `.step-title` | `clamp(1.875rem, 1.5rem + 1.4vw, 2.625rem)` | h3 of a home step |
+| `.sub-title` | 1.75rem | card headings, legends |
+| `.figure` | `clamp(2.75rem, 2.2rem + 2.2vw, 3.75rem)` | a sum of money, large |
+| body | 1rem, line-height 1.6 | `.lede` and step text 1.125 to 1.25rem |
+| small | 0.875rem; receipt labels and code 0.8125rem | |
+
+Headings: letter-spacing -0.01em, `text-wrap: balance`. Two-line headlines
+use `.lines` (each `span` is a line). Measure is capped at 30 to 40rem.
+Labels are sentence case. The only capitals are the wordmark and the label on
+a receipt (PAID, BLOCKED, REJECTED), where the owner asked for them.
 
 ## Colour
 
-| Token | Hex | Meaning |
+| Token | Value | Meaning |
 |---|---|---|
-| `--color-paper` | `#efe9dc` | page |
-| `--color-slip` | `#fbf8f1` | receipts, inputs, notices |
-| `--color-ink` | `#1e1a15` | text, rules, primary button |
-| `--color-ink-soft` | `#5b5346` | secondary text, hints |
-| `--color-rule` | `#c9bfab` | hairlines (decorative, not relied on) |
-| `--color-edge` | `#8c8271` | boundaries of unselected controls |
-| `--color-stop` | `#c2310e` | refused: blocked or rejected by the vault, paused by the owner, or input the form will not send |
-| `--color-paid` | `#1b6340` | paid; used only on the PAID stamp |
-| `--color-cool` | `#7a4e00` | scheduled or cooling |
-| `--color-cool-wash` | `#f3dfa8` | background of the "Scheduled" panel |
+| `--color-page` | `#0c0c0e` | the page |
+| `--color-ink` | `#ffffff` | text, primary button |
+| `--color-ink-soft` | white at 68% | secondary text, hints |
+| `--color-surface` | white at 3% | cards |
+| `--color-raised` | white at 5.5% | receipts, notices |
+| `--color-rule` | white at 9% | card borders and hairlines (decorative) |
+| `--color-edge` | white at 42% | boundaries of inputs and choices |
+| `--color-gold` | `rgb(227 176 75)` | brand accent, numbers worth noticing, focus ring |
+| `--color-cool` | `rgb(227 176 75)` | scheduled or waiting; always with the word and a clock mark |
+| `--color-stop` | `rgb(248 113 113)` | refused: blocked or rejected by the vault, paused, "Never", invalid input, and the stop square |
+| `--color-paid` | `rgb(124 214 166)` | paid; only on a PAID label and that receipt's border |
+
+Colour never carries a meaning alone. A verdict has its word and a shape (a
+dot for paid, a square for refused); "Scheduled" has its word and a clock
+face with a quarter filled; "Allowed" is an open ring and "Never" a square.
 
 Contrast ratios (WCAG 2 relative luminance, computed with a script on
-2026-11-17; AA needs 4.5 for text and 3 for control boundaries):
+2026-11-17; translucent colours were composited over what is under them
+first. AA needs 4.5 for text and 3 for large text and control boundaries):
 
-| Foreground on background | Ratio |
-|---|---|
-| ink on paper | 14.30 |
-| ink on slip | 16.31 |
-| ink-soft on paper | 6.27 |
-| ink-soft on slip | 7.15 |
-| paper on ink (primary button) | 14.30 |
-| stop on paper | 4.64 |
-| stop on slip | 5.29 |
-| white on stop (pause button, hover) | 5.62 |
-| paid on slip | 6.81 |
-| cool on paper | 5.95 |
-| cool on cool-wash | 5.46 |
-| ink on cool-wash | 13.13 |
-| edge on paper (non-text) | 3.13 |
-| edge on slip (non-text) | 3.57 |
+| Foreground on background | Composited | Ratio |
+|---|---|---|
+| ink on page | #ffffff on #0c0c0e | 19.54 |
+| ink on raised (receipt) | #ffffff on #19191b | 17.49 |
+| ink-soft on page | #b1b1b2 on #0c0c0e | 9.14 |
+| ink-soft on surface (card) | #b4b4b4 on #131315 | 8.89 |
+| ink-soft on raised (receipt) | #b6b6b6 on #19191b | 8.58 |
+| ink-soft on a live card | #b5b5b5 on #171719 | 8.72 |
+| ink-soft on the waiting panel | #bbb9b7 on #29251f | 7.76 |
+| bullet text (86% white) on surface | #dedede on #131315 | 13.76 |
+| chip text (82% white) on page | #d3d3d4 on #0c0c0e | 13.09 |
+| disabled button text (50% white) on its fill | #8e8e8f on #1e1e20 | 5.12 |
+| gold on page | #e3b04b on #0c0c0e | 9.84 |
+| gold on a live card | #e3b04b on #171719 | 9.02 |
+| gold on the waiting panel | #e3b04b on #29251f | 7.63 |
+| stop on page | #f87171 on #0c0c0e | 7.07 |
+| stop on a live card | #f87171 on #171719 | 6.48 |
+| stop on its label fill (receipt) | #f87171 on #302224 | 5.50 |
+| stop on the pause button's fill | #f87171 on #291e20 | 5.83 |
+| page on stop (pause button, hover) | #0c0c0e on #f87171 | 7.07 |
+| paid on its label fill (receipt) | #7cd6a6 on #232c29 | 8.19 |
+| page on ink (primary button) | #0c0c0e on #ffffff | 19.54 |
+| page on gold (primary button, hover) | #0c0c0e on #e3b04b | 9.84 |
+| page on 50% white (primary button, disabled) | #0c0c0e on #868687 | 5.34 |
+| edge on page (non-text) | #727273 on #0c0c0e | 4.07 |
+| edge on a live card (non-text) | #78787a on #171719 | 4.09 |
+| focus ring on page (non-text) | #e3b04b on #0c0c0e | 9.84 |
 
-Stop on cool-wash is 4.26 and is never used. `--color-rule` on paper is 1.51;
-it only draws separators that carry no meaning on their own.
+`--color-rule` on the page is 1.23. It only draws card edges and separators
+that carry no meaning on their own; anything a person has to find (an input,
+a radio row) uses `--color-edge`.
 
-Colour never carries a verdict alone: stamps and tags always have the word.
+## Surfaces and spacing
 
-## Spacing
+- **Card** (`.card`): white at 3%, 1px `--color-rule` border, radius 24px,
+  padding `clamp(1.25rem, 1rem + 1.2vw, 2rem)`.
+- **Live card** (`.card-live`): a card that holds a working part of the
+  product. White at 4.5%, an inner top highlight and a deep soft shadow lift
+  it off the page. The fill is flat, not a gradient, so that axe can measure
+  the contrast of everything on it.
+- **Tile** (`.tile`): a darker inset inside a card, radius 16px.
+  `.tile-waiting` and `.scheduled` are the gold-tinted waiting panels.
+- **Receipt** (`.slip`): radius 20px on the raised colour.
+- Inputs are 14px, radio rows 16px, buttons and labels full pills. The radii
+  step down with nesting on purpose.
 
-Tailwind's 4px steps for small gaps, plus five named distances that are
-deliberately uneven, tight inside a thought and wide between thoughts:
+Named distances: `--gap-hair` 0.375rem, `--gap-line` 0.75rem,
+`--gap-part` `clamp(2rem, 1.5rem + 2vw, 3rem)`, `--gap-section`
+`clamp(4.5rem, 3rem + 7vw, 9rem)`, `--gutter`
+`clamp(1rem, 0.25rem + 3.6vw, 2.75rem)`. Content width 76rem, left aligned.
 
-| Token | Value |
-|---|---|
-| `--gap-hair` | 0.375rem (label to field) |
-| `--gap-line` | 0.75rem (paragraph to paragraph) |
-| `--gap-block` | 1.75rem |
-| `--gap-part` | clamp(2.5rem, 1.75rem + 3vw, 4.25rem) |
-| `--gap-section` | clamp(3.75rem, 2.5rem + 6vw, 7.5rem) |
-| `--gutter` | clamp(1rem, 0.25rem + 3.6vw, 2.75rem) |
+## Frame
 
-Content width 74rem. Layouts are two unequal columns (7:5, 5:7, 4:8), left
-aligned. Sections are separated by a 1px ink rule or by space, not by cards.
-Radius is 4px on controls and 0 on everything else.
+- **Practice notice**: a slim band at the very top of every page, "Practice
+  mode." in gold, in normal flow.
+- **Top bar** (`.topbar`): 76px, `rgb(12 12 13 / 0.72)` with
+  `backdrop-filter: blur(18px)` and a hairline under it; wordmark left, links
+  and the white "Protect my AI" pill right. From 56rem up it is sticky.
+  `scroll-padding-top` keeps anything focused or jumped to clear of it.
+- **Footer**: wordmark, the unaudited / practice-only line, and links to How
+  it works, Developers, GitHub and the licence.
+
+## The hero backdrop
+
+`web/src/components/hero-backdrop.tsx` draws the picture on a `<canvas>`;
+there is no image file. A brightness function describes a vault door from a
+few circles and lines (collar, lit rim, bolts, a four-spoke wheel, machined
+rings) with a bar lying across it and on past its right edge. Each cell of a
+4px grid is lit when that brightness beats an 8x8 Bayer threshold, which
+gives ordered dithering in one gold and one lighter gold. It is drawn once
+and again when the canvas changes size (about 63,000 cells for a 1440 by
+704px hero), and does not run a frame loop.
+
+The canvas is `aria-hidden`. From 72rem up it lies behind the copy: the copy
+is held to the left 58% of the hero at every width and text size, a mask
+removes the picture from the left 46% and fades it in by 72%, and a scrim in
+the page colour (solid to 50%, 90% at 58%) sits between the picture and the
+text. Measured on 2026-11-17 by hiding the copy and reading the brightest
+pixel behind where it sits, at 1152, 1280, 1440 and 1920px and at 1280px with
+125% text: secondary text is at least 8.36:1 and white at least 17.93:1.
+axe cannot judge text over a canvas and reports those nodes as undecided, so
+that measurement is the evidence. Below 72rem the picture is a 240px band
+under the copy and no text overlaps it. It fades in once over 900ms; with
+reduced motion it is simply there.
 
 ## Motion
 
-Only two things move, and only in answer to an action:
+- Hover and focus states: 150ms on colour, background and border. Buttons
+  scale to 0.98 while pressed.
+- A new receipt prints: 320ms, `translateY(-0.75rem)` and opacity,
+  ease-out-expo. Its label lands 160ms later over 240ms.
+- The gauge fill eases over 300ms (`transform: scaleX`).
+- Home sections marked `.reveal` fade and rise 16px over 450ms as they are
+  scrolled to. `ScrollReveal` only hides a section that is still below the
+  screen at the moment the visitor first scrolls with a wheel or a finger, so
+  a page that is read, printed or captured without scrolling shows
+  everything.
+- The hero backdrop fades in once.
 
-- a new slip prints: 320ms, `translateY(-0.875rem)` and opacity, ease-out-expo;
-- its stamp lands: 240ms, scale 1.7 to 1 and opacity, 160ms later.
-
-The gauge fill eases over 300ms (`transform: scaleX`). Buttons change colour
-in 120ms. Nothing animates on load or on scroll, and nothing moves while a
-request is being decided. Under `prefers-reduced-motion: reduce` all
-animation and transition is off.
+Under `prefers-reduced-motion: reduce` every animation and transition is
+off, `ScrollReveal` does nothing, and the backdrop is static.
 
 ## Components and states
 
-- **Button** (`.btn`): outlined ink; hover fills with slip; active moves 1px;
-  disabled is grey-outlined with `not-allowed`. `.btn-primary` is solid ink,
-  black on hover. `.btn-stop` (pause only) is stop-outlined and fills on
-  hover. `.btn-quiet` is an underlined text button. Minimum height 46px.
+- **Button** (`.btn`): a translucent dark pill with a hairline border;
+  hover lightens the fill and border; disabled is dimmer with `not-allowed`.
+  `.btn-primary` is a white pill with dark text, gold on hover. `.btn-stop`
+  (pause only) is red-outlined and fills red on hover. `.btn-quiet` is an
+  underlined text button. Minimum height 46px; `.btn-large` 54px.
+- **Focus**: 3px gold outline, 3px offset, on everything focusable. A radio
+  row shows it on the whole row.
 - **Field** (`.field`, `.input`, `MoneyField`): visible label above, hint
-  below, 1.5px ink border on slip. Invalid: 2px stop border, `aria-invalid`,
-  message linked with `aria-describedby`. Money fields show a `$` that is not
-  part of the value and use `inputmode="decimal"`.
-- **Choice** (`.choice`): a whole-row radio; selected gets an ink border and
-  a 4px ink bar on the left.
-- **Slip** (`Slip`): stamp (Paid / Blocked / Rejected / Not sent), amount,
+  below, 1px `--color-edge` border. Invalid: red border doubled with a ring,
+  `aria-invalid`, message linked with `aria-describedby`. Money fields show a
+  `$` that is not part of the value and use `inputmode="decimal"`.
+- **Choice** (`.choice`): a whole-row radio; selected gets a white border,
+  an inner ring and a lighter fill.
+- **Receipt** (`Slip`): label (Paid / Blocked / Rejected / Not sent), amount,
   the contract's sentence, rows for recipient, what is left today and the
   practice clock, then a collapsed "Technical details" with reason code and
-  name, request number, gas used and addresses. Owner actions and clock skips
-  print as one grey line with a left rule instead of a slip.
-- **Gauge**: spent share of today's limit, ending in the stop block;
-  `role="meter"` with a text value.
-- **Scheduled panel**: amber wash and bar, the time it takes effect, the
-  rules that will apply, and a Cancel button. Read from the contract's
-  queue.
-- **Disclosure** (`details.disclosure`): plus and minus markers, 48px
+  name, request number, gas used and addresses. A paid receipt has a green
+  edge, a refused one a red edge. Owner actions and clock skips are one
+  dashed line instead of a receipt; a change the contract queued carries a
+  gold "Scheduled" tag.
+- **Gauge**: spent share of today's limit, a white fill on a dim track that
+  ends in the stop square; `role="meter"` with a text value.
+- **Scheduled panel**: gold-tinted, the "Scheduled" tag with its clock mark,
+  the time it takes effect, the rules that will apply, and a Cancel button.
+  Read from the contract's queue.
+- **Permissions card** (home): what the agent's key can do, as term and
+  answer rows: one "Allowed, inside your limits", three "Never", and what
+  only the owner can do.
+- **Step panels** (home): the three numbered steps each have a live card
+  wired to the home page's one practice vault (`HomeVaultProvider`): the
+  rules and worst-case figure read from the contract; two more requests an
+  agent might send and the vault's last answer; pause, raise the daily limit
+  and cancel as the owner. Nothing in them is a mock-up.
+- **Disclosure** (`details.disclosure`): plus and minus markers, 52px
   summary.
 - **Vault states**: starting ("Starting your practice vault…"), none
   (example vault or own rules), ready, error (retry, or discard the saved
-  vault). The home example has its own starting and failed states.
+  vault). The home example has its own starting and failed states, and its
+  step panels say when the vault is loading or could not start.
+
+## Narrow screens
+
+No page scrolls sideways at 320, 360 or 375px, at 100% or at a 125% root
+font size (360px is in the e2e suite; 320 and 375 were checked by script).
+
+- Below 56rem the top bar is not sticky and has two rows: wordmark and the
+  "Protect my AI" pill, then the three links. (The pill is in the markup
+  twice, once beside the wordmark and once in the nav; CSS displays one.)
+- Every two-column layout becomes one column, text first, panel second.
+- The hero picture is a band under the copy (this holds up to 72rem).
+- Tables and code blocks scroll sideways inside their own box; the page
+  never does.
+- Every target is at least 44 by 44 CSS px, except links inside a sentence.
 
 ## Error language
 
@@ -148,37 +251,3 @@ rule refusal is shown as "Not sent", with the revert name under Technical
 details. Invalid input never reaches the contract.
 
 Words kept out of primary copy: EVM, ABI, gas, nonce, hash, smart contract.
-They appear only inside collapsed "Technical details" and on `/developers`.
-The app never says "guarantee".
-
-## Mobile
-
-One column below 1024px. On `/activity` the order is balance and today's
-gauge, the agent's buttons, receipts, then worst case, rules, clock and owner
-controls. Buttons go full width in narrow columns. Tables and code blocks
-scroll inside their own box. Checked at 320px: no horizontal overflow on any
-of the five routes, and every button, summary, input and standalone link is
-at least 44px tall.
-
-## Accessibility conventions
-
-- Landmarks: skip link, practice-mode `aside`, `header`, `nav`, `main`,
-  `footer`. One `h1` per page; slips are `article`s with a hidden `h3`.
-- Every verdict and owner action is announced through one
-  `role="status" aria-live="polite"` region per surface.
-- Focus: 3px ink outline, 3px offset, on `:focus-visible`. After validation
-  fails focus moves to the error summary; on the review step it moves to the
-  review heading.
-- All controls are native elements (`button`, `a`, `input`, `select`,
-  `details`), so everything works from the keyboard.
-- Times are always written out with the date; amounts always with `$` and
-  two decimals.
-
-## Honesty rules the design enforces
-
-- A practice-mode strip is the first thing on every page.
-- The receipts list is built only from what the visitor did in this session.
-- Every Paid, Blocked and Rejected is the contract's answer. The page never
-  works out a verdict. The one piece of arithmetic it repeats is display
-  only: which fixed day the practice clock is in, to label "spent today" and
-  the reset time (`today()` in `web/src/lib/session.ts`).

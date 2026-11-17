@@ -8,25 +8,25 @@
   },
   "exampleVaultMs": {
     "runs": 3,
-    "median": 4845,
-    "max": 4847,
-    "min": 3675,
+    "median": 3824,
+    "max": 3849,
+    "min": 3741,
     "all": [
-      3675,
-      4845,
-      4847
+      3741,
+      3824,
+      3849
     ],
     "what": "click \"Start with an example vault\" on /activity until the vault is on screen; empty cache, so this includes downloading the EVM chunk"
   },
   "ownVaultMs": {
     "runs": 3,
-    "median": 1246,
-    "max": 1270,
-    "min": 1116,
+    "median": 1011,
+    "max": 1299,
+    "min": 1011,
     "all": [
-      1270,
-      1116,
-      1246
+      1011,
+      1011,
+      1299
     ],
     "what": "click \"Create vault\" on the /protect review until the vault is on screen on /activity; the EVM chunk was already loaded by the review"
   }

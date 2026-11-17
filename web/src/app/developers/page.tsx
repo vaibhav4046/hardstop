@@ -46,13 +46,13 @@ decide prints: code detail window spent next_nonce`
 
 export default function Developers() {
   return (
-    <div className="wrap pt-[clamp(1.5rem,4vw,3.5rem)]">
+    <div className="wrap page">
       <h1 className="page-title max-w-[44rem]">One kernel, written in Fe, compiled for the chain and for your terminal</h1>
       <p className="lede mt-5">
         HARDSTOP is a standalone vault for one token and one agent. Its rules are a pure Fe module with no storage, no
         calls and no logs, so the same source builds into the contract that holds the money and into a native command-line tool.
       </p>
-      <dl className="rows mt-8 max-w-[34rem]">
+      <dl className="card rows mt-8 max-w-[36rem] !py-3">
         <div>
           <dt>Language</dt>
           <dd>Fe 26.6.0</dd>
@@ -79,7 +79,7 @@ export default function Developers() {
         <h2 id="kernel-title" className="section-title">
           The kernel in brief
         </h2>
-        <div className="prose mt-4">
+        <div className="prose soft mt-6">
           <p>
             <a href={source('fe/src/kernel.fe')}>kernel.fe</a> holds three ideas. <code className="mono">decide</code>{' '}
             answers whether one payment may go through and, if not, why. <code className="mono">amend</code> applies a
@@ -113,7 +113,7 @@ export default function Developers() {
         <pre className="code mt-5 max-w-[60rem]" tabIndex={0} aria-label="Commands">
           <code>{COMMANDS}</code>
         </pre>
-        <p className="prose mt-5">
+        <p className="prose soft mt-5">
           <code className="mono">decide</code> takes twenty decimal numbers. This is its usage text, from{' '}
           <a href={source('fe/src/cli.fe')}>cli.fe</a>:
         </p>
@@ -126,12 +126,12 @@ export default function Developers() {
         <h2 id="codes-title" className="section-title">
           Reason codes
         </h2>
-        <p className="prose mt-4">
+        <p className="prose soft mt-6">
           <code className="mono">pay</code> returns one byte: 0 when the payment was made, otherwise why it was
           refused. The names come from <code className="mono">Reason</code> in kernel.fe; the sentences are what this
           site shows a person, with sample amounts and dates filled in.
         </p>
-        <div className="table-scroll mt-6">
+        <div className="card table-scroll mt-8">
           <table className="ledger min-w-[36rem]">
             <thead>
               <tr>
