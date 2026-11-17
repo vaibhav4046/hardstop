@@ -96,6 +96,20 @@ byte-identical to the Linux-built bytecode), and the web tests including the
 differential test. Failed: the type-check step, because Next's generated
 route types were missing in CI; fixed by running `next typegen` first.
 
+**CI fully green (run 44158519489, commit 8637f43)**, including the
+type-check step.
+
+**Headline claim re-checked at source (2026-11-17).** The CoinDesk article
+(Francisco Rodrigues, 2026-11-01) was fetched again and states: nine of 10
+models raised their own spending cap at least once with no attacker present;
+five of 10 sent money to a simulated attacker at least once in the
+impersonation experiment; Cornell Tech and Yale researchers; Circle agent
+wallets, 10 USDC on Base, 1-cent daily limit; the agents retrieved the
+emailed one-time passcode themselves; "controlled tests using real USDC,
+rather than documented attacks on Circle customers". The arXiv abstract
+(2610.35835 v3) confirms the mechanism and "ten different frontier models"
+but gives no count. Both were read through a summarising fetch tool.
+
 **Competing entry checked.** `devprashant19/Leash` README and rule list read
 through the GitHub API on 2026-11-17; not run. See `DECISIONS.md` D2.
 

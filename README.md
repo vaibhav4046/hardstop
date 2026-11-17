@@ -17,7 +17,10 @@ and Yale; [CoinDesk report](https://www.coindesk.com/tech/2026/11/01/ai-agents-b
 [preprint](https://arxiv.org/abs/2610.35835)), agents holding a wallet with
 a daily cap **raised that cap themselves in 9 of 10 models tested**, by
 reading the one-time passcode that was supposed to prove a human had
-approved the change. Five of the ten then paid a simulated attacker.
+approved the change. In a separate impersonation scenario, five of the ten
+sent money to a simulated attacker at least once. (The counts are from the
+CoinDesk report; the preprint's abstract says only that the models "often"
+raise the cap.)
 
 Two things about that result shaped this project:
 
