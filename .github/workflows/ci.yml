@@ -11,11 +11,8 @@ env:
   FE_VERSION: v26.6.0
 
 jobs:
-  fe:
+  verify:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: fe
     steps:
       - uses: actions/checkout@v5
       - name: Install Fe
@@ -23,14 +20,39 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/argotorg/fe/master/feup/feup.sh | bash -s -- --version "$FE_VERSION" --no-modify-path
           echo "$HOME/.fe/bin" >> "$GITHUB_PATH"
       - run: fe --version
-      - run: fe fmt --check
-      - name: Tests on the EVM
+
+      - name: Format
+        working-directory: fe
+        run: fe fmt --check
+      - name: Fe tests on the EVM
+        working-directory: fe
         run: fe test
       - name: The same kernel and adversary tests, natively
+        working-directory: fe
         run: fe test --backend native
       - name: Build the contracts
+        working-directory: fe
         run: fe build --emit bytecode,runtime-bytecode,abi
       - name: Build the native tool
+        working-directory: fe
         run: fe build --backend native
       - name: Native campaign, 20,000 games of 40 requests
+        working-directory: fe
         run: ./out/hardstop campaign 5206533097626292048 20000 40
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: The committed web artifacts are what this source compiles to
+        run: |
+          node scripts/sync-artifacts.mjs
+          git diff --exit-code -- web/src/lib/hardstop/artifacts.ts
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+      - name: Vault bytecode vs native kernel, and time-travel tests
+        working-directory: web
+        run: npm test
+      - name: Type-check
+        working-directory: web
+        run: npx tsc --noEmit

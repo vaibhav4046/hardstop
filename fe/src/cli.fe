@@ -5,7 +5,7 @@
 //!
 //!   hardstop decide   <20 numbers>     one verdict
 //!   hardstop exposure <17 numbers>     the worst-case bound
-//!   hardstop batch                     one `decide` per line of stdin
+//!   hardstop batch                     one `decide` (20 numbers) or `exposure` (17) per line of stdin
 //!   hardstop campaign <seed> <cases> <steps>
 //!
 //! Numbers are decimal. Booleans are 0 or 1. See `USAGE` for the order.
@@ -132,8 +132,11 @@ fn numbers_from_args(count: usize) -> Option<[u256; 20]> uses (args: Args) {
     Option::Some(values)
 }
 
-/// Parses exactly 20 space-separated numbers from one line.
-fn numbers_from_line(_ line: MemBuffer) -> Option<[u256; 20]> {
+/// The numbers on one line, and how many there were.
+struct Line { values: [u256; 20], count: usize }
+
+/// Parses up to 20 space-separated numbers from one line.
+fn numbers_from_line(_ line: MemBuffer) -> Option<Line> {
     var values: [u256; 20] = [0; 20]
     var i: usize = 0
     for word in line.span().split(b' ') {
@@ -152,11 +155,18 @@ fn numbers_from_line(_ line: MemBuffer) -> Option<[u256; 20]> {
             i += 1
         }
     }
-    if i == DECIDE_FIELDS {
-        Option::Some(values)
-    } else {
-        Option::None
-    }
+    Option::Some(Line { values, count: i })
+}
+
+fn print_exposure(_ v: [u256; 20]) uses (out: mut Stdout) {
+    println!(
+        exposure(
+            rules: rules_of(v),
+            ledger: ledger_of(v),
+            now: small(v[15]),
+            until: small(v[16]),
+        ),
+    )
 }
 
 pub fn run() -> i32 uses (out: mut Stdout, args: Args, input: mut Stdin) {
@@ -204,12 +214,22 @@ pub fn run() -> i32 uses (out: mut Stdout, args: Args, input: mut Stdin) {
         var bad: i32 = 0
         while reader.read_line(mut line) {
             if line.len() != 0 {
+                var understood = false
                 match numbers_from_line(line) {
-                    Option::Some(values) => print_decision(values),
-                    Option::None => {
-                        println!("error")
-                        bad = 1
+                    Option::Some(parsed) => {
+                        if parsed.count == DECIDE_FIELDS {
+                            print_decision(parsed.values)
+                            understood = true
+                        } else if parsed.count == EXPOSURE_FIELDS {
+                            print_exposure(parsed.values)
+                            understood = true
+                        }
                     },
+                    Option::None => {},
+                }
+                if !understood {
+                    println!("error")
+                    bad = 1
                 }
             }
             line.clear()
