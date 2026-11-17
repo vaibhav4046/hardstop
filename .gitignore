@@ -14,3 +14,4 @@ playwright-report/
 # Playwright (web/): test-results/ and playwright-report/ are ignored above
 blob-report/
 playwright/.cache/
+film/work/
