@@ -1,0 +1,199 @@
+//! HARDSTOP policy kernel.
+//!
+//! Everything in this module is pure: no function has a `uses` clause, so the
+//! compiler guarantees that none of it can read storage, make a call, emit a
+//! log, or touch a file. The same source is compiled into the EVM vault
+//! (`ingot::vault`) and into the native simulator (`pub fn main`), which is
+//! what makes an off-chain prediction and the on-chain verdict the same code.
+//!
+//! `decide` is total. It never panics and never overflows, on any input.
+
+/// The owner's rules for one delegated agent. Amounts are token base units,
+/// times are Unix seconds.
+pub struct Policy {
+    /// Largest single payment.
+    pub per_payment: u256,
+    /// Largest total inside one window.
+    pub per_window: u256,
+    /// Window length in seconds. Zero is an invalid policy.
+    pub window_secs: u64,
+    /// Start of window 0. Windows are fixed, not rolling.
+    pub anchor: u64,
+    /// Last second at which the agent may still pay.
+    pub valid_until: u64,
+    /// Owner's stop switch.
+    pub paused: bool,
+}
+
+/// What the vault remembers between payments.
+pub struct Ledger {
+    /// Index of the window `spent` belongs to.
+    pub window: u64,
+    /// Total paid inside that window.
+    pub spent: u256,
+    /// Sequence number the next payment must carry.
+    pub next_nonce: u64,
+}
+
+/// One payment request, reduced to the facts the decision depends on. The
+/// caller (vault or simulator) resolves "who is asking" and "is the recipient
+/// on the list" and passes the answers in.
+pub struct Request { pub amount: u256, pub nonce: u64, pub from_agent: bool, pub to_approved: bool }
+
+/// Why a request was refused. Variants carry the number a person needs to
+/// understand the refusal.
+pub enum Reason {
+    /// The stored policy has a zero-length window.
+    InvalidPolicy,
+    /// The owner paused the agent.
+    Paused,
+    /// The caller is not the delegated agent.
+    NotAgent,
+    /// The policy starts at the carried time.
+    NotYetActive(u64),
+    /// The policy ended at the carried time.
+    Expired(u64),
+    /// The request reused or skipped a sequence number; carries the expected one.
+    WrongNonce(u64),
+    /// The sequence counter is used up.
+    NonceExhausted,
+    /// A payment of nothing.
+    ZeroAmount,
+    /// The recipient is not on the owner's list.
+    RecipientNotApproved,
+    /// Above the single-payment cap; carries the cap.
+    OverPaymentLimit(u256),
+    /// Above what is left in this window; carries what is left.
+    OverWindowLimit(u256),
+}
+
+/// The verdict. `Allow` carries the ledger to store once the payment is made.
+pub enum Decision {
+    Allow(Ledger),
+    Deny(Reason),
+}
+
+impl Copy for Policy {}
+impl Copy for Ledger {}
+impl Copy for Request {}
+impl Copy for Reason {}
+impl Copy for Decision {}
+
+const MAX_NONCE: u64 = 18446744073709551615
+
+impl Reason {
+    /// Stable wire code. `0` is reserved for "allowed".
+    pub fn code(self) -> u8 {
+        match self {
+            Reason::InvalidPolicy => 1,
+            Reason::Paused => 2,
+            Reason::NotAgent => 3,
+            Reason::NotYetActive(_) => 4,
+            Reason::Expired(_) => 5,
+            Reason::WrongNonce(_) => 6,
+            Reason::NonceExhausted => 7,
+            Reason::ZeroAmount => 8,
+            Reason::RecipientNotApproved => 9,
+            Reason::OverPaymentLimit(_) => 10,
+            Reason::OverWindowLimit(_) => 11,
+        }
+    }
+
+    /// The number carried by the reason, or zero.
+    pub fn detail(self) -> u256 {
+        match self {
+            Reason::NotYetActive(at) => at as u256,
+            Reason::Expired(at) => at as u256,
+            Reason::WrongNonce(expected) => expected as u256,
+            Reason::OverPaymentLimit(limit) => limit,
+            Reason::OverWindowLimit(left) => left,
+            _ => 0,
+        }
+    }
+}
+
+impl Decision {
+    /// `0` when allowed, otherwise the reason code.
+    pub fn code(self) -> u8 {
+        match self {
+            Decision::Allow(_) => 0,
+            Decision::Deny(reason) => reason.code(),
+        }
+    }
+
+    /// When allowed: what is left in the window after this payment.
+    /// When denied: the reason's detail.
+    pub fn detail(self, policy: Policy) -> u256 {
+        match self {
+            Decision::Allow(next) => left_in_window(policy, spent: next.spent),
+            Decision::Deny(reason) => reason.detail(),
+        }
+    }
+}
+
+/// Cap minus spent, floored at zero. A cap lowered below what was already
+/// spent leaves nothing rather than underflowing.
+pub fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
+    if spent >= policy.per_window {
+        0
+    } else {
+        policy.per_window - spent
+    }
+}
+
+/// Index of the fixed window that contains `now`. Requires a valid policy and
+/// `now >= policy.anchor`; `decide` checks both first.
+fn window_at(_ policy: Policy, now: u64) -> u64 {
+    (now - policy.anchor) / policy.window_secs
+}
+
+/// Decide one request. Checks run in a fixed order, so the same inputs always
+/// give the same reason.
+pub fn decide(policy: Policy, ledger: Ledger, request: Request, now: u64) -> Decision {
+    if policy.window_secs == 0 {
+        return Decision::Deny(Reason::InvalidPolicy)
+    }
+    if policy.paused {
+        return Decision::Deny(Reason::Paused)
+    }
+    if !request.from_agent {
+        return Decision::Deny(Reason::NotAgent)
+    }
+    if now < policy.anchor {
+        return Decision::Deny(Reason::NotYetActive(policy.anchor))
+    }
+    if now > policy.valid_until {
+        return Decision::Deny(Reason::Expired(policy.valid_until))
+    }
+    if request.nonce != ledger.next_nonce {
+        return Decision::Deny(Reason::WrongNonce(ledger.next_nonce))
+    }
+    if ledger.next_nonce == MAX_NONCE {
+        return Decision::Deny(Reason::NonceExhausted)
+    }
+    if request.amount == 0 {
+        return Decision::Deny(Reason::ZeroAmount)
+    }
+    if !request.to_approved {
+        return Decision::Deny(Reason::RecipientNotApproved)
+    }
+    if request.amount > policy.per_payment {
+        return Decision::Deny(Reason::OverPaymentLimit(policy.per_payment))
+    }
+
+    let window = window_at(policy, now)
+    let spent: u256 = if window == ledger.window {
+        ledger.spent
+    } else {
+        0
+    }
+    let left = left_in_window(policy, spent)
+    if request.amount > left {
+        return Decision::Deny(Reason::OverWindowLimit(left))
+    }
+
+    // `amount <= left <= per_window - spent`, so the sum cannot overflow.
+    Decision::Allow(
+        Ledger { window, spent: spent + request.amount, next_nonce: ledger.next_nonce + 1 },
+    )
+}

@@ -1,0 +1,62 @@
+//! TestDollar: a 6-decimal test token for local chains and the demo.
+//! Anyone can mint. It has no value and must never be treated as money.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Ctx, Log, StorageMap}
+
+pub msg TokenMsg {
+    #[selector = sol("mint(address,uint256)")]
+    Mint { to: Address, amount: u256 },
+    #[selector = sol("transfer(address,uint256)")]
+    Transfer { to: Address, amount: u256 } -> bool,
+    #[selector = sol("balanceOf(address)")]
+    BalanceOf { who: Address } -> u256,
+    #[selector = sol("totalSupply()")]
+    TotalSupply -> u256,
+    #[selector = sol("decimals()")]
+    Decimals -> u8,
+}
+
+#[event]
+pub struct Transfer {
+    #[indexed]
+    from: Address,
+    #[indexed]
+    to: Address,
+    value: u256,
+}
+
+pub contract TestDollar uses (ctx: Ctx, log: mut Log) {
+    mut supply: u256,
+    mut balances: StorageMap<Address, u256>,
+
+    recv TokenMsg {
+        Mint { to, amount } uses (mut supply, mut balances, mut log) {
+            supply = supply + amount
+            balances.set(key: to, value: balances.get(key: to) + amount)
+            log.emit(Transfer { from: Address::zero(), to, value: amount })
+        }
+
+        Transfer { to, amount } -> bool uses (ctx, mut balances, mut log) {
+            let from = ctx.caller()
+            let have = balances.get(key: from)
+            assert!(have >= amount, "TestDollar: balance too low")
+            balances.set(key: from, value: have - amount)
+            balances.set(key: to, value: balances.get(key: to) + amount)
+            log.emit(Transfer { from, to, value: amount })
+            true
+        }
+
+        BalanceOf { who } -> u256 uses (balances) {
+            balances.get(key: who)
+        }
+
+        TotalSupply -> u256 uses (supply) {
+            supply
+        }
+
+        Decimals -> u8 {
+            6
+        }
+    }
+}

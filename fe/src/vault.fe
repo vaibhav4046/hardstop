@@ -1,0 +1,284 @@
+//! The HARDSTOP vault: the only place where money can move.
+//!
+//! The vault gathers facts (who is calling, is the recipient approved, what
+//! time is it), hands them to the pure kernel, and then does exactly what the
+//! kernel decided. Each handler's `uses` clause is its whole authority: `Pay`
+//! lists `policy` and `agent` without `mut`, so the agent's code path cannot
+//! change its own limits, and no handler lists `mut owner` at all.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Call, Ctx, Log, StorageMap, revert_error}
+use std::evm::erc20::safe_transfer
+use ingot::kernel::{decide, Decision, Ledger, Policy, Reason, Request}
+
+pub msg VaultMsg {
+    // The agent's only door.
+    #[selector = sol("pay(address,uint256,uint64)")]
+    Pay { to: Address, amount: u256, nonce: u64 } -> u8,
+
+    // Read-only: what would `pay` answer right now?
+    #[selector = sol("preview(address,address,uint256,uint64)")]
+    Preview { caller: Address, to: Address, amount: u256, nonce: u64 } -> (u8, u256),
+
+    // Owner only.
+    #[selector = sol("setPolicy(uint256,uint256,uint64,uint64)")]
+    SetPolicy { per_payment: u256, per_window: u256, window_secs: u64, valid_until: u64 },
+    #[selector = sol("setRecipient(address,bool)")]
+    SetRecipient { who: Address, approved: bool },
+    #[selector = sol("setAgent(address)")]
+    SetAgent { agent: Address },
+    #[selector = sol("setPaused(bool)")]
+    SetPaused { paused: bool },
+    #[selector = sol("withdraw(address,uint256)")]
+    Withdraw { to: Address, amount: u256 },
+
+    // Views.
+    #[selector = sol("owner()")]
+    Owner -> Address,
+    #[selector = sol("agent()")]
+    Agent -> Address,
+    #[selector = sol("token()")]
+    Token -> Address,
+    #[selector = sol("policy()")]
+    PolicyOf -> (u256, u256, u64, u64, u64, bool),
+    #[selector = sol("ledger()")]
+    LedgerOf -> (u64, u256, u64),
+    #[selector = sol("isApproved(address)")]
+    IsApproved { who: Address } -> bool,
+}
+
+#[event]
+pub struct Paid {
+    #[indexed]
+    nonce: u64,
+    #[indexed]
+    to: Address,
+    amount: u256,
+    left_in_window: u256,
+}
+
+#[event]
+pub struct Blocked {
+    #[indexed]
+    nonce: u64,
+    #[indexed]
+    to: Address,
+    amount: u256,
+    code: u8,
+    detail: u256,
+}
+
+#[event]
+pub struct PolicyChanged { per_payment: u256, per_window: u256, window_secs: u64, valid_until: u64 }
+
+#[event]
+pub struct RecipientChanged {
+    #[indexed]
+    who: Address,
+    approved: bool,
+}
+
+#[event]
+pub struct AgentChanged {
+    #[indexed]
+    agent: Address,
+}
+
+#[event]
+pub struct PausedChanged { paused: bool }
+
+#[event]
+pub struct Withdrawn {
+    #[indexed]
+    to: Address,
+    amount: u256,
+}
+
+#[error]
+pub struct NotOwner {}
+
+#[error]
+pub struct NotAgent {}
+
+#[error]
+pub struct InvalidPolicy {}
+
+fn only(_ allowed: Address, caller: Address) {
+    if caller != allowed {
+        revert_error(NotOwner {})
+    }
+}
+
+fn seconds(_ at: Timestamp) -> u64 {
+    at.as_seconds().downcast_saturate()
+}
+
+pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
+    owner: Address,
+    token: Address,
+    mut agent: Address,
+    mut policy: Policy,
+    mut ledger: Ledger,
+    mut approved: StorageMap<Address, bool>,
+
+    init(
+        owner_: Address,
+        agent_: Address,
+        token_: Address,
+        per_payment: u256,
+        per_window: u256,
+        window_secs: u64,
+        valid_until: u64,
+    )
+    uses (ctx, mut owner, mut token, mut agent, mut policy, mut ledger)
+    {
+        if window_secs == 0 {
+            revert_error(InvalidPolicy {})
+        }
+        owner = owner_
+        token = token_
+        agent = agent_
+        policy = Policy {
+            per_payment,
+            per_window,
+            window_secs,
+            anchor: seconds(ctx.timestamp()),
+            valid_until,
+            paused: false,
+        }
+        ledger = Ledger { window: 0, spent: 0, next_nonce: 0 }
+    }
+
+    recv VaultMsg {
+        Pay { to, amount, nonce } -> u8 uses (
+            ctx,
+            token,
+            agent,
+            policy,
+            approved,
+            mut ledger,
+            mut call,
+            mut log,
+        ) {
+            let request = Request {
+                amount,
+                nonce,
+                from_agent: ctx.caller() == agent,
+                to_approved: approved.get(key: to),
+            }
+            match decide(policy, ledger, request, now: seconds(ctx.timestamp())) {
+                Decision::Allow(next) => {
+                    // Ledger first, transfer second: a reentrant call sees the
+                    // payment already counted, and a failed transfer reverts
+                    // the whole transaction, ledger included.
+                    ledger = next
+                    safe_transfer(token, receiver: to, amount)
+                    log.emit(
+                        Paid {
+                            nonce,
+                            to,
+                            amount,
+                            left_in_window: Decision::Allow(next).detail(policy),
+                        },
+                    )
+                    0
+                },
+                Decision::Deny(reason) => {
+                    match reason {
+                        // Strangers get a revert, not a log entry.
+                        Reason::NotAgent => revert_error(NotAgent {}),
+                        _ => {},
+                    }
+                    log.emit(
+                        Blocked { nonce, to, amount, code: reason.code(), detail: reason.detail() },
+                    )
+                    reason.code()
+                },
+            }
+        }
+
+        Preview { caller, to, amount, nonce } -> (u8, u256)
+        uses (ctx, agent, policy, ledger, approved)
+        {
+            let request = Request {
+                amount,
+                nonce,
+                from_agent: caller == agent,
+                to_approved: approved.get(key: to),
+            }
+            let decision = decide(policy, ledger, request, now: seconds(ctx.timestamp()))
+            (decision.code(), decision.detail(policy))
+        }
+
+        SetPolicy { per_payment, per_window, window_secs, valid_until }
+        uses (ctx, owner, mut policy, mut log)
+        {
+            only(owner, caller: ctx.caller())
+            if window_secs == 0 {
+                revert_error(InvalidPolicy {})
+            }
+            policy.per_payment = per_payment
+            policy.per_window = per_window
+            policy.window_secs = window_secs
+            policy.valid_until = valid_until
+            log.emit(
+                PolicyChanged { per_payment, per_window, window_secs, valid_until },
+            )
+        }
+
+        SetRecipient { who, approved: allow } uses (ctx, owner, mut approved, mut log) {
+            only(owner, caller: ctx.caller())
+            approved.set(key: who, value: allow)
+            log.emit(RecipientChanged { who, approved: allow })
+        }
+
+        SetAgent { agent: new_agent } uses (ctx, owner, mut agent, mut log) {
+            only(owner, caller: ctx.caller())
+            agent = new_agent
+            log.emit(AgentChanged { agent: new_agent })
+        }
+
+        SetPaused { paused } uses (ctx, owner, mut policy, mut log) {
+            only(owner, caller: ctx.caller())
+            policy.paused = paused
+            log.emit(PausedChanged { paused })
+        }
+
+        Withdraw { to, amount } uses (ctx, owner, token, mut call, mut log) {
+            only(owner, caller: ctx.caller())
+            safe_transfer(token, receiver: to, amount)
+            log.emit(Withdrawn { to, amount })
+        }
+
+        Owner -> Address uses (owner) {
+            owner
+        }
+        Agent -> Address uses (agent) {
+            agent
+        }
+        Token -> Address uses (token) {
+            token
+        }
+
+        PolicyOf -> (u256, u256, u64, u64, u64, bool)
+        uses (policy)
+        {
+            (
+                policy.per_payment,
+                policy.per_window,
+                policy.window_secs,
+                policy.anchor,
+                policy.valid_until,
+                policy.paused,
+            )
+        }
+
+        LedgerOf -> (u64, u256, u64) uses (ledger) {
+            (ledger.window, ledger.spent, ledger.next_nonce)
+        }
+
+        IsApproved { who } -> bool uses (approved) {
+            approved.get(key: who)
+        }
+    }
+}

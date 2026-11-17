@@ -1,0 +1,347 @@
+//! Vault tests on the EVM. The test contract plays the owner; `Actor`
+//! contracts play the agent and a stranger, because a caller is whoever
+//! sends the message.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Call, Evm}
+use ingot::token::{TestDollar, TokenMsg}
+use ingot::vault::{Vault, VaultMsg}
+
+const USD: u256 = 1000000
+const GAS: u256 = 2000000
+const FAR_FUTURE: u64 = 4000000000
+
+msg ActorMsg {
+    #[selector = sol("pay(address,address,uint256,uint64)")]
+    Pay { vault: Address, to: Address, amount: u256, nonce: u64 } -> u8,
+    #[selector = sol("setPolicy(address,uint256,uint256)")]
+    RaiseLimits { vault: Address, per_payment: u256, per_window: u256 },
+    #[selector = sol("setAgent(address,address)")]
+    TakeOver { vault: Address, agent: Address },
+    #[selector = sol("withdraw(address,address,uint256)")]
+    Drain { vault: Address, to: Address, amount: u256 },
+    #[selector = sol("setRecipient(address,address)")]
+    Approve { vault: Address, who: Address },
+    #[selector = sol("unpause(address)")]
+    Unpause { vault: Address },
+}
+
+/// Forwards whatever it is told to the vault, so the vault sees this
+/// contract as the caller.
+contract Actor uses (call: mut Call) {
+    recv ActorMsg {
+        Pay { vault, to, amount, nonce } -> u8 uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1000000,
+                value: Wei::zero(),
+                message: VaultMsg::Pay { to, amount, nonce },
+            )
+        }
+        RaiseLimits { vault, per_payment, per_window }
+        uses (mut call)
+        {
+            call.call(
+                addr: vault,
+                gas: 1000000,
+                value: Wei::zero(),
+                message: VaultMsg::SetPolicy {
+                    per_payment,
+                    per_window,
+                    window_secs: 86400,
+                    valid_until: FAR_FUTURE,
+                },
+            )
+        }
+        TakeOver { vault, agent } uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1000000,
+                value: Wei::zero(),
+                message: VaultMsg::SetAgent { agent },
+            )
+        }
+        Drain { vault, to, amount } uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1000000,
+                value: Wei::zero(),
+                message: VaultMsg::Withdraw { to, amount },
+            )
+        }
+        Approve { vault, who } uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1000000,
+                value: Wei::zero(),
+                message: VaultMsg::SetRecipient { who, approved: true },
+            )
+        }
+        Unpause { vault } uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1000000,
+                value: Wei::zero(),
+                message: VaultMsg::SetPaused { paused: false },
+            )
+        }
+    }
+}
+
+struct World {
+    token: Address,
+    vault: Address,
+    agent: Address,
+    stranger: Address,
+    shop: Address,
+    thief: Address,
+}
+
+impl Copy for World {}
+
+/// A funded vault: $100 inside, $10 per payment, $20 per day, one approved
+/// recipient (`shop`).
+fn world() -> World uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let agent = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 2)
+    let stranger = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 3)
+    let shop = Address::new(0x5109)
+    let thief = Address::new(0xbad)
+    let vault = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (evm.address(), agent, token, 10 * USD, 20 * USD, 86400, FAR_FUTURE),
+            salt: 4,
+        )
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::Mint { to: vault, amount: 100 * USD },
+    )
+    evm.call(
+        addr: vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetRecipient { who: shop, approved: true },
+    )
+    World { token, vault, agent, stranger, shop, thief }
+}
+
+fn balance(_ w: World, of: Address) -> u256 uses (evm: mut Evm) {
+    evm.call(
+        addr: w.token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::BalanceOf { who: of },
+    )
+}
+
+fn agent_pays(_ w: World, to: Address, amount: u256, nonce: u64) -> u8
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::Pay { vault: w.vault, to, amount, nonce },
+    )
+}
+
+#[test]
+fn allowed_payment_moves_exactly_the_amount() uses (evm: mut Evm) {
+    let w = world()
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    assert!(balance(w, of: w.shop) == 4 * USD)
+    assert!(balance(w, of: w.vault) == 96 * USD)
+    let (window, spent, next_nonce): (u64, u256, u64) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::LedgerOf {},
+        )
+    assert!(window == 0)
+    assert!(spent == 4 * USD)
+    assert!(next_nonce == 1)
+}
+
+#[test]
+fn over_limit_payment_moves_nothing() uses (evm: mut Evm) {
+    let w = world()
+    assert!(
+        agent_pays(w, to: w.shop, amount: 80 * USD, nonce: 0) == 10,
+    )
+    assert!(balance(w, of: w.shop) == 0)
+    assert!(balance(w, of: w.vault) == 100 * USD)
+}
+
+#[test]
+fn unapproved_recipient_moves_nothing() uses (evm: mut Evm) {
+    let w = world()
+    assert!(agent_pays(w, to: w.thief, amount: 4 * USD, nonce: 0) == 9)
+    assert!(balance(w, of: w.thief) == 0)
+    assert!(balance(w, of: w.vault) == 100 * USD)
+}
+
+#[test]
+fn splitting_cannot_beat_the_daily_cap() uses (evm: mut Evm) {
+    let w = world()
+    assert!(agent_pays(w, to: w.shop, amount: 10 * USD, nonce: 0) == 0)
+    assert!(agent_pays(w, to: w.shop, amount: 10 * USD, nonce: 1) == 0)
+    // $20 of $20 used. Even one more cent is refused.
+    assert!(agent_pays(w, to: w.shop, amount: 1, nonce: 2) == 11)
+    assert!(balance(w, of: w.shop) == 20 * USD)
+}
+
+#[test]
+fn replayed_request_is_refused() uses (evm: mut Evm) {
+    let w = world()
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 6)
+    assert!(balance(w, of: w.shop) == 4 * USD)
+}
+
+#[test]
+fn paused_vault_refuses_the_agent() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetPaused { paused: true },
+    )
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 2)
+    assert!(balance(w, of: w.shop) == 0)
+}
+
+#[test]
+fn preview_matches_pay() uses (evm: mut Evm) {
+    let w = world()
+    let (code, detail): (u8, u256) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Preview { caller: w.agent, to: w.shop, amount: 4 * USD, nonce: 0 },
+        )
+    assert!(code == 0)
+    assert!(detail == 16 * USD)
+    let (code, detail): (u8, u256) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Preview { caller: w.agent, to: w.shop, amount: 80 * USD, nonce: 0 },
+        )
+    assert!(code == 10)
+    assert!(detail == 10 * USD)
+    // Preview changed nothing.
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+}
+
+#[test]
+fn owner_can_withdraw() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Withdraw { to: w.shop, amount: 100 * USD },
+    )
+    assert!(balance(w, of: w.vault) == 0)
+}
+
+// cast sig "NotAgent()"
+#[test(should_revert)]
+fn stranger_cannot_pay() uses (evm: mut Evm) {
+    let w = world()
+    let _: u8 = evm
+        .call(
+            addr: w.stranger,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ActorMsg::Pay { vault: w.vault, to: w.shop, amount: 1, nonce: 0 },
+        )
+}
+
+#[test(should_revert)]
+fn agent_cannot_raise_its_own_limits() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::RaiseLimits {
+            vault: w.vault,
+            per_payment: 1000 * USD,
+            per_window: 1000 * USD,
+        },
+    )
+}
+
+#[test(should_revert)]
+fn agent_cannot_approve_a_recipient() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::Approve { vault: w.vault, who: w.thief },
+    )
+}
+
+#[test(should_revert)]
+fn agent_cannot_replace_the_agent() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::TakeOver { vault: w.vault, agent: w.thief },
+    )
+}
+
+#[test(should_revert)]
+fn agent_cannot_withdraw() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::Drain { vault: w.vault, to: w.thief, amount: 100 * USD },
+    )
+}
+
+#[test(should_revert)]
+fn agent_cannot_unpause() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetPaused { paused: true },
+    )
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::Unpause { vault: w.vault },
+    )
+}
+
+#[test(should_revert)]
+fn zero_length_window_is_rejected() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetPolicy {
+            per_payment: 1,
+            per_window: 1,
+            window_secs: 0,
+            valid_until: FAR_FUTURE,
+        },
+    )
+}
