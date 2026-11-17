@@ -17,19 +17,16 @@ Updated 2026-11-17. Submission deadline: 2026-11-24 23:59 UTC.
 | CI | Green for the Fe and differential steps on Linux |
 | Threat model, assumptions, decisions | `security/`, `DECISIONS.md` |
 
-## In progress
-
-- Web app (five routes, practice mode on the in-browser EVM).
-- Independent adversarial review of the Fe code.
+| Independent adversarial review, all findings fixed | `security/AUDIT.md`; `fe test` 68, native 44 |
+| Web app, five routes, practice mode | checked by hand and by 51 browser tests |
+| Persona, accessibility and performance suite | `qa/`, `npm run e2e`: 51 passed |
+| Deployment | https://hardstop-omega.vercel.app, live journey verified by `web/e2e/live-check.mjs` |
 
 ## Not started
 
-- Persona and accessibility testing in a real browser (`qa/`).
-- Performance measurements.
-- Deployment of the web app.
+- Launch film.
 - Optional: policy drafting from plain language (needs an LLM API key on the server).
 - Optional: wallet mode against a public test network (needs a funded test key).
-- Launch film.
 - Final submission through the owner's private submission link.
 
 ## Commits

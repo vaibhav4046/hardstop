@@ -211,7 +211,11 @@ substitute for the second.
 
 - **Reproducible CLI example:** the commands above; `./out/hardstop` prints
   usage with no arguments.
-- **App:** `cd web && npm run dev`, then open http://localhost:3000. Practice
+- **Live app:** https://hardstop-omega.vercel.app (static; no server-side
+  state, no secrets). `node web/e2e/live-check.mjs https://hardstop-omega.vercel.app`
+  drives the whole journey against it and fails on any wrong verdict or
+  console error.
+- **Locally:** `cd web && npm run dev`, then open http://localhost:3000. Practice
   mode runs the compiled vault in your browser on a private simulated chain
   with test dollars. No wallet, no network, no real money.
 

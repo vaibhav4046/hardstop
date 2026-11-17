@@ -171,3 +171,34 @@ page states (0 violations) and performance measurements. Five product bugs
 were found and fixed, the most serious being that `/protect` stayed on
 "Creating the vault…" after a vault was created. Details, screenshots and the
 issues left open are in `qa/`. No human participants; Chromium only.
+
+**Deployment (Vercel, production).** https://hardstop-omega.vercel.app
+
+```
+$ curl -sI https://hardstop-omega.vercel.app/      -> HTTP/1.1 200 OK, with
+  Content-Security-Policy, X-Content-Type-Options, X-Frame-Options,
+  Referrer-Policy, Permissions-Policy, Strict-Transport-Security
+$ / /protect /activity /how-it-works /developers  -> 200 each
+
+$ node web/e2e/live-check.mjs https://hardstop-omega.vercel.app
+     page loaded 303 ms after navigation started
+ok   home: $4 is paid
+     first verdict 171 ms after the click
+ok   home: $80 is blocked with the reason
+ok   protect: worst case shown before creating
+ok   activity: vault holds $100.00
+ok   activity: $4 is paid
+ok   activity: $80 is blocked
+ok   activity: a repeated request is blocked
+ok   activity: the agent cannot change the rules
+ok   activity: paused blocks the next payment
+ok   activity: reload restores the vault
+ok   /how-it-works renders
+ok   /developers renders
+live check passed against https://hardstop-omega.vercel.app
+```
+
+The very first request after deployment took about 10 s to reach a verdict
+(cold cache); the figures above are from the second run. Screenshots:
+`qa/screenshots/live/`. These timings are for a simulation in the visitor's
+browser, not for a transaction on a public chain.

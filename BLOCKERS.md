@@ -5,8 +5,8 @@
 1. **Final submission.** The submission form takes the private link from the
    registration email, the repository URL, and the full commit SHA. Only the
    owner has that link.
-2. **Deploying the web app.** Needs the owner's hosting account (for example
-   Vercel). The app has no secrets and no server state.
+2. **Deploying the web app.** Done: https://hardstop-omega.vercel.app, on the
+   owner's Vercel account. Redeploy with `npx vercel deploy --prod` in `web/`.
 3. **Optional, plain-language policy drafting.** Needs an LLM API key set as
    a server environment variable. Without it the manual form is the only way
    to create a policy, which is the intended fallback.
