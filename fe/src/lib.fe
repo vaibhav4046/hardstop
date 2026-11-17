@@ -1,0 +1,17 @@
+//! HARDSTOP: a spending firewall for AI agents.
+//!
+//! - `kernel`     the pure policy engine, compiled for every target
+//! - `adversary`  a seeded attacker and reference spec, also for every target
+//! - `vault`      the EVM contract that holds funds and obeys the kernel
+//! - `token`      a test token for local chains
+//! - `cli`        the same kernel as a native command-line tool
+
+#[cfg(target = "native")]
+use std::env::Args
+#[cfg(target = "native")]
+use std::io::{Stdin, Stdout}
+
+#[cfg(target = "native")]
+pub fn main() -> i32 uses (out: mut Stdout, args: Args, input: mut Stdin) {
+    ingot::cli::run()
+}

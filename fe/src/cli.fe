@@ -1,0 +1,247 @@
+//! `hardstop`: the kernel as a native command-line tool.
+//!
+//! It links the same `kernel` module the vault is built from, so a verdict
+//! printed here is the verdict the contract will reach for the same inputs.
+//!
+//!   hardstop decide   <20 numbers>     one verdict
+//!   hardstop exposure <17 numbers>     the worst-case bound
+//!   hardstop batch                     one `decide` per line of stdin
+//!   hardstop campaign <seed> <cases> <steps>
+//!
+//! Numbers are decimal. Booleans are 0 or 1. See `USAGE` for the order.
+#![cfg(target = "native")]
+
+use core::MemBuffer
+use core::text::parse_uint
+use std::env::Args
+use std::io::{Stdin, StdinReader, Stdout}
+use ingot::adversary::{campaign, Kernel}
+use ingot::kernel::{decide, exposure, Decision, Ledger, Policy, Queued, Request, Rules, Schedule}
+
+const RULES_FIELDS: usize = 12
+const LEDGER_FIELDS: usize = 3
+const DECIDE_FIELDS: usize = 20
+const EXPOSURE_FIELDS: usize = 17
+
+fn usage() uses (out: mut Stdout) {
+    println!(
+        "hardstop: the HARDSTOP policy kernel, compiled natively from the vault's own source",
+    )
+    println!("")
+    println!(
+        "  hardstop decide   RULES LEDGER amount nonce from_agent to_approved now",
+    )
+    println!("  hardstop exposure RULES LEDGER now until")
+    println!(
+        "  hardstop batch    (reads `decide` argument lines from stdin)",
+    )
+    println!("  hardstop campaign seed cases steps")
+    println!("")
+    println!("  RULES  = anchor window_secs cooling_secs")
+    println!("           per_payment per_window valid_until paused")
+    println!(
+        "           q_per_payment q_per_window q_valid_until q_paused q_effective_at",
+    )
+    println!("  LEDGER = window spent next_nonce")
+    println!("")
+    println!("  decide prints: code detail window spent next_nonce")
+    println!(
+        "  code 0 is allowed; 1..11 are the refusal reasons in kernel.fe",
+    )
+}
+
+fn small(_ value: u256) -> u64 {
+    value.downcast_saturate()
+}
+
+fn rules_of(_ v: [u256; 20]) -> Rules {
+    Rules {
+        schedule: Schedule {
+            anchor: small(v[0]),
+            window_secs: small(v[1]),
+            cooling_secs: small(v[2]),
+        },
+        active: Policy {
+            per_payment: v[3],
+            per_window: v[4],
+            valid_until: small(v[5]),
+            paused: v[6] != 0,
+        },
+        queued: Queued {
+            policy: Policy {
+                per_payment: v[7],
+                per_window: v[8],
+                valid_until: small(v[9]),
+                paused: v[10] != 0,
+            },
+            effective_at: small(v[11]),
+        },
+    }
+}
+
+fn ledger_of(_ v: [u256; 20]) -> Ledger {
+    Ledger { window: small(v[12]), spent: v[13], next_nonce: small(v[14]) }
+}
+
+fn print_decision(_ v: [u256; 20]) uses (out: mut Stdout) {
+    let rules = rules_of(v)
+    let ledger = ledger_of(v)
+    let now = small(v[19])
+    let request = Request {
+        amount: v[15],
+        nonce: small(v[16]),
+        from_agent: v[17] != 0,
+        to_approved: v[18] != 0,
+    }
+    let decision = decide(rules, ledger, request, now)
+    let after = match decision {
+        Decision::Allow(next) => next,
+        Decision::Deny(_) => ledger,
+    }
+    println!(
+        decision.code(),
+        " ",
+        decision.detail(policy: rules.current(now)),
+        " ",
+        after.window,
+        " ",
+        after.spent,
+        " ",
+        after.next_nonce,
+    )
+}
+
+/// Parses `count` numbers from the arguments after the command name.
+fn numbers_from_args(count: usize) -> Option<[u256; 20]> uses (args: Args) {
+    if args.count() != count + 2 {
+        return Option::None
+    }
+    var values: [u256; 20] = [0; 20]
+    var i: usize = 0
+    while i < count {
+        match parse_uint(args.get(i + 2)) {
+            Option::Some(value) => {
+                values[i] = value
+            },
+            Option::None => {
+                return Option::None
+            },
+        }
+        i += 1
+    }
+    Option::Some(values)
+}
+
+/// Parses exactly 20 space-separated numbers from one line.
+fn numbers_from_line(_ line: MemBuffer) -> Option<[u256; 20]> {
+    var values: [u256; 20] = [0; 20]
+    var i: usize = 0
+    for word in line.span().split(b' ') {
+        if word.len() != 0 {
+            if i == DECIDE_FIELDS {
+                return Option::None
+            }
+            match parse_uint(word) {
+                Option::Some(value) => {
+                    values[i] = value
+                },
+                Option::None => {
+                    return Option::None
+                },
+            }
+            i += 1
+        }
+    }
+    if i == DECIDE_FIELDS {
+        Option::Some(values)
+    } else {
+        Option::None
+    }
+}
+
+pub fn run() -> i32 uses (out: mut Stdout, args: Args, input: mut Stdin) {
+    if args.count() < 2 {
+        usage()
+        return 2
+    }
+    let command = args.get(1)
+
+    if command == "decide" {
+        match numbers_from_args(count: DECIDE_FIELDS) {
+            Option::Some(values) => {
+                print_decision(values)
+                return 0
+            },
+            Option::None => {
+                println!("error: decide takes 20 decimal numbers")
+                return 2
+            },
+        }
+    }
+
+    if command == "exposure" {
+        match numbers_from_args(count: EXPOSURE_FIELDS) {
+            Option::Some(values) => {
+                let bound = exposure(
+                    rules: rules_of(values),
+                    ledger: ledger_of(values),
+                    now: small(values[15]),
+                    until: small(values[16]),
+                )
+                println!(bound)
+                return 0
+            },
+            Option::None => {
+                println!("error: exposure takes 17 decimal numbers")
+                return 2
+            },
+        }
+    }
+
+    if command == "batch" {
+        var reader = StdinReader::new()
+        var line = MemBuffer::empty()
+        var bad: i32 = 0
+        while reader.read_line(mut line) {
+            if line.len() != 0 {
+                match numbers_from_line(line) {
+                    Option::Some(values) => print_decision(values),
+                    Option::None => {
+                        println!("error")
+                        bad = 1
+                    },
+                }
+            }
+            line.clear()
+        }
+        return bad
+    }
+
+    if command == "campaign" {
+        match numbers_from_args(count: 3) {
+            Option::Some(values) => {
+                let report = campaign<Kernel>(
+                    seed: small(values[0]),
+                    cases: small(values[1]),
+                    steps: small(values[2]),
+                )
+                println!("cases ", report.cases)
+                println!("requests ", report.requests)
+                println!("allowed ", report.allowed)
+                println!("denied ", report.denied)
+                println!("violation ", report.violation)
+                println!("at_case ", report.at_case)
+                println!("at_step ", report.at_step)
+                println!("digest ", report.digest)
+                return if report.violation == 0 { 0 } else { 1 }
+            },
+            Option::None => {
+                println!("error: campaign takes seed, cases and steps")
+                return 2
+            },
+        }
+    }
+
+    usage()
+    2
+}

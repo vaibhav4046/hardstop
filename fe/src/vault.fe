@@ -1,36 +1,59 @@
 //! The HARDSTOP vault: the only place where money can move.
 //!
-//! The vault gathers facts (who is calling, is the recipient approved, what
-//! time is it), hands them to the pure kernel, and then does exactly what the
-//! kernel decided. Each handler's `uses` clause is its whole authority: `Pay`
-//! lists `policy` and `agent` without `mut`, so the agent's code path cannot
-//! change its own limits, and no handler lists `mut owner` at all.
+//! The vault gathers facts (who is calling, is the recipient approved yet,
+//! what time is it), hands them to the pure kernel, and does exactly what
+//! the kernel decided. Money leaves in two ways only: to an approved
+//! recipient on an `Allow` verdict, or back to the owner.
+//!
+//! Each handler's `uses` clause is its whole authority. `Pay` lists `active`,
+//! `queued` and `approved_from` without `mut`, so the agent's code path
+//! cannot change its own limits or its own recipients; the compiler rejects
+//! a `Pay` that tries. `owner`, `agent`, `token` and `schedule` are
+//! immutable: no handler can list them `mut`.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Ctx, Log, StorageMap, revert_error}
 use std::evm::erc20::safe_transfer
-use ingot::kernel::{decide, Decision, Ledger, Policy, Reason, Request}
+use ingot::kernel::{
+    amend,
+    cancel,
+    decide,
+    exposure,
+    left_in_window,
+    matures_at,
+    Decision,
+    Ledger,
+    Policy,
+    Queued,
+    Reason,
+    Request,
+    Rules,
+    Schedule,
+}
 
 pub msg VaultMsg {
     // The agent's only door.
     #[selector = sol("pay(address,uint256,uint64)")]
     Pay { to: Address, amount: u256, nonce: u64 } -> u8,
 
-    // Read-only: what would `pay` answer right now?
+    // Read-only: what would `pay` answer right now, and what would be left?
     #[selector = sol("preview(address,address,uint256,uint64)")]
     Preview { caller: Address, to: Address, amount: u256, nonce: u64 } -> (u8, u256),
+    // Read-only: the most the agent can move from now until `until`.
+    #[selector = sol("exposure(uint64)")]
+    Exposure { until: u64 } -> u256,
 
     // Owner only.
-    #[selector = sol("setPolicy(uint256,uint256,uint64,uint64)")]
-    SetPolicy { per_payment: u256, per_window: u256, window_secs: u64, valid_until: u64 },
+    #[selector = sol("propose(uint256,uint256,uint64,bool)")]
+    Propose { per_payment: u256, per_window: u256, valid_until: u64, paused: bool },
+    #[selector = sol("cancelQueued()")]
+    CancelQueued,
+    #[selector = sol("pause()")]
+    Pause,
     #[selector = sol("setRecipient(address,bool)")]
     SetRecipient { who: Address, approved: bool },
-    #[selector = sol("setAgent(address)")]
-    SetAgent { agent: Address },
-    #[selector = sol("setPaused(bool)")]
-    SetPaused { paused: bool },
-    #[selector = sol("withdraw(address,uint256)")]
-    Withdraw { to: Address, amount: u256 },
+    #[selector = sol("withdraw(uint256)")]
+    Withdraw { amount: u256 },
 
     // Views.
     #[selector = sol("owner()")]
@@ -39,12 +62,21 @@ pub msg VaultMsg {
     Agent -> Address,
     #[selector = sol("token()")]
     Token -> Address,
+    // anchor, window_secs, cooling_secs
+    #[selector = sol("schedule()")]
+    ScheduleOf -> (u64, u64, u64),
+    // The policy in force now: per_payment, per_window, valid_until, paused
     #[selector = sol("policy()")]
-    PolicyOf -> (u256, u256, u64, u64, u64, bool),
+    PolicyOf -> (u256, u256, u64, bool),
+    // The queued policy and when it takes effect (0: nothing queued)
+    #[selector = sol("queued()")]
+    QueuedOf -> (u256, u256, u64, bool, u64),
+    // window, spent, next_nonce
     #[selector = sol("ledger()")]
     LedgerOf -> (u64, u256, u64),
-    #[selector = sol("isApproved(address)")]
-    IsApproved { who: Address } -> bool,
+    // The time from which `who` may be paid (0: not approved)
+    #[selector = sol("approvedFrom(address)")]
+    ApprovedFrom { who: Address } -> u64,
 }
 
 #[event]
@@ -68,31 +100,29 @@ pub struct Blocked {
     detail: u256,
 }
 
+/// `effective_at` is zero when the whole proposal applied at once.
 #[event]
-pub struct PolicyChanged { per_payment: u256, per_window: u256, window_secs: u64, valid_until: u64 }
+pub struct PolicyProposed {
+    per_payment: u256,
+    per_window: u256,
+    valid_until: u64,
+    paused: bool,
+    effective_at: u64,
+}
 
+#[event]
+pub struct QueueCancelled {}
+
+/// `approved_from` is zero when the recipient was removed.
 #[event]
 pub struct RecipientChanged {
     #[indexed]
     who: Address,
-    approved: bool,
+    approved_from: u64,
 }
 
 #[event]
-pub struct AgentChanged {
-    #[indexed]
-    agent: Address,
-}
-
-#[event]
-pub struct PausedChanged { paused: bool }
-
-#[event]
-pub struct Withdrawn {
-    #[indexed]
-    to: Address,
-    amount: u256,
-}
+pub struct Withdrawn { amount: u256 }
 
 #[error]
 pub struct NotOwner {}
@@ -113,60 +143,91 @@ fn seconds(_ at: Timestamp) -> u64 {
     at.as_seconds().downcast_saturate()
 }
 
+fn is_approved(from: u64, now: u64) -> bool {
+    from != 0 && now >= from
+}
+
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     owner: Address,
+    agent: Address,
     token: Address,
-    mut agent: Address,
-    mut policy: Policy,
+    schedule: Schedule,
+    mut active: Policy,
+    mut queued: Queued,
     mut ledger: Ledger,
-    mut approved: StorageMap<Address, bool>,
+    mut approved_from: StorageMap<Address, u64>,
 
+    /// Recipients named here are approved from the first second. Everything
+    /// added later waits out the cooling period.
     init(
         owner_: Address,
         agent_: Address,
         token_: Address,
         per_payment: u256,
         per_window: u256,
-        window_secs: u64,
         valid_until: u64,
+        window_secs: u64,
+        cooling_secs: u64,
+        payee_a: Address,
+        payee_b: Address,
+        payee_c: Address,
     )
-    uses (ctx, mut owner, mut token, mut agent, mut policy, mut ledger)
+    uses (
+        ctx,
+        mut owner,
+        mut agent,
+        mut token,
+        mut schedule,
+        mut active,
+        mut queued,
+        mut ledger,
+        mut approved_from,
+    )
     {
-        if window_secs == 0 {
+        if window_secs == 0 || cooling_secs == 0 {
             revert_error(InvalidPolicy {})
         }
+        let now = seconds(ctx.timestamp())
         owner = owner_
-        token = token_
         agent = agent_
-        policy = Policy {
-            per_payment,
-            per_window,
-            window_secs,
-            anchor: seconds(ctx.timestamp()),
-            valid_until,
-            paused: false,
-        }
+        token = token_
+        schedule = Schedule { anchor: now, window_secs, cooling_secs }
+        active = Policy { per_payment, per_window, valid_until, paused: false }
+        queued = Queued::none()
         ledger = Ledger { window: 0, spent: 0, next_nonce: 0 }
+        if payee_a != Address::zero() {
+            approved_from.set(key: payee_a, value: now)
+        }
+        if payee_b != Address::zero() {
+            approved_from.set(key: payee_b, value: now)
+        }
+        if payee_c != Address::zero() {
+            approved_from.set(key: payee_c, value: now)
+        }
     }
 
     recv VaultMsg {
         Pay { to, amount, nonce } -> u8 uses (
             ctx,
-            token,
             agent,
-            policy,
-            approved,
+            token,
+            schedule,
+            active,
+            queued,
+            approved_from,
             mut ledger,
             mut call,
             mut log,
         ) {
+            let now = seconds(ctx.timestamp())
+            let rules = Rules { schedule, active, queued }
             let request = Request {
                 amount,
                 nonce,
                 from_agent: ctx.caller() == agent,
-                to_approved: approved.get(key: to),
+                to_approved: is_approved(from: approved_from.get(key: to), now),
             }
-            match decide(policy, ledger, request, now: seconds(ctx.timestamp())) {
+            match decide(rules, ledger, request, now) {
                 Decision::Allow(next) => {
                     // Ledger first, transfer second: a reentrant call sees the
                     // payment already counted, and a failed transfer reverts
@@ -178,7 +239,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                             nonce,
                             to,
                             amount,
-                            left_in_window: Decision::Allow(next).detail(policy),
+                            left_in_window: left_in_window(rules.current(now), spent: next.spent),
                         },
                     )
                     0
@@ -198,56 +259,101 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         Preview { caller, to, amount, nonce } -> (u8, u256)
-        uses (ctx, agent, policy, ledger, approved)
+        uses (ctx, agent, schedule, active, queued, ledger, approved_from)
         {
+            let now = seconds(ctx.timestamp())
+            let rules = Rules { schedule, active, queued }
             let request = Request {
                 amount,
                 nonce,
                 from_agent: caller == agent,
-                to_approved: approved.get(key: to),
+                to_approved: is_approved(from: approved_from.get(key: to), now),
             }
-            let decision = decide(policy, ledger, request, now: seconds(ctx.timestamp()))
-            (decision.code(), decision.detail(policy))
+            let decision = decide(rules, ledger, request, now)
+            (decision.code(), decision.detail(policy: rules.current(now)))
         }
 
-        SetPolicy { per_payment, per_window, window_secs, valid_until }
-        uses (ctx, owner, mut policy, mut log)
-        {
-            only(owner, caller: ctx.caller())
-            if window_secs == 0 {
-                revert_error(InvalidPolicy {})
-            }
-            policy.per_payment = per_payment
-            policy.per_window = per_window
-            policy.window_secs = window_secs
-            policy.valid_until = valid_until
-            log.emit(
-                PolicyChanged { per_payment, per_window, window_secs, valid_until },
+        Exposure { until } -> u256 uses (ctx, schedule, active, queued, ledger) {
+            exposure(
+                rules: Rules { schedule, active, queued },
+                ledger,
+                now: seconds(ctx.timestamp()),
+                until,
             )
         }
 
-        SetRecipient { who, approved: allow } uses (ctx, owner, mut approved, mut log) {
+        Propose { per_payment, per_window, valid_until, paused }
+        uses (ctx, owner, schedule, mut active, mut queued, mut log)
+        {
             only(owner, caller: ctx.caller())
-            approved.set(key: who, value: allow)
-            log.emit(RecipientChanged { who, approved: allow })
+            let proposed = Policy { per_payment, per_window, valid_until, paused }
+            let next = amend(
+                rules: Rules { schedule, active, queued },
+                proposed,
+                now: seconds(ctx.timestamp()),
+            )
+            active = next.active
+            queued = next.queued
+            log.emit(
+                PolicyProposed {
+                    per_payment,
+                    per_window,
+                    valid_until,
+                    paused,
+                    effective_at: next.queued.effective_at,
+                },
+            )
         }
 
-        SetAgent { agent: new_agent } uses (ctx, owner, mut agent, mut log) {
+        CancelQueued uses (ctx, owner, schedule, mut active, mut queued, mut log) {
             only(owner, caller: ctx.caller())
-            agent = new_agent
-            log.emit(AgentChanged { agent: new_agent })
+            let next = cancel(
+                rules: Rules { schedule, active, queued },
+                now: seconds(ctx.timestamp()),
+            )
+            active = next.active
+            queued = next.queued
+            log.emit(QueueCancelled {})
         }
 
-        SetPaused { paused } uses (ctx, owner, mut policy, mut log) {
+        Pause uses (ctx, owner, schedule, mut active, mut queued, mut log) {
             only(owner, caller: ctx.caller())
-            policy.paused = paused
-            log.emit(PausedChanged { paused })
+            let now = seconds(ctx.timestamp())
+            let rules = Rules { schedule, active, queued }
+            var stopped = rules.current(now)
+            stopped.paused = true
+            let next = amend(rules, proposed: stopped, now)
+            active = next.active
+            queued = next.queued
+            log.emit(
+                PolicyProposed {
+                    per_payment: stopped.per_payment,
+                    per_window: stopped.per_window,
+                    valid_until: stopped.valid_until,
+                    paused: true,
+                    effective_at: 0,
+                },
+            )
         }
 
-        Withdraw { to, amount } uses (ctx, owner, token, mut call, mut log) {
+        SetRecipient { who, approved } uses (ctx, owner, schedule, mut approved_from, mut log) {
             only(owner, caller: ctx.caller())
-            safe_transfer(token, receiver: to, amount)
-            log.emit(Withdrawn { to, amount })
+            let from: u64 = if !approved {
+                0
+            } else if approved_from.get(key: who) != 0 {
+                // Already approved or already cooling: asking again does not restart the wait.
+                approved_from.get(key: who)
+            } else {
+                matures_at(schedule, now: seconds(ctx.timestamp()))
+            }
+            approved_from.set(key: who, value: from)
+            log.emit(RecipientChanged { who, approved_from: from })
+        }
+
+        Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
+            only(owner, caller: ctx.caller())
+            safe_transfer(token, receiver: owner, amount)
+            log.emit(Withdrawn { amount })
         }
 
         Owner -> Address uses (owner) {
@@ -260,25 +366,36 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             token
         }
 
-        PolicyOf -> (u256, u256, u64, u64, u64, bool)
-        uses (policy)
-        {
-            (
-                policy.per_payment,
-                policy.per_window,
-                policy.window_secs,
-                policy.anchor,
-                policy.valid_until,
-                policy.paused,
-            )
+        ScheduleOf -> (u64, u64, u64) uses (schedule) {
+            (schedule.anchor, schedule.window_secs, schedule.cooling_secs)
+        }
+
+        PolicyOf -> (u256, u256, u64, bool) uses (ctx, schedule, active, queued) {
+            let policy = Rules { schedule, active, queued }.current(now: seconds(ctx.timestamp()))
+            (policy.per_payment, policy.per_window, policy.valid_until, policy.paused)
+        }
+
+        QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, queued) {
+            if queued.matured(now: seconds(ctx.timestamp())) {
+                // Already in force; `policy()` reports it.
+                (0, 0, 0, false, 0)
+            } else {
+                (
+                    queued.policy.per_payment,
+                    queued.policy.per_window,
+                    queued.policy.valid_until,
+                    queued.policy.paused,
+                    queued.effective_at,
+                )
+            }
         }
 
         LedgerOf -> (u64, u256, u64) uses (ledger) {
             (ledger.window, ledger.spent, ledger.next_nonce)
         }
 
-        IsApproved { who } -> bool uses (approved) {
-            approved.get(key: who)
+        ApprovedFrom { who } -> u64 uses (approved_from) {
+            approved_from.get(key: who)
         }
     }
 }

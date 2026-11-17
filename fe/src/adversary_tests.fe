@@ -1,0 +1,249 @@
+//! Runs the adversary against the real kernel and against broken copies of
+//! it. No `#[cfg]` on the tests: they run on the EVM and natively. Only the
+//! campaign size differs, because native code is far faster.
+
+use ingot::adversary::{
+    campaign,
+    greedy_take,
+    Engine,
+    Kernel,
+    ALLOWED_WRONGLY,
+    BAD_LEDGER,
+    DENIED_WRONGLY,
+    OK,
+    OVER_EXPOSURE,
+}
+use ingot::kernel::{
+    decide,
+    exposure,
+    Decision,
+    Ledger,
+    Policy,
+    Queued,
+    Reason,
+    Request,
+    Rules,
+    Schedule,
+}
+
+const SEED: u64 = 0x4841524453544f50
+
+#[cfg(target = "evm")]
+const CASES: u64 = 300
+#[cfg(target = "native")]
+const CASES: u64 = 20000
+
+const STEPS: u64 = 40
+
+// --- the real kernel ------------------------------------------------------
+
+#[test]
+fn the_kernel_survives_the_campaign() {
+    let report = campaign<Kernel>(seed: SEED, cases: CASES, steps: STEPS)
+    assert!(report.violation == OK)
+    assert!(report.requests == CASES * STEPS)
+    // The games are not trivial: plenty of each outcome.
+    assert!(report.allowed * 8 > report.requests)
+    assert!(report.denied * 4 > report.requests)
+}
+
+/// The same 200 games on both targets must produce the same fingerprint of
+/// verdicts. If the EVM build and the native build ever disagreed on a
+/// single request, one of the two runs would fail here.
+#[test]
+fn both_targets_reach_the_same_verdicts() {
+    let report = campaign<Kernel>(seed: SEED, cases: 200, steps: STEPS)
+    assert!(report.violation == OK)
+    assert!(report.requests == 8000)
+    assert!(report.allowed == 1739)
+    assert!(report.digest == 18432554080552133010)
+}
+
+#[test]
+fn a_greedy_agent_gets_exactly_the_exposure_bound() {
+    let rules = Rules {
+        schedule: Schedule { anchor: 1000, window_secs: 60, cooling_secs: 3600 },
+        active: Policy { per_payment: 7, per_window: 20, valid_until: 1000 + 400, paused: false },
+        queued: Queued::none(),
+    }
+    let used = Ledger { window: 0, spent: 5, next_nonce: 3 }
+    // Seven windows, the first already 5 into its 20.
+    let bound = exposure(rules, ledger: used, now: 1010, until: 1400)
+    assert!(bound == 15 + 6 * 20)
+    assert!(
+        greedy_take(rules, ledger: used, now: 1010, until: 1400, stride: 1) == bound,
+    )
+    // Stopping early or starting late only lowers the bound.
+    assert!(
+        greedy_take(rules, ledger: used, now: 1010, until: 1059, stride: 1) == 15,
+    )
+    assert!(
+        exposure(rules, ledger: used, now: 1010, until: 1059) == 15,
+    )
+}
+
+// --- broken kernels the campaign must catch --------------------------------
+
+/// Lets a payment through that is one unit over the single-payment cap.
+struct OneOverCap {}
+
+impl Engine for OneOverCap {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        var loose = rules
+        loose.active.per_payment = loose.active.per_payment + 1
+        loose.queued.policy.per_payment = loose.queued.policy.per_payment + 1
+        decide(rules: loose, ledger, request, now)
+    }
+}
+
+/// Forgets what was already spent in the window.
+struct ForgetsSpending {}
+
+impl Engine for ForgetsSpending {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        let blank = Ledger { window: ledger.window, spent: 0, next_nonce: ledger.next_nonce }
+        decide(rules, ledger: blank, request, now)
+    }
+}
+
+/// Accepts any sequence number, so a request can be replayed.
+struct AcceptsReplays {}
+
+impl Engine for AcceptsReplays {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        let forged = Request {
+            amount: request.amount,
+            nonce: ledger.next_nonce,
+            from_agent: request.from_agent,
+            to_approved: request.to_approved,
+        }
+        decide(rules, ledger, request: forged, now)
+    }
+}
+
+/// Ignores the pause switch.
+struct IgnoresPause {}
+
+impl Engine for IgnoresPause {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        var running = rules
+        running.active.paused = false
+        running.queued.policy.paused = false
+        decide(rules: running, ledger, request, now)
+    }
+}
+
+/// Applies a queued raise at once instead of after the cooling period.
+struct SkipsCooling {}
+
+impl Engine for SkipsCooling {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        var eager = rules
+        if eager.queued.is_some() {
+            eager.active = eager.queued.policy
+        }
+        decide(rules: eager, ledger, request, now)
+    }
+}
+
+/// Pays anyone, approved or not.
+struct PaysAnyone {}
+
+impl Engine for PaysAnyone {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        let forged = Request {
+            amount: request.amount,
+            nonce: request.nonce,
+            from_agent: true,
+            to_approved: true,
+        }
+        decide(rules, ledger, request: forged, now)
+    }
+}
+
+/// Refuses a payment of exactly the cap.
+struct TooStrict {}
+
+impl Engine for TooStrict {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        if request.amount == rules.current(now).per_payment {
+            Decision::Deny(Reason::OverPaymentLimit(request.amount))
+        } else {
+            decide(rules, ledger, request, now)
+        }
+    }
+}
+
+/// Counts a payment at half its size.
+struct UnderCounts {}
+
+impl Engine for UnderCounts {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        match decide(rules, ledger, request, now) {
+            Decision::Allow(next) => Decision::Allow(
+                Ledger {
+                    window: next.window,
+                    spent: next.spent - request.amount / 2,
+                    next_nonce: next.next_nonce,
+                },
+            ),
+            Decision::Deny(reason) => Decision::Deny(reason),
+        }
+    }
+}
+
+#[test]
+fn catches_a_kernel_that_is_one_over_the_cap() {
+    assert!(
+        campaign<OneOverCap>(seed: SEED, cases: 200, steps: STEPS).violation == ALLOWED_WRONGLY,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_forgets_spending() {
+    assert!(
+        campaign<ForgetsSpending>(seed: SEED, cases: 200, steps: STEPS).violation != OK,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_accepts_replays() {
+    assert!(
+        campaign<AcceptsReplays>(seed: SEED, cases: 200, steps: STEPS).violation == ALLOWED_WRONGLY,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_ignores_pause() {
+    assert!(
+        campaign<IgnoresPause>(seed: SEED, cases: 200, steps: STEPS).violation == ALLOWED_WRONGLY,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_skips_cooling() {
+    assert!(
+        campaign<SkipsCooling>(seed: SEED, cases: 200, steps: STEPS).violation != OK,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_pays_anyone() {
+    assert!(
+        campaign<PaysAnyone>(seed: SEED, cases: 200, steps: STEPS).violation == ALLOWED_WRONGLY,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_is_too_strict() {
+    assert!(
+        campaign<TooStrict>(seed: SEED, cases: 200, steps: STEPS).violation == DENIED_WRONGLY,
+    )
+}
+
+#[test]
+fn catches_a_kernel_that_under_counts() {
+    assert!(
+        campaign<UnderCounts>(seed: SEED, cases: 200, steps: STEPS).violation == BAD_LEDGER,
+    )
+}

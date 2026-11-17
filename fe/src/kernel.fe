@@ -3,27 +3,48 @@
 //! Everything in this module is pure: no function has a `uses` clause, so the
 //! compiler guarantees that none of it can read storage, make a call, emit a
 //! log, or touch a file. The same source is compiled into the EVM vault
-//! (`ingot::vault`) and into the native simulator (`pub fn main`), which is
-//! what makes an off-chain prediction and the on-chain verdict the same code.
+//! (`ingot::vault`) and into the native tool (`pub fn main`), so a prediction
+//! made off-chain and the verdict reached on-chain are the same code.
 //!
-//! `decide` is total. It never panics and never overflows, on any input.
+//! Every function here is total: no input makes it panic or overflow.
+//!
+//! Three ideas live here:
+//!
+//! 1. `decide`: may this payment go through, and if not, why not?
+//! 2. `amend`: the owner changes the rules. Tightening applies at once;
+//!    loosening waits out a cooling period and can be cancelled meanwhile.
+//! 3. `exposure`: the most that can leave through the agent between two
+//!    moments, whatever the agent does.
 
-/// The owner's rules for one delegated agent. Amounts are token base units,
-/// times are Unix seconds.
+/// The rules the owner may change. Amounts are token base units, times are
+/// Unix seconds.
 pub struct Policy {
     /// Largest single payment.
     pub per_payment: u256,
     /// Largest total inside one window.
     pub per_window: u256,
-    /// Window length in seconds. Zero is an invalid policy.
-    pub window_secs: u64,
-    /// Start of window 0. Windows are fixed, not rolling.
-    pub anchor: u64,
     /// Last second at which the agent may still pay.
     pub valid_until: u64,
     /// Owner's stop switch.
     pub paused: bool,
 }
+
+/// What is fixed when a vault is created and never changes.
+pub struct Schedule {
+    /// Start of window 0. Windows are fixed, not rolling.
+    pub anchor: u64,
+    /// Window length in seconds. Zero makes every request invalid.
+    pub window_secs: u64,
+    /// How long a loosening waits before it takes effect.
+    pub cooling_secs: u64,
+}
+
+/// A loosening that is waiting out its cooling period.
+/// `effective_at == 0` means nothing is queued.
+pub struct Queued { pub policy: Policy, pub effective_at: u64 }
+
+/// Everything the owner controls.
+pub struct Rules { pub schedule: Schedule, pub active: Policy, pub queued: Queued }
 
 /// What the vault remembers between payments.
 pub struct Ledger {
@@ -37,19 +58,19 @@ pub struct Ledger {
 
 /// One payment request, reduced to the facts the decision depends on. The
 /// caller (vault or simulator) resolves "who is asking" and "is the recipient
-/// on the list" and passes the answers in.
+/// approved by now" and passes the answers in.
 pub struct Request { pub amount: u256, pub nonce: u64, pub from_agent: bool, pub to_approved: bool }
 
 /// Why a request was refused. Variants carry the number a person needs to
 /// understand the refusal.
 pub enum Reason {
-    /// The stored policy has a zero-length window.
+    /// The vault's schedule has a zero-length window.
     InvalidPolicy,
     /// The owner paused the agent.
     Paused,
     /// The caller is not the delegated agent.
     NotAgent,
-    /// The policy starts at the carried time.
+    /// The schedule starts at the carried time.
     NotYetActive(u64),
     /// The policy ended at the carried time.
     Expired(u64),
@@ -59,7 +80,7 @@ pub enum Reason {
     NonceExhausted,
     /// A payment of nothing.
     ZeroAmount,
-    /// The recipient is not on the owner's list.
+    /// The recipient is not approved, or its approval is still cooling.
     RecipientNotApproved,
     /// Above the single-payment cap; carries the cap.
     OverPaymentLimit(u256),
@@ -74,12 +95,15 @@ pub enum Decision {
 }
 
 impl Copy for Policy {}
+impl Copy for Schedule {}
+impl Copy for Queued {}
+impl Copy for Rules {}
 impl Copy for Ledger {}
 impl Copy for Request {}
 impl Copy for Reason {}
 impl Copy for Decision {}
 
-const MAX_NONCE: u64 = 18446744073709551615
+const MAX_U64: u64 = 18446744073709551615
 
 impl Reason {
     /// Stable wire code. `0` is reserved for "allowed".
@@ -131,6 +155,37 @@ impl Decision {
     }
 }
 
+impl Queued {
+    /// The empty queue.
+    pub fn none() -> Queued {
+        Queued {
+            policy: Policy { per_payment: 0, per_window: 0, valid_until: 0, paused: true },
+            effective_at: 0,
+        }
+    }
+
+    pub fn is_some(self) -> bool {
+        self.effective_at != 0
+    }
+
+    /// Whether the queued policy is in force at `now`.
+    pub fn matured(self, now: u64) -> bool {
+        self.effective_at != 0 && now >= self.effective_at
+    }
+}
+
+impl Rules {
+    /// The policy in force at `now`: the queued one once its cooling period
+    /// is over, the active one before that.
+    pub fn current(self, now: u64) -> Policy {
+        if self.queued.matured(now) {
+            self.queued.policy
+        } else {
+            self.active
+        }
+    }
+}
+
 /// Cap minus spent, floored at zero. A cap lowered below what was already
 /// spent leaves nothing rather than underflowing.
 pub fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
@@ -141,16 +196,19 @@ pub fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
     }
 }
 
-/// Index of the fixed window that contains `now`. Requires a valid policy and
-/// `now >= policy.anchor`; `decide` checks both first.
-fn window_at(_ policy: Policy, now: u64) -> u64 {
-    (now - policy.anchor) / policy.window_secs
+/// Index of the fixed window that contains `at`. Requires a non-zero window
+/// length and `at >= schedule.anchor`; callers check both first.
+fn window_at(_ schedule: Schedule, at: u64) -> u64 {
+    (at - schedule.anchor) / schedule.window_secs
 }
 
 /// Decide one request. Checks run in a fixed order, so the same inputs always
 /// give the same reason.
-pub fn decide(policy: Policy, ledger: Ledger, request: Request, now: u64) -> Decision {
-    if policy.window_secs == 0 {
+pub fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    let schedule = rules.schedule
+    let policy = rules.current(now)
+
+    if schedule.window_secs == 0 {
         return Decision::Deny(Reason::InvalidPolicy)
     }
     if policy.paused {
@@ -159,8 +217,8 @@ pub fn decide(policy: Policy, ledger: Ledger, request: Request, now: u64) -> Dec
     if !request.from_agent {
         return Decision::Deny(Reason::NotAgent)
     }
-    if now < policy.anchor {
-        return Decision::Deny(Reason::NotYetActive(policy.anchor))
+    if now < schedule.anchor {
+        return Decision::Deny(Reason::NotYetActive(schedule.anchor))
     }
     if now > policy.valid_until {
         return Decision::Deny(Reason::Expired(policy.valid_until))
@@ -168,7 +226,7 @@ pub fn decide(policy: Policy, ledger: Ledger, request: Request, now: u64) -> Dec
     if request.nonce != ledger.next_nonce {
         return Decision::Deny(Reason::WrongNonce(ledger.next_nonce))
     }
-    if ledger.next_nonce == MAX_NONCE {
+    if ledger.next_nonce == MAX_U64 {
         return Decision::Deny(Reason::NonceExhausted)
     }
     if request.amount == 0 {
@@ -181,7 +239,7 @@ pub fn decide(policy: Policy, ledger: Ledger, request: Request, now: u64) -> Dec
         return Decision::Deny(Reason::OverPaymentLimit(policy.per_payment))
     }
 
-    let window = window_at(policy, now)
+    let window = window_at(schedule, at: now)
     let spent: u256 = if window == ledger.window {
         ledger.spent
     } else {
@@ -196,4 +254,143 @@ pub fn decide(policy: Policy, ledger: Ledger, request: Request, now: u64) -> Dec
     Decision::Allow(
         Ledger { window, spent: spent + request.amount, next_nonce: ledger.next_nonce + 1 },
     )
+}
+
+/// Whether `to` lets the agent do anything `from` does not.
+pub fn loosens(_ from: Policy, to: Policy) -> bool {
+    to.per_payment > from.per_payment
+        || to.per_window > from.per_window
+        || to.valid_until > from.valid_until
+        || (from.paused && !to.paused)
+}
+
+/// The tightest of two policies, field by field.
+pub fn meet(_ a: Policy, _ b: Policy) -> Policy {
+    Policy {
+        per_payment: if a.per_payment < b.per_payment {
+            a.per_payment
+        } else {
+            b.per_payment
+        },
+        per_window: if a.per_window < b.per_window {
+            a.per_window
+        } else {
+            b.per_window
+        },
+        valid_until: if a.valid_until < b.valid_until {
+            a.valid_until
+        } else {
+            b.valid_until
+        },
+        paused: a.paused || b.paused,
+    }
+}
+
+/// The owner proposes `proposed` at `now`.
+///
+/// Whatever in the proposal is tighter than the policy in force applies
+/// immediately. If any part is looser, the whole proposal is queued and
+/// takes effect `cooling_secs` later; a proposal with nothing looser clears
+/// the queue. So a limit can drop in one step but can only rise after the
+/// cooling period, and any later tightening cancels a pending rise.
+pub fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+    let in_force = rules.current(now)
+    let active = meet(in_force, proposed)
+    let queued = if loosens(active, to: proposed) {
+        Queued { policy: proposed, effective_at: matures_at(rules.schedule, now) }
+    } else {
+        Queued::none()
+    }
+    Rules { schedule: rules.schedule, active, queued }
+}
+
+/// Drop a queued loosening that has not taken effect yet. One that already
+/// has is the policy in force and stays.
+pub fn cancel(rules: Rules, now: u64) -> Rules {
+    Rules { schedule: rules.schedule, active: rules.current(now), queued: Queued::none() }
+}
+
+/// When something loosened at `now` takes effect: `now + cooling_secs`,
+/// never zero (zero means "nothing queued") and never past the end of time.
+pub fn matures_at(_ schedule: Schedule, now: u64) -> u64 {
+    let secs = schedule.cooling_secs
+    let at = if secs > MAX_U64 - now {
+        MAX_U64
+    } else {
+        now + secs
+    }
+    if at == 0 { 1 } else { at }
+}
+
+/// The most the agent can move between `now` and `until`, both inclusive,
+/// given the rules and ledger as they stand at `now`.
+///
+/// This holds whatever the agent does. It also holds whatever the owner
+/// signs during that time as long as `until < now + cooling_secs`, because
+/// nothing proposed after `now` can loosen the rules before then.
+///
+/// With nothing queued the bound is exact: an agent with an approved
+/// recipient and enough balance can reach it. With a loosening that matures
+/// inside the interval it is an upper bound.
+pub fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+    if rules.schedule.window_secs == 0 || until < now {
+        return 0
+    }
+    let queued = rules.queued
+    if !queued.is_some() || queued.effective_at > until {
+        return span(rules.schedule, rules.active, ledger, from: now, to: until)
+    }
+    if queued.effective_at <= now {
+        return span(
+            rules.schedule,
+            queued.policy,
+            ledger,
+            from: now,
+            to: until,
+        )
+    }
+    let before = span(
+        rules.schedule,
+        rules.active,
+        ledger,
+        from: now,
+        to: queued.effective_at - 1,
+    )
+    // After the switch, assume the new policy's windows start empty.
+    let empty = Ledger { window: MAX_U64, spent: 0, next_nonce: 0 }
+    let after_switch = span(
+        rules.schedule,
+        queued.policy,
+        empty,
+        from: queued.effective_at,
+        to: until,
+    )
+    before.saturating_add(after_switch)
+}
+
+/// The most one policy lets through between `from` and `to`, inclusive.
+fn span(_ schedule: Schedule, _ policy: Policy, _ ledger: Ledger, from: u64, to: u64) -> u256 {
+    if policy.paused || policy.per_payment == 0 {
+        return 0
+    }
+    let start = if from > schedule.anchor {
+        from
+    } else {
+        schedule.anchor
+    }
+    let end = if to < policy.valid_until {
+        to
+    } else {
+        policy.valid_until
+    }
+    if end < start { return 0 }
+    let first = window_at(schedule, at: start)
+    let last = window_at(schedule, at: end)
+    let spent: u256 = if first == ledger.window {
+        ledger.spent
+    } else {
+        0
+    }
+    let later_windows: u256 = (last - first) as u256
+    left_in_window(policy, spent).saturating_add(policy.per_window.saturating_mul(later_windows))
 }

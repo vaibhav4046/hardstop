@@ -1,6 +1,10 @@
 //! Vault tests on the EVM. The test contract plays the owner; `Actor`
-//! contracts play the agent and a stranger, because a caller is whoever
+//! contracts play the agent and a stranger, because the caller is whoever
 //! sends the message.
+//!
+//! `fe test` cannot move the clock, so anything that needs time to pass
+//! (a queued raise maturing, a new window) is tested on the kernel in
+//! `tests.fe` and against a real chain in `chain/`.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Evm}
@@ -8,22 +12,23 @@ use ingot::token::{TestDollar, TokenMsg}
 use ingot::vault::{Vault, VaultMsg}
 
 const USD: u256 = 1000000
-const GAS: u256 = 2000000
+const GAS: u256 = 3000000
+const DAY: u64 = 86400
 const FAR_FUTURE: u64 = 4000000000
 
 msg ActorMsg {
     #[selector = sol("pay(address,address,uint256,uint64)")]
     Pay { vault: Address, to: Address, amount: u256, nonce: u64 } -> u8,
-    #[selector = sol("setPolicy(address,uint256,uint256)")]
+    #[selector = sol("raiseLimits(address,uint256,uint256)")]
     RaiseLimits { vault: Address, per_payment: u256, per_window: u256 },
-    #[selector = sol("setAgent(address,address)")]
-    TakeOver { vault: Address, agent: Address },
-    #[selector = sol("withdraw(address,address,uint256)")]
-    Drain { vault: Address, to: Address, amount: u256 },
-    #[selector = sol("setRecipient(address,address)")]
+    #[selector = sol("drain(address,uint256)")]
+    Drain { vault: Address, amount: u256 },
+    #[selector = sol("approve(address,address)")]
     Approve { vault: Address, who: Address },
-    #[selector = sol("unpause(address)")]
-    Unpause { vault: Address },
+    #[selector = sol("cancel(address)")]
+    Cancel { vault: Address },
+    #[selector = sol("pause(address)")]
+    Pause { vault: Address },
 }
 
 /// Forwards whatever it is told to the vault, so the vault sees this
@@ -33,7 +38,7 @@ contract Actor uses (call: mut Call) {
         Pay { vault, to, amount, nonce } -> u8 uses (mut call) {
             call.call(
                 addr: vault,
-                gas: 1000000,
+                gas: 1500000,
                 value: Wei::zero(),
                 message: VaultMsg::Pay { to, amount, nonce },
             )
@@ -43,47 +48,61 @@ contract Actor uses (call: mut Call) {
         {
             call.call(
                 addr: vault,
-                gas: 1000000,
+                gas: 1500000,
                 value: Wei::zero(),
-                message: VaultMsg::SetPolicy {
+                message: VaultMsg::Propose {
                     per_payment,
                     per_window,
-                    window_secs: 86400,
                     valid_until: FAR_FUTURE,
+                    paused: false,
                 },
             )
         }
-        TakeOver { vault, agent } uses (mut call) {
+        Drain { vault, amount } uses (mut call) {
             call.call(
                 addr: vault,
-                gas: 1000000,
+                gas: 1500000,
                 value: Wei::zero(),
-                message: VaultMsg::SetAgent { agent },
-            )
-        }
-        Drain { vault, to, amount } uses (mut call) {
-            call.call(
-                addr: vault,
-                gas: 1000000,
-                value: Wei::zero(),
-                message: VaultMsg::Withdraw { to, amount },
+                message: VaultMsg::Withdraw { amount },
             )
         }
         Approve { vault, who } uses (mut call) {
             call.call(
                 addr: vault,
-                gas: 1000000,
+                gas: 1500000,
                 value: Wei::zero(),
                 message: VaultMsg::SetRecipient { who, approved: true },
             )
         }
-        Unpause { vault } uses (mut call) {
+        Cancel { vault } uses (mut call) {
             call.call(
                 addr: vault,
-                gas: 1000000,
+                gas: 1500000,
                 value: Wei::zero(),
-                message: VaultMsg::SetPaused { paused: false },
+                message: VaultMsg::CancelQueued {},
             )
+        }
+        Pause { vault } uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1500000,
+                value: Wei::zero(),
+                message: VaultMsg::Pause {},
+            )
+        }
+    }
+}
+
+/// A token whose `transfer` always reports failure.
+msg BrokenMsg {
+    #[selector = sol("transfer(address,uint256)")]
+    Transfer { to: Address, amount: u256 } -> bool,
+}
+
+contract BrokenToken {
+    recv BrokenMsg {
+        Transfer { to, amount } -> bool {
+            false
         }
     }
 }
@@ -99,10 +118,21 @@ struct World {
 
 impl Copy for World {}
 
-/// A funded vault: $100 inside, $10 per payment, $20 per day, one approved
-/// recipient (`shop`).
+/// A funded vault: $100 inside, $10 per payment, $20 per day, a one-day
+/// cooling period, one approved recipient (`shop`).
 fn world() -> World uses (evm: mut Evm) {
     let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let w = world_with(token)
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::Mint { to: w.vault, amount: 100 * USD },
+    )
+    w
+}
+
+fn world_with(_ token: Address) -> World uses (evm: mut Evm) {
     let agent = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 2)
     let stranger = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 3)
     let shop = Address::new(0x5109)
@@ -110,21 +140,21 @@ fn world() -> World uses (evm: mut Evm) {
     let vault = evm
         .create2<Vault>(
             value: Wei::zero(),
-            args: (evm.address(), agent, token, 10 * USD, 20 * USD, 86400, FAR_FUTURE),
+            args: (
+                evm.address(),
+                agent,
+                token,
+                10 * USD,
+                20 * USD,
+                FAR_FUTURE,
+                DAY,
+                DAY,
+                shop,
+                Address::zero(),
+                Address::zero(),
+            ),
             salt: 4,
         )
-    evm.call(
-        addr: token,
-        gas: GAS,
-        value: Wei::zero(),
-        message: TokenMsg::Mint { to: vault, amount: 100 * USD },
-    )
-    evm.call(
-        addr: vault,
-        gas: GAS,
-        value: Wei::zero(),
-        message: VaultMsg::SetRecipient { who: shop, approved: true },
-    )
     World { token, vault, agent, stranger, shop, thief }
 }
 
@@ -147,6 +177,23 @@ uses (evm: mut Evm)
         message: ActorMsg::Pay { vault: w.vault, to, amount, nonce },
     )
 }
+
+fn preview(_ w: World, to: Address, amount: u256, nonce: u64) -> (u8, u256)
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Preview { caller: w.agent, to, amount, nonce },
+    )
+}
+
+fn now() -> u64 uses (evm: mut Evm) {
+    evm.timestamp().as_seconds().downcast_saturate()
+}
+
+// --- payments -------------------------------------------------------------
 
 #[test]
 fn allowed_payment_moves_exactly_the_amount() uses (evm: mut Evm) {
@@ -174,6 +221,8 @@ fn over_limit_payment_moves_nothing() uses (evm: mut Evm) {
     )
     assert!(balance(w, of: w.shop) == 0)
     assert!(balance(w, of: w.vault) == 100 * USD)
+    // A refusal leaves the ledger alone: the same sequence number still works.
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
 }
 
 #[test]
@@ -189,7 +238,7 @@ fn splitting_cannot_beat_the_daily_cap() uses (evm: mut Evm) {
     let w = world()
     assert!(agent_pays(w, to: w.shop, amount: 10 * USD, nonce: 0) == 0)
     assert!(agent_pays(w, to: w.shop, amount: 10 * USD, nonce: 1) == 0)
-    // $20 of $20 used. Even one more cent is refused.
+    // $20 of $20 used. Even one more unit is refused.
     assert!(agent_pays(w, to: w.shop, amount: 1, nonce: 2) == 11)
     assert!(balance(w, of: w.shop) == 20 * USD)
 }
@@ -203,57 +252,189 @@ fn replayed_request_is_refused() uses (evm: mut Evm) {
 }
 
 #[test]
-fn paused_vault_refuses_the_agent() uses (evm: mut Evm) {
+fn preview_agrees_with_pay_and_changes_nothing() uses (evm: mut Evm) {
+    let w = world()
+    let (code, left) = preview(w, to: w.shop, amount: 4 * USD, nonce: 0)
+    assert!(code == 0 && left == 16 * USD)
+    let (code, cap) = preview(w, to: w.shop, amount: 80 * USD, nonce: 0)
+    assert!(code == 10 && cap == 10 * USD)
+    let (code, _) = preview(w, to: w.thief, amount: 4 * USD, nonce: 0)
+    assert!(code == 9)
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    let (code, expected) = preview(w, to: w.shop, amount: 4 * USD, nonce: 0)
+    assert!(code == 6 && expected == 1)
+}
+
+#[test(should_revert)]
+fn failed_transfer_reverts_the_whole_payment() uses (evm: mut Evm) {
+    let broken = evm.create2<BrokenToken>(value: Wei::zero(), args: (), salt: 9)
+    let w = world_with(broken)
+    // The kernel allows it, the token refuses: nothing may be recorded.
+    let _: u8 = agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0)
+}
+
+// --- the owner's controls -------------------------------------------------
+
+#[test]
+fn pause_is_instant() uses (evm: mut Evm) {
     let w = world()
     evm.call(
         addr: w.vault,
         gas: GAS,
         value: Wei::zero(),
-        message: VaultMsg::SetPaused { paused: true },
+        message: VaultMsg::Pause {},
     )
     assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 2)
     assert!(balance(w, of: w.shop) == 0)
-}
-
-#[test]
-fn preview_matches_pay() uses (evm: mut Evm) {
-    let w = world()
-    let (code, detail): (u8, u256) = evm
+    let bound: u256 = evm
         .call(
             addr: w.vault,
             gas: GAS,
             value: Wei::zero(),
-            message: VaultMsg::Preview { caller: w.agent, to: w.shop, amount: 4 * USD, nonce: 0 },
+            message: VaultMsg::Exposure { until: FAR_FUTURE },
         )
-    assert!(code == 0)
-    assert!(detail == 16 * USD)
-    let (code, detail): (u8, u256) = evm
-        .call(
-            addr: w.vault,
-            gas: GAS,
-            value: Wei::zero(),
-            message: VaultMsg::Preview { caller: w.agent, to: w.shop, amount: 80 * USD, nonce: 0 },
-        )
-    assert!(code == 10)
-    assert!(detail == 10 * USD)
-    // Preview changed nothing.
-    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    assert!(bound == 0)
 }
 
 #[test]
-fn owner_can_withdraw() uses (evm: mut Evm) {
+fn lowering_a_limit_is_instant() uses (evm: mut Evm) {
     let w = world()
     evm.call(
         addr: w.vault,
         gas: GAS,
         value: Wei::zero(),
-        message: VaultMsg::Withdraw { to: w.shop, amount: 100 * USD },
+        message: VaultMsg::Propose {
+            per_payment: 3 * USD,
+            per_window: 20 * USD,
+            valid_until: FAR_FUTURE,
+            paused: false,
+        },
     )
-    assert!(balance(w, of: w.vault) == 0)
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 10)
+    assert!(agent_pays(w, to: w.shop, amount: 3 * USD, nonce: 0) == 0)
 }
 
-// cast sig "NotAgent()"
-#[test(should_revert)]
+#[test]
+fn raising_a_limit_is_queued_not_applied() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Propose {
+            per_payment: 1000 * USD,
+            per_window: 1000 * USD,
+            valid_until: FAR_FUTURE,
+            paused: false,
+        },
+    )
+    // Still the old cap.
+    assert!(
+        agent_pays(w, to: w.shop, amount: 80 * USD, nonce: 0) == 10,
+    )
+    let (per_payment, per_window, _, _): (u256, u256, u64, bool) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::PolicyOf {},
+        )
+    assert!(per_payment == 10 * USD && per_window == 20 * USD)
+    let (queued_payment, _, _, _, effective_at): (u256, u256, u64, bool, u64) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::QueuedOf {},
+        )
+    assert!(queued_payment == 1000 * USD)
+    assert!(effective_at == now() + DAY)
+
+    // The owner changes its mind: the raise never happens.
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::CancelQueued {},
+    )
+    let (_, _, _, _, effective_at): (u256, u256, u64, bool, u64) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::QueuedOf {},
+        )
+    assert!(effective_at == 0)
+}
+
+#[test]
+fn a_new_recipient_must_wait_out_the_cooling_period() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetRecipient { who: w.thief, approved: true },
+    )
+    let from: u64 = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::ApprovedFrom { who: w.thief },
+        )
+    assert!(from == now() + DAY)
+    assert!(agent_pays(w, to: w.thief, amount: 4 * USD, nonce: 0) == 9)
+    // Removing a recipient is instant.
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetRecipient { who: w.shop, approved: false },
+    )
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 9)
+}
+
+#[test]
+fn exposure_view_matches_the_policy() uses (evm: mut Evm) {
+    let w = world()
+    let today: u256 = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Exposure { until: now() + DAY - 1 },
+        )
+    assert!(today == 20 * USD)
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    let today: u256 = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Exposure { until: now() + DAY - 1 },
+        )
+    assert!(today == 16 * USD)
+}
+
+#[test]
+fn owner_withdraws_to_itself() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Withdraw { amount: 100 * USD },
+    )
+    assert!(balance(w, of: w.vault) == 0)
+    assert!(balance(w, of: evm.address()) == 100 * USD)
+}
+
+// --- what the agent and strangers cannot do ---------------------------------
+// Each test names the exact error it expects:
+//   0x0d9ab13f NotAgent()   0x30cd7471 NotOwner()   0xd06b96b1 InvalidPolicy()
+
+#[test(should_revert, selector = 0x0d9ab13f)]
 fn stranger_cannot_pay() uses (evm: mut Evm) {
     let w = world()
     let _: u8 = evm
@@ -265,7 +446,7 @@ fn stranger_cannot_pay() uses (evm: mut Evm) {
         )
 }
 
-#[test(should_revert)]
+#[test(should_revert, selector = 0x30cd7471)]
 fn agent_cannot_raise_its_own_limits() uses (evm: mut Evm) {
     let w = world()
     evm.call(
@@ -280,7 +461,7 @@ fn agent_cannot_raise_its_own_limits() uses (evm: mut Evm) {
     )
 }
 
-#[test(should_revert)]
+#[test(should_revert, selector = 0x30cd7471)]
 fn agent_cannot_approve_a_recipient() uses (evm: mut Evm) {
     let w = world()
     evm.call(
@@ -291,57 +472,58 @@ fn agent_cannot_approve_a_recipient() uses (evm: mut Evm) {
     )
 }
 
-#[test(should_revert)]
-fn agent_cannot_replace_the_agent() uses (evm: mut Evm) {
-    let w = world()
-    evm.call(
-        addr: w.agent,
-        gas: GAS,
-        value: Wei::zero(),
-        message: ActorMsg::TakeOver { vault: w.vault, agent: w.thief },
-    )
-}
-
-#[test(should_revert)]
+#[test(should_revert, selector = 0x30cd7471)]
 fn agent_cannot_withdraw() uses (evm: mut Evm) {
     let w = world()
     evm.call(
         addr: w.agent,
         gas: GAS,
         value: Wei::zero(),
-        message: ActorMsg::Drain { vault: w.vault, to: w.thief, amount: 100 * USD },
+        message: ActorMsg::Drain { vault: w.vault, amount: 100 * USD },
     )
 }
 
-#[test(should_revert)]
-fn agent_cannot_unpause() uses (evm: mut Evm) {
+#[test(should_revert, selector = 0x30cd7471)]
+fn agent_cannot_cancel_a_queued_change() uses (evm: mut Evm) {
     let w = world()
-    evm.call(
-        addr: w.vault,
-        gas: GAS,
-        value: Wei::zero(),
-        message: VaultMsg::SetPaused { paused: true },
-    )
     evm.call(
         addr: w.agent,
         gas: GAS,
         value: Wei::zero(),
-        message: ActorMsg::Unpause { vault: w.vault },
+        message: ActorMsg::Cancel { vault: w.vault },
     )
 }
 
-#[test(should_revert)]
-fn zero_length_window_is_rejected() uses (evm: mut Evm) {
+#[test(should_revert, selector = 0x30cd7471)]
+fn agent_cannot_pause() uses (evm: mut Evm) {
     let w = world()
     evm.call(
-        addr: w.vault,
+        addr: w.agent,
         gas: GAS,
         value: Wei::zero(),
-        message: VaultMsg::SetPolicy {
-            per_payment: 1,
-            per_window: 1,
-            window_secs: 0,
-            valid_until: FAR_FUTURE,
-        },
+        message: ActorMsg::Pause { vault: w.vault },
     )
+}
+
+#[test(should_revert, selector = 0xd06b96b1)]
+fn zero_length_window_is_rejected() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let _ = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                evm.address(),
+                Address::new(0xa),
+                token,
+                1,
+                1,
+                FAR_FUTURE,
+                0,
+                DAY,
+                Address::zero(),
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 4,
+        )
 }
