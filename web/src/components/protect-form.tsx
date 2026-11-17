@@ -1,0 +1,361 @@
+'use client'
+
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { loadSim } from '@/lib/load-sim'
+import { amountError, formatDuration, formatTime, formatUsd, parseUsd } from '@/lib/money'
+import { build, DAY, practiceAddress, snapshot, type SessionSetup, type View } from '@/lib/session'
+import { useVault } from '@/lib/vault-store'
+import { MoneyField } from './money-field'
+
+const DURATIONS = [7n, 30n, 90n]
+const COOLING = [
+  { secs: DAY, label: '24 hours', hint: 'Recommended. Long enough to notice a change you did not make and cancel it.' },
+  {
+    secs: 60n,
+    label: '1 minute',
+    hint: 'For trying things out here. Far too short to protect real money.',
+  },
+]
+const MAX_RECIPIENTS = 3
+
+type Row = { id: number; name: string }
+type Errors = Partial<Record<'perPayment' | 'perDay' | 'funding' | 'recipients', string>>
+type Draft = { setup: SessionSetup; view: View }
+
+export function ProtectForm() {
+  const vault = useVault()
+  const router = useRouter()
+  const nextId = useRef(1)
+  const summaryRef = useRef<HTMLDivElement>(null)
+  const reviewRef = useRef<HTMLHeadingElement>(null)
+
+  const [perPayment, setPerPayment] = useState('10')
+  const [perDay, setPerDay] = useState('20')
+  const [days, setDays] = useState(30n)
+  const [cooling, setCooling] = useState(DAY)
+  const [funding, setFunding] = useState('100')
+  const [rows, setRows] = useState<Row[]>([{ id: 0, name: 'Cloud hosting' }])
+  const [errors, setErrors] = useState<Errors>({})
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [phase, setPhase] = useState<'edit' | 'checking' | 'review' | 'creating' | 'failed'>('edit')
+
+  // Moving to the review replaces the form, so focus goes to its heading.
+  useEffect(() => {
+    if (phase === 'review') reviewRef.current?.focus()
+  }, [phase])
+
+  function validate(): Errors {
+    const found: Errors = {
+      perPayment: amountError(perPayment, 'the most per payment'),
+      perDay: amountError(perDay, 'the most per day'),
+      funding: amountError(funding, 'the starting balance'),
+    }
+    const payment = parseUsd(perPayment)
+    const day = parseUsd(perDay)
+    if (!found.perPayment && !found.perDay && payment !== null && day !== null && payment > day) {
+      found.perPayment = 'One payment cannot be larger than the whole day’s limit.'
+    }
+    const names = rows.map((row) => row.name.trim())
+    if (names.some((name) => name === '')) found.recipients = 'Give every recipient a name, or remove the empty one.'
+    else if (names.some((name) => name.length > 40)) found.recipients = 'Keep each name to 40 characters or fewer.'
+    else if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
+      found.recipients = 'Two recipients have the same name. Give each a different one.'
+    }
+    return Object.fromEntries(Object.entries(found).filter(([, message]) => message)) as Errors
+  }
+
+  /** Deploys a throwaway vault with these exact rules so the review can show the contract's own worst-case number. */
+  async function review(event: FormEvent) {
+    event.preventDefault()
+    const found = validate()
+    setErrors(found)
+    if (Object.keys(found).length > 0) {
+      summaryRef.current?.focus()
+      return
+    }
+    setPhase('checking')
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const setup: SessionSetup = {
+      perPayment: parseUsd(perPayment)!.toString(),
+      perDay: parseUsd(perDay)!.toString(),
+      validUntil: (now + days * DAY).toString(),
+      coolingSecs: cooling.toString(),
+      funding: parseUsd(funding)!.toString(),
+      now: now.toString(),
+      recipients: rows.map((row) => ({ name: row.name.trim(), address: practiceAddress() })),
+    }
+    try {
+      const session = { setup, actions: [] }
+      const { sim } = await build(await loadSim(), session)
+      setDraft({ setup, view: await snapshot(sim, session) })
+      setPhase('review')
+    } catch {
+      setPhase('failed')
+    }
+  }
+
+  async function confirm() {
+    if (draft === null) return
+    setPhase('creating')
+    if (await vault.create(draft.setup)) router.push('/activity')
+    else setPhase('failed')
+  }
+
+  if (phase === 'failed') {
+    return (
+      <div className="notice max-w-[36rem]" role="alert">
+        <h2 className="sub-title">The practice vault could not be created</h2>
+        <p className="mt-2">
+          The part of this site that runs the contract did not load. Check your connection, then try again. Your
+          entries are still here.
+        </p>
+        <button type="button" className="btn mt-4" onClick={() => setPhase(draft ? 'review' : 'edit')}>
+          Try again
+        </button>
+      </div>
+    )
+  }
+
+  if ((phase === 'review' || phase === 'creating') && draft !== null) {
+    const { setup, view } = draft
+    const coolingText = formatDuration(BigInt(setup.coolingSecs))
+    const shown = view.worstCase < view.state.vaultBalance ? view.worstCase : view.state.vaultBalance
+    return (
+      <section aria-labelledby="review-title" className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div>
+          <h2 id="review-title" className="section-title" tabIndex={-1} ref={reviewRef}>
+            Check the rules before you create the vault
+          </h2>
+          <ul className="prose mt-6 grid gap-3 text-lg">
+            <li>
+              Your agent may pay up to <strong>{formatUsd(view.state.policy.perPayment)}</strong> at a time, and up to{' '}
+              <strong>{formatUsd(view.state.policy.perWindow)}</strong> in a day.
+            </li>
+            <li>
+              It may pay only{' '}
+              {setup.recipients.length === 0 ? (
+                <strong>nobody yet</strong>
+              ) : (
+                <strong>{new Intl.ListFormat('en', { type: 'conjunction' }).format(setup.recipients.map((r) => r.name))}</strong>
+              )}
+              .
+            </li>
+            <li>
+              Its permission ends on <strong>{formatTime(view.state.policy.validUntil)}</strong>.
+            </li>
+            <li>
+              The vault starts with <strong>{formatUsd(view.state.vaultBalance)}</strong> in test dollars.
+            </li>
+            <li>
+              You can lower a limit, pause the agent or remove a recipient at once. Raising a limit, moving the end
+              date later, adding a recipient or resuming after a pause waits <strong>{coolingText}</strong>, and you
+              can cancel it while it waits.
+            </li>
+          </ul>
+          <p className="small soft prose mt-4">
+            A day is a fixed 24 hours counted from the moment the vault is created, not a rolling one. The cooling
+            period cannot be changed later; to change it you withdraw and create a new vault.
+          </p>
+          {setup.recipients.length === 0 && (
+            <p className="notice mt-5 max-w-[40rem]">
+              With no recipients the agent cannot pay anyone. You can add one later; it becomes payable after{' '}
+              {coolingText}.
+            </p>
+          )}
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button type="button" className="btn btn-primary btn-large" disabled={phase === 'creating'} onClick={confirm}>
+              {phase === 'creating' ? 'Creating the vault…' : 'Create vault'}
+            </button>
+            <button type="button" className="btn btn-large" disabled={phase === 'creating'} onClick={() => setPhase('edit')}>
+              Change something
+            </button>
+          </div>
+          {vault.status === 'ready' && (
+            <p className="small soft mt-4">Creating this vault replaces the practice vault you already have.</p>
+          )}
+        </div>
+
+        <aside className="rule-top self-start" aria-labelledby="worst-title">
+          <h3 id="worst-title" className="label">
+            Worst case in the next {coolingText}
+          </h3>
+          <p className="figure mt-3">{formatUsd(shown)}</p>
+          <p className="mt-4">
+            That is the most your agent could take from this vault between now and {formatTime(view.worstCaseUntil)},
+            whatever it tries and whatever anyone signs as you in that time.
+          </p>
+          {shown < view.worstCase && (
+            <p className="small soft mt-3">
+              The rules alone would allow {formatUsd(view.worstCase)}; the figure is capped at what the vault holds.
+            </p>
+          )}
+          <p className="small soft mt-3">This number is calculated by the contract itself, not by this page.</p>
+          <details className="tech">
+            <summary>Technical details</summary>
+            <dl>
+              {setup.recipients.map((recipient) => (
+                <div key={recipient.address}>
+                  <dt>Practice address for {recipient.name}</dt>
+                  <dd>{recipient.address}</dd>
+                </div>
+              ))}
+              <div>
+                <dt>Worst case</dt>
+                <dd>exposure({view.worstCaseUntil.toString()}) = {view.worstCase.toString()} units</dd>
+              </div>
+            </dl>
+          </details>
+        </aside>
+      </section>
+    )
+  }
+
+  const errorList = Object.entries(errors) as [keyof Errors, string][]
+  const busy = phase === 'checking'
+
+  return (
+    <form onSubmit={review} noValidate className="grid max-w-[42rem] gap-[var(--gap-part)]">
+      <div ref={summaryRef} tabIndex={-1} role="alert" className={errorList.length > 0 ? 'notice' : 'sr-only'}>
+        {errorList.length > 0 && (
+          <>
+            <p className="font-semibold">Fix {errorList.length === 1 ? 'this' : `these ${errorList.length} things`} to continue</p>
+            <ul className="mt-2 grid gap-1">
+              {errorList.map(([field, message]) => (
+                <li key={field}>
+                  <a href={`#${field === 'recipients' ? 'recipient-0' : field}`} className="error">
+                    {message}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <fieldset className="grid gap-5">
+        <legend className="sub-title mb-4">How much may your agent spend?</legend>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <MoneyField id="perPayment" label="Most per payment" value={perPayment} onChange={setPerPayment} error={errors.perPayment} />
+          <MoneyField
+            id="perDay"
+            label="Most per day"
+            value={perDay}
+            onChange={setPerDay}
+            error={errors.perDay}
+            hint="A day is a fixed 24 hours from the moment you create the vault."
+          />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="sub-title mb-4">Who may it pay?</legend>
+        <p className="hint mb-4">
+          Up to {MAX_RECIPIENTS} to start with. You only choose a name: each gets a practice address made up for you.
+        </p>
+        <div className="grid gap-3">
+          {rows.map((row, index) => (
+            <div key={row.id} className="flex items-end gap-3">
+              <div className="field flex-1">
+                <label htmlFor={`recipient-${index}`}>Recipient {index + 1}</label>
+                <input
+                  id={`recipient-${index}`}
+                  className="input"
+                  value={row.name}
+                  maxLength={40}
+                  autoComplete="off"
+                  aria-invalid={errors.recipients ? true : undefined}
+                  aria-describedby={errors.recipients ? 'recipients-error' : undefined}
+                  onChange={(event) =>
+                    setRows(rows.map((other) => (other.id === row.id ? { ...other, name: event.target.value } : other)))
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                className="btn"
+                aria-label={`Remove recipient ${index + 1}${row.name ? `, ${row.name}` : ''}`}
+                onClick={() => setRows(rows.filter((other) => other.id !== row.id))}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+        {errors.recipients && (
+          <p id="recipients-error" className="error mt-2">
+            {errors.recipients}
+          </p>
+        )}
+        {rows.length < MAX_RECIPIENTS ? (
+          <button
+            type="button"
+            className="btn mt-4"
+            onClick={() => setRows([...rows, { id: nextId.current++, name: '' }])}
+          >
+            Add a recipient
+          </button>
+        ) : (
+          <p className="hint mt-4">That is the most a vault can start with. You can add more later.</p>
+        )}
+      </fieldset>
+
+      <fieldset>
+        <legend className="sub-title mb-4">How long does the permission last?</legend>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {DURATIONS.map((option) => (
+            <label key={option.toString()} className="choice">
+              <input type="radio" name="days" checked={days === option} onChange={() => setDays(option)} />
+              <span>{option.toString()} days</span>
+            </label>
+          ))}
+        </div>
+        <p className="hint mt-3">After that the agent can pay nothing until you extend it.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend className="sub-title mb-4">How long must a looser rule wait?</legend>
+        <p className="hint mb-4">
+          This is the cooling period. Raising a limit, moving the end date later, adding a recipient or resuming after
+          a pause only takes effect once it has passed.
+        </p>
+        <div className="grid gap-3">
+          {COOLING.map((option) => (
+            <label key={option.label} className="choice">
+              <input type="radio" name="cooling" checked={cooling === option.secs} onChange={() => setCooling(option.secs)} />
+              <span>
+                <span className="font-semibold">{option.label}</span>
+                <span className="hint block">{option.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="sub-title mb-4">How much goes in the vault?</legend>
+        <div className="max-w-[20rem]">
+          <MoneyField
+            id="funding"
+            label="Starting balance"
+            value={funding}
+            onChange={setFunding}
+            error={errors.funding}
+            hint="Test dollars, made up for practice. They are worth nothing."
+          />
+        </div>
+      </fieldset>
+
+      <div className="rule-top">
+        <button type="submit" className="btn btn-primary btn-large" disabled={busy}>
+          {busy ? 'Checking the rules…' : 'Review the rules'}
+        </button>
+        <p className="hint mt-3">
+          Nothing is created yet. Next you see the rules in plain words and the worst-case number.{' '}
+          <Link href="/how-it-works">How it works</Link>
+        </p>
+      </div>
+    </form>
+  )
+}
