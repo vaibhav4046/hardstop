@@ -74,5 +74,31 @@ games. All eight tests pass on both targets.
 `vault_tests.fe`): `NotAgent()` 0x0d9ab13f, `NotOwner()` 0x30cd7471,
 `InvalidPolicy()` 0xd06b96b1.
 
-**Not done yet:** chain integration tests with time travel, the web app,
-accessibility and persona testing, deployment, the film.
+**Contract vs native kernel (commit a6dc29f).** `web/tests/differential.test.ts`
+deploys the compiled vault into an in-memory EVM, plays seeded games, and for
+each request compares the contract's result with `hardstop batch`:
+
+```
+$ cd web && npm test
+✔ vault bytecode and native kernel agree on 2400 payment requests (25631ms)
+ℹ 2400 payment requests (343 allowed, 1977 denied, 80 reverted) and 480
+  exposure queries: vault and native kernel agreed on all of them
+ℹ tests 13   ℹ pass 13   ℹ fail 0
+```
+
+The 12 other tests are the time-travel tests in `web/tests/vault.test.ts`.
+
+**CI on Linux (GitHub Actions run 44157674013, commit a6dc29f).** Passed:
+format, `fe test`, `fe test --backend native`, contract build, native build,
+native campaign of 20,000 games x 40 requests, "the committed web artifacts
+are what this source compiles to" (so the Windows-built bytecode is
+byte-identical to the Linux-built bytecode), and the web tests including the
+differential test. Failed: the type-check step, because Next's generated
+route types were missing in CI; fixed by running `next typegen` first.
+
+**Competing entry checked.** `devprashant19/Leash` README and rule list read
+through the GitHub API on 2026-11-17; not run. See `DECISIONS.md` D2.
+
+**Not done yet:** accessibility and persona testing, deployment, the film.
+The web UI is being built; nothing about it is claimed here until it has been
+exercised in a browser.
