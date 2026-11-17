@@ -202,3 +202,27 @@ The very first request after deployment took about 10 s to reach a verdict
 (cold cache); the figures above are from the second run. Screenshots:
 `qa/screenshots/live/`. These timings are for a simulation in the visitor's
 browser, not for a transaction on a public chain.
+
+**Frontend rebuilt (commit 88ac30d) and redeployed.** Dark, serif-and-gold
+direction requested by the owner, with xade.xyz as visual reference; no
+assets, copy or code from it are used. After the rebuild, run by the main
+session:
+
+```
+$ npx tsc --noEmit        -> clean
+$ npm run lint            -> clean
+$ npm test                -> 20 passed
+$ npm run e2e             -> first run: 42 passed, 1 failed, 8 did not run
+                             (axe colour-contrast on a PAID label sampled
+                             while the receipt was still fading in)
+                          -> after removing the fade: 51 passed (3.5m)
+$ node e2e/live-check.mjs https://hardstop-omega.vercel.app
+                          -> live check passed; page loaded 259 ms, first
+                             verdict 315 ms after the click (warm). The first
+                             request after each deployment took about 10 s.
+```
+
+Vercel had also been starting a build from the repository root on every
+push, which failed because the app lives in `web/`; those never replaced the
+live site. `vercel.json` at the root now turns Git-triggered builds off, and
+deployment is done with `npx vercel deploy --prod` from `web/`.

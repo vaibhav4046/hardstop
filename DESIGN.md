@@ -172,8 +172,9 @@ reduced motion it is simply there.
 
 - Hover and focus states: 150ms on colour, background and border. Buttons
   scale to 0.98 while pressed.
-- A new receipt prints: 320ms, `translateY(-0.75rem)` and opacity,
-  ease-out-expo. Its label lands 160ms later over 240ms.
+- A new receipt prints: 320ms, `translateY(-0.75rem)`, ease-out-expo, at full
+  opacity. Its label lands 160ms later over 240ms by scale alone. A verdict
+  is never faded in: it has full contrast from its first frame.
 - The gauge fill eases over 300ms (`transform: scaleX`).
 - Home sections marked `.reveal` fade and rise 16px over 450ms as they are
   scrolled to. `ScrollReveal` only hides a section that is still below the
