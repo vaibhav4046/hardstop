@@ -124,7 +124,7 @@ fe/src/
   token.fe            EVM only. 6-decimal test token.
   cli.fe              native only. decide / exposure / batch / campaign.
   tests.fe            kernel tests, run on both targets
-  adversary_tests.fe  campaign + 8 mutants, run on both targets
+  adversary_tests.fe  campaign + 14 broken kernels, run on both targets
   vault_tests.fe      vault tests, EVM
 
 web/
@@ -132,6 +132,8 @@ web/
                       and a typed wrapper. No rules are restated in TypeScript.
   tests/              time-travel tests against the contract, and a
                       differential test: contract vs native kernel
+  e2e/                scripted persona, accessibility and performance tests
+                      in a real browser (Playwright)
   src/app/            the practice-mode app
 ```
 
@@ -144,8 +146,6 @@ web/
 ```
 
 Design decisions and their costs: [`DECISIONS.md`](DECISIONS.md).
-An independent adversarial review, what it found and what was fixed:
-[`security/AUDIT.md`](security/AUDIT.md).
 An independent adversarial review, what it found and what was fixed:
 [`security/AUDIT.md`](security/AUDIT.md).
 Trust boundaries and what is not defended: [`security/THREAT_MODEL.md`](security/THREAT_MODEL.md),
@@ -171,10 +171,13 @@ fe build --backend native         # writes out/hardstop
 cd ../web
 npm ci
 npm test                          # 15 tests on the compiled contract + the differential test
+
+npx playwright install chromium   # once
+npm run e2e                       # 51 browser tests against the production build
 ```
 
-Every command above runs in [CI](.github/workflows/ci.yml) on each push,
-together with a check that the bytecode committed in
+Every command above except the browser suite runs in
+[CI](.github/workflows/ci.yml) on each push, together with a check that the bytecode committed in
 `web/src/lib/hardstop/artifacts.ts` is exactly what the source compiles to.
 
 ### Results
@@ -191,6 +194,14 @@ Measured on 2026-11-17; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
 | Contract vs native kernel (`web/tests/differential.test.ts`) | 2,400 payment requests (336 allowed, 1,951 denied, 113 reverted) and 480 exposure queries: agreed on all |
 | Tests against the compiled contract with a controllable clock | 15 passed |
 | Vault runtime size | 7,539 bytes |
+| Browser suite (`npm run e2e`, Chromium, production build) | 51 passed, 0 failed: seven scripted personas, keyboard-only journey, reduced motion, performance |
+| Accessibility (axe) | 0 violations across 15 page states |
+| Click "Agent pays $4" to receipt on screen | median 15 ms, max 22 ms (local EVM simulation, not on-chain latency) |
+| First and largest contentful paint, home page | median 100 ms unthrottled; 2,104 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
+
+The personas are scripts, not people: no human participant, screen
+reader, Firefox, Safari or physical device was tested. Method, steps,
+screenshots and every issue found are in [`qa/`](qa/).
 
 `fe test` has no fuzzer and cannot move the block timestamp. The seeded
 campaign is the substitute for the first; the JS-EVM tests are the

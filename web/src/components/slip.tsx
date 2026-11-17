@@ -1,6 +1,7 @@
 // A verdict printed as a receipt. Everything on it is read from the entry,
 // which is what the contract answered.
 
+import { useId } from 'react'
 import type { Hex } from 'viem'
 import { reasonName } from '@/lib/hardstop/reasons'
 import { note, verdict } from '@/lib/describe'
@@ -17,12 +18,14 @@ type Props = {
 }
 
 export function Slip({ entry, nameOf, vault, isNew = false }: Props) {
+  // The home example and the visitor's vault can be in the document together,
+  // each numbering its receipts from 0, so the heading id cannot be the number.
+  const titleId = useId()
   if (entry.kind === 'owner' || entry.kind === 'skip') {
     return <p className={`logline${isNew ? ' is-new' : ''}`}>{note(entry, nameOf)}</p>
   }
 
   const said = verdict(entry)
-  const titleId = `slip-${entry.id}`
   const { outcome } = entry
   const isPayment = entry.kind === 'payment'
 

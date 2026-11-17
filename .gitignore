@@ -9,3 +9,8 @@ node_modules/
 test-results/
 playwright-report/
 *.tsbuildinfo
+.ua/
+
+# Playwright (web/): test-results/ and playwright-report/ are ignored above
+blob-report/
+playwright/.cache/

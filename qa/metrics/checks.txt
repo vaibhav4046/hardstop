@@ -1,0 +1,49 @@
+$ npx tsc --noEmit
+[exit 0]
+
+$ npm run lint
+
+> hardstop-web@0.1.0 lint
+> eslint
+
+[exit 0]
+
+$ npm run build
+  Generating static pages using 9 workers (0/8) ...
+  Generating static pages using 9 workers (2/8) 
+  Generating static pages using 9 workers (4/8) 
+  Generating static pages using 9 workers (6/8) 
+✓ Generating static pages using 9 workers (8/8) in 808ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /activity
+├ ○ /developers
+├ ○ /how-it-works
+└ ○ /protect
+
+
+○  (Static)  prerendered as static content
+
+[exit 0]
+
+$ npm test
+✔ a queued raise that is cancelled never happens (17.35ms)
+✔ pause is instant; resuming waits out the cooling period (38.5658ms)
+✔ a new recipient can be paid only after the cooling period; removal is instant (27.6498ms)
+✔ the cap is per fixed window and a new window starts empty (43.8409ms)
+✔ permission ends at valid_until (15.523ms)
+✔ a transfer that fails reverts the payment and records nothing (27.276ms)
+✔ withdraw sends money to the owner and nowhere else (15.0289ms)
+✔ a greedy agent takes exactly the exposure bound, and no more (132.9166ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51223.5655
+[exit 0]

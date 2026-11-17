@@ -1,0 +1,58 @@
+{
+  "conditions": {
+    "viewport": "1280x720",
+    "network": "none",
+    "cpu": "none"
+  },
+  "cache": "empty for every run",
+  "firstContentfulPaintMs": {
+    "runs": 5,
+    "median": 120,
+    "max": 624,
+    "min": 112,
+    "all": [
+      624,
+      112,
+      140,
+      116,
+      120
+    ]
+  },
+  "largestContentfulPaintMs": {
+    "runs": 5,
+    "median": 120,
+    "max": 624,
+    "min": 112,
+    "all": [
+      624,
+      112,
+      140,
+      116,
+      120
+    ]
+  },
+  "largestContentfulPaintElement": "h1.hero-title",
+  "exampleVaultReadyMs": {
+    "runs": 5,
+    "median": 252,
+    "max": 260,
+    "min": 207,
+    "all": [
+      207,
+      245,
+      258,
+      260,
+      252
+    ],
+    "note": "navigation start until the home example shows its balance, i.e. the EVM chunk has loaded and the vault is deployed"
+  },
+  "javascript": {
+    "files": 10,
+    "transferred": 304410,
+    "decoded": 1018328,
+    "encodings": [
+      "gzip"
+    ],
+    "note": "all script responses until network idle, including the EVM chunk the home example loads and anything Next.js prefetches"
+  }
+}

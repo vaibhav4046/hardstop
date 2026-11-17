@@ -155,3 +155,19 @@ through the GitHub API on 2026-11-17; not run. See `DECISIONS.md` D2.
 **Not done yet:** accessibility and persona testing, deployment, the film.
 The web UI is being built; nothing about it is claimed here until it has been
 exercised in a browser.
+
+**Browser suite (Playwright 1.65, Chromium, production build).** Written and
+first run by a QA agent, then re-run independently:
+
+```
+$ cd web && npm run e2e
+  51 passed (3.8m)
+$ npm test
+ℹ tests 20   ℹ pass 20   ℹ fail 0
+```
+
+Seven scripted personas, a keyboard-only journey, reduced motion, axe on 15
+page states (0 violations) and performance measurements. Five product bugs
+were found and fixed, the most serious being that `/protect` stayed on
+"Creating the vault…" after a vault was created. Details, screenshots and the
+issues left open are in `qa/`. No human participants; Chromium only.

@@ -1,0 +1,28 @@
+{
+  "conditions": {
+    "downKbps": 400,
+    "upKbps": 400,
+    "rttMs": 400,
+    "cpuSlowdown": 4,
+    "viewport": "375x667"
+  },
+  "cache": "empty",
+  "withNoVault": {
+    "files": 7,
+    "transferred": 151521,
+    "decoded": 499786,
+    "encodings": [
+      "gzip"
+    ]
+  },
+  "afterStartingAVault": {
+    "files": 10,
+    "transferred": 304410,
+    "decoded": 1018328,
+    "encodings": [
+      "gzip"
+    ]
+  },
+  "firstContentfulPaintMs": 2004,
+  "largestContentfulPaintMs": 6968
+}

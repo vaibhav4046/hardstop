@@ -1,0 +1,7 @@
+{
+  "the ratchet is explained in words": 0,
+  "an over-limit payment is blocked with its reason": 1,
+  "the worst-case number is on screen": 2,
+  "the agent raising its own limit is rejected": 3,
+  "an owner raise shows as Scheduled (plus typing two amounts)": 4
+}

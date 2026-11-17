@@ -1,0 +1,35 @@
+{
+  "conditions": {
+    "viewport": "1280x720",
+    "network": "none",
+    "cpu": "none"
+  },
+  "exampleVaultMs": {
+    "runs": 5,
+    "median": 85,
+    "max": 95,
+    "min": 84,
+    "all": [
+      88,
+      84,
+      85,
+      95,
+      84
+    ],
+    "what": "click \"Start with an example vault\" on /activity until the vault is on screen; empty cache, so this includes downloading the EVM chunk"
+  },
+  "ownVaultMs": {
+    "runs": 5,
+    "median": 27,
+    "max": 55,
+    "min": 25,
+    "all": [
+      26,
+      43,
+      25,
+      55,
+      27
+    ],
+    "what": "click \"Create vault\" on the /protect review until the vault is on screen on /activity; the EVM chunk was already loaded by the review"
+  }
+}

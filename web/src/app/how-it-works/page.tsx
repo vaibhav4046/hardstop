@@ -65,8 +65,8 @@ export default function HowItWorks() {
       </section>
 
       <div className="mt-[var(--gap-section)] grid gap-x-16 gap-y-[var(--gap-part)] lg:grid-cols-2">
-        <section aria-labelledby="agent-title" className="rule-top">
-          <h2 id="agent-title" className="section-title">
+        <section aria-labelledby="how-agent-title" className="rule-top">
+          <h2 id="how-agent-title" className="section-title">
             What your agent can do
           </h2>
           <div className="prose mt-4">
@@ -136,8 +136,8 @@ export default function HowItWorks() {
         </div>
       </section>
 
-      <section className="mt-[var(--gap-section)] max-w-[40rem]" aria-labelledby="worst-title">
-        <h2 id="worst-title" className="section-title">
+      <section className="mt-[var(--gap-section)] max-w-[40rem]" aria-labelledby="how-worst-title">
+        <h2 id="how-worst-title" className="section-title">
           The worst-case number
         </h2>
         <div className="prose mt-4">

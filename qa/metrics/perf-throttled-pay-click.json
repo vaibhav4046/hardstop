@@ -1,0 +1,29 @@
+{
+  "conditions": {
+    "downKbps": 400,
+    "upKbps": 400,
+    "rttMs": 400,
+    "cpuSlowdown": 4,
+    "viewport": "375x667"
+  },
+  "what": "click on \"Agent pays $4\" until the receipt is in the page and a frame has been produced; the example vault was already running",
+  "notIncluded": "the 320 ms print animation that follows; any real chain",
+  "ms": {
+    "runs": 10,
+    "median": 128,
+    "max": 158,
+    "min": 24,
+    "all": [
+      154,
+      24,
+      133,
+      158,
+      114,
+      112,
+      137,
+      124,
+      70,
+      141
+    ]
+  }
+}

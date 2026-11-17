@@ -1,0 +1,26 @@
+{
+  "conditions": {
+    "viewport": "1280x720",
+    "network": "none",
+    "cpu": "none"
+  },
+  "cache": "empty",
+  "withNoVault": {
+    "files": 9,
+    "transferred": 159682,
+    "decoded": 520321,
+    "encodings": [
+      "gzip"
+    ]
+  },
+  "afterStartingAVault": {
+    "files": 10,
+    "transferred": 304410,
+    "decoded": 1018328,
+    "encodings": [
+      "gzip"
+    ]
+  },
+  "firstContentfulPaintMs": 96,
+  "largestContentfulPaintMs": 96
+}

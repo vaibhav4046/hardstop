@@ -1,0 +1,20 @@
+{
+  "statesChecked": [
+    "/ (empty)",
+    "/protect (empty)",
+    "/activity (empty)",
+    "/how-it-works (empty)",
+    "/developers (empty)",
+    "/ (with receipts, technical details open)",
+    "/how-it-works (technical section open)",
+    "/protect (with form errors)",
+    "/protect (review, no recipients)",
+    "/activity (with vault, no receipts)",
+    "/activity (with receipts)",
+    "/activity (every disclosure open, with form errors)",
+    "/activity (with a scheduled change)",
+    "/activity (paused)",
+    "/activity (error state)"
+  ],
+  "violations": []
+}

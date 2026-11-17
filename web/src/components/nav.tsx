@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 
 const LINKS = [
   { href: '/protect', label: 'Protect my AI' },
@@ -12,6 +13,17 @@ const LINKS = [
 
 export function Nav() {
   const pathname = usePathname()
+
+  // Next.js leaves focus where it was when the page changes without a reload,
+  // which is on a link that is no longer shown, so the next Tab landed in the
+  // footer. Move focus to the new page's content instead.
+  const shownPath = useRef(pathname)
+  useEffect(() => {
+    if (shownPath.current === pathname) return
+    shownPath.current = pathname
+    document.getElementById('main')?.focus({ preventScroll: true })
+  }, [pathname])
+
   return (
     <nav className="nav" aria-label="Main">
       {LINKS.map(({ href, label }) => (

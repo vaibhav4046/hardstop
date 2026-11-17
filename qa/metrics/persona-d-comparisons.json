@@ -1,0 +1,110 @@
+[
+  {
+    "file": "components/activity-board.tsx",
+    "line": 97,
+    "text": "const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)",
+    "judgement": "Display: how full to draw the gauge. Decides nothing."
+  },
+  {
+    "file": "components/activity-board.tsx",
+    "line": 98,
+    "text": "const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance",
+    "judgement": "Display: caps the worst-case figure at the balance, and the page says so. Both numbers are read from the contract."
+  },
+  {
+    "file": "components/activity-board.tsx",
+    "line": 184,
+    "text": "{worstShown < view.worstCase && (",
+    "judgement": "Display: whether to show the \"capped at what the vault holds\" note."
+  },
+  {
+    "file": "components/activity-board.tsx",
+    "line": 189,
+    "text": "{view.worstCaseUntil >= day.resetsAt && !policy.paused && (",
+    "judgement": "Display: whether to show the \"more than one day\" note."
+  },
+  {
+    "file": "components/activity-board.tsx",
+    "line": 195,
+    "text": "{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (",
+    "judgement": "Display: whether to show the \"upper limit\" note."
+  },
+  {
+    "file": "components/agent-panel.tsx",
+    "line": 31,
+    "text": ".findLast((entry) => entry.outcome.code === 0)",
+    "judgement": "Reads a verdict the contract already gave (code 0 = paid) to pick which request the replay button resends. Does not produce one."
+  },
+  {
+    "file": "components/owner-controls.tsx",
+    "line": 85,
+    "text": "{recipient.approvedFrom > now ? (",
+    "judgement": "Display: labels a recipient \"Can be paid from <time>\" or \"Can be paid\". Restates the kernel rule approved_from <= now for a label only; payments are still decided by the contract."
+  },
+  {
+    "file": "components/owner-controls.tsx",
+    "line": 141,
+    "text": "if (!found.perPayment && !found.perDay && payment !== null && day !== null && payment > day) {",
+    "judgement": "Form validation of the owner's own input (one payment larger than the day limit). Not a verdict on an agent request; it stops the form before anything is sent."
+  },
+  {
+    "file": "components/owner-controls.tsx",
+    "line": 241,
+    "text": "(units !== null && units > balance ? `The vault only holds ${formatUsd(balance)}.` : undefined)",
+    "judgement": "Form validation: refuses an owner withdrawal larger than the balance without asking the contract. Owner action, not an agent payment. See ISSUES_AND_FIXES.md (I-09)."
+  },
+  {
+    "file": "components/protect-form.tsx",
+    "line": 71,
+    "text": "if (!found.perPayment && !found.perDay && payment !== null && day !== null && payment > day) {",
+    "judgement": "Form validation of the owner's own input before a vault exists."
+  },
+  {
+    "file": "components/protect-form.tsx",
+    "line": 140,
+    "text": "const shown = view.worstCase < view.state.vaultBalance ? view.worstCase : view.state.vaultBalance",
+    "judgement": "Display: caps the worst-case figure at the balance, and the page says so."
+  },
+  {
+    "file": "components/protect-form.tsx",
+    "line": 205,
+    "text": "{shown < view.worstCase && (",
+    "judgement": "Display: whether to show the \"capped\" note."
+  },
+  {
+    "file": "lib/describe.ts",
+    "line": 73,
+    "text": "return proposed && proposed.effectiveAt !== 0n",
+    "judgement": "Wording: reads the PolicyProposed event the contract emitted to say \"Scheduled\" or \"in force at once\". The contract decided which."
+  },
+  {
+    "file": "lib/money.ts",
+    "line": 36,
+    "text": "if (value === 0n) return `${what[0].toUpperCase()}${what.slice(1)} must be more than $0.`",
+    "judgement": "Form validation: a zero amount is never sent. The contract has its own answer for zero (code 8), reachable only by replaying a saved session."
+  },
+  {
+    "file": "lib/money.ts",
+    "line": 37,
+    "text": "if (value > MAX_INPUT) return `Enter ${formatUsd(MAX_INPUT)} or less.`",
+    "judgement": "Form validation: an upper bound on what a form accepts."
+  },
+  {
+    "file": "lib/money.ts",
+    "line": 55,
+    "text": "if (seconds > 86_400n && seconds % 86_400n === 0n) return say(seconds / 86_400n, 'day')",
+    "judgement": "Formatting a duration as days. Not an amount or a limit."
+  },
+  {
+    "file": "lib/session.ts",
+    "line": 183,
+    "text": "if (approvedFrom !== 0n) recipients.push({ ...recipient, approvedFrom })",
+    "judgement": "Display: lists a recipient only if the contract still has it (it answers 0 for a removed one)."
+  },
+  {
+    "file": "lib/session.ts",
+    "line": 214,
+    "text": "const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 40",
+    "judgement": "Validation of a saved recipient name (1 to 40 characters). Not an amount or a limit."
+  }
+]

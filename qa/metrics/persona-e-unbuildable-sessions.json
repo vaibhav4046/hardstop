@@ -1,0 +1,5 @@
+{
+  "clock skip of 10^30 seconds": "error shown",
+  "one payment larger than the day limit ($50 > $20)": "vault rebuilt",
+  "cooling period of zero seconds": "error shown"
+}

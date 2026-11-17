@@ -21,6 +21,10 @@ export function HomeDemo() {
   const [view, setView] = useState<View | null>(null)
   const [status, setStatus] = useState<'idle' | 'working' | 'failed'>('idle')
   const demoRef = useRef<Promise<Demo> | null>(null)
+  // One request at a time, and a number of its own for each receipt. Two
+  // clicks can arrive before the buttons are redrawn as disabled.
+  const isAsking = useRef(false)
+  const nextId = useRef(0)
 
   /** Deploys the example vault once; later calls reuse it. */
   function start(): Promise<Demo> {
@@ -46,6 +50,8 @@ export function HomeDemo() {
   useEffect(boot, [])
 
   async function ask(dollars: bigint) {
+    if (isAsking.current) return
+    isAsking.current = true
     setStatus('working')
     try {
       const { sim, session } = await start()
@@ -53,7 +59,7 @@ export function HomeDemo() {
       const entry = await apply(
         sim,
         { type: 'pay', to: PAYEE.address, amount: (dollars * USD).toString(), nonce: ledger.nextNonce.toString() },
-        entries.length,
+        nextId.current++,
       )
       setEntries((earlier) => [entry, ...earlier])
       setView(await snapshot(sim, session))
@@ -61,6 +67,8 @@ export function HomeDemo() {
     } catch {
       demoRef.current = null
       setStatus('failed')
+    } finally {
+      isAsking.current = false
     }
   }
 

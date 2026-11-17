@@ -1,0 +1,10 @@
+{
+  "conditions": {
+    "downKbps": 400,
+    "upKbps": 400,
+    "rttMs": 400,
+    "cpuSlowdown": 4
+  },
+  "loadingIndicatorVisibleMs": 6072,
+  "vaultRestoredMs": 10596
+}

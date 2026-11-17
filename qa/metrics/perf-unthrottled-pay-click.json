@@ -1,0 +1,27 @@
+{
+  "conditions": {
+    "viewport": "1280x720",
+    "network": "none",
+    "cpu": "none"
+  },
+  "what": "click on \"Agent pays $4\" until the receipt is in the page and a frame has been produced; the example vault was already running",
+  "notIncluded": "the 320 ms print animation that follows; any real chain",
+  "ms": {
+    "runs": 10,
+    "median": 12,
+    "max": 19,
+    "min": 9,
+    "all": [
+      17,
+      18,
+      9,
+      14,
+      10,
+      11,
+      13,
+      19,
+      10,
+      10
+    ]
+  }
+}

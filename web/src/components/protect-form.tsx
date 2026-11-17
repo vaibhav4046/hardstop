@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { loadSim } from '@/lib/load-sim'
 import { amountError, formatDuration, formatTime, formatUsd, parseUsd } from '@/lib/money'
 import { build, DAY, practiceAddress, snapshot, type SessionSetup, type View } from '@/lib/session'
@@ -45,6 +45,20 @@ export function ProtectForm() {
   useEffect(() => {
     if (phase === 'review') reviewRef.current?.focus()
   }, [phase])
+
+  // Next.js keeps this page mounted, hidden, after the visitor leaves it. Once
+  // a vault has been created the review is finished, so when the page is
+  // hidden it goes back to the form; the entries stay for the next vault.
+  const isCreated = useRef(false)
+  useLayoutEffect(
+    () => () => {
+      if (!isCreated.current) return
+      isCreated.current = false
+      setDraft(null)
+      setPhase('edit')
+    },
+    [],
+  )
 
   function validate(): Errors {
     const found: Errors = {
@@ -99,8 +113,10 @@ export function ProtectForm() {
   async function confirm() {
     if (draft === null) return
     setPhase('creating')
-    if (await vault.create(draft.setup)) router.push('/activity')
-    else setPhase('failed')
+    if (await vault.create(draft.setup)) {
+      isCreated.current = true
+      router.push('/activity')
+    } else setPhase('failed')
   }
 
   if (phase === 'failed') {
@@ -177,8 +193,8 @@ export function ProtectForm() {
           )}
         </div>
 
-        <aside className="rule-top self-start" aria-labelledby="worst-title">
-          <h3 id="worst-title" className="label">
+        <aside className="rule-top self-start" aria-labelledby="review-worst-title">
+          <h3 id="review-worst-title" className="label">
             Worst case in the next {coolingText}
           </h3>
           <p className="figure mt-3">{formatUsd(shown)}</p>

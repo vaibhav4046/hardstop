@@ -1,0 +1,15 @@
+{
+  "checked": [
+    "research/SOURCE_REGISTER.md",
+    "research/COMPETITOR_MATRIX.md",
+    "fe/src/vault.fe",
+    "DECISIONS.md",
+    "security/AUDIT.md",
+    "security/THREAT_MODEL.md",
+    "security/ASSUMPTIONS.md",
+    ".github/workflows/ci.yml",
+    "EVIDENCE_LOG.md",
+    "LICENSE"
+  ],
+  "missing": []
+}

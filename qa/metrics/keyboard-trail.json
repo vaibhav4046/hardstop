@@ -1,0 +1,175 @@
+{
+  "stops": 34,
+  "trail": [
+    {
+      "what": "a \"Skip to content\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"HARDSTOP home\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"Protect my AI\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"Activity\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"How it works\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"Developers\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"Protect my AI\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"How it works\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Agent pays $4\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Agent tries $80\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Agent pays $4\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"How it works\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "a \"Protect my AI\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "input#perPayment \"\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "input#perDay \"\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "input#recipient-0 \"\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Remove recipient 1, Cloud hosting\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Add a recipient\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "input \"\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "input \"\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "input#funding \"\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Review the rules\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Create vault\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Pay $4.00 to Cloud hosting\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Pay $80.00 to Cloud hosting\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Pay $4.00 to an address you never approv\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Send the last paid request again\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Raise its own limit to $1,000.00\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Send a different request\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Technical details\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Technical details\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Skip ahead 1 hour\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Skip ahead 1 day\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    },
+    {
+      "what": "button \"Pause the agent now\"",
+      "outline": "solid 3px rgb(30, 26, 21)",
+      "ring": true
+    }
+  ]
+}

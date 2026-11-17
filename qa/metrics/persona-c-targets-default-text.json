@@ -1,0 +1,77 @@
+{
+  "/": {
+    "scrollsSideways": [],
+    "targets": 18,
+    "inlineLinksExempt": [
+      "a \"the CoinDesk report\" 149.9x20",
+      "a \"I-HITL: Inalienable Human-in-the-Loop\" 285.3x44.8"
+    ],
+    "smallest": 44
+  },
+  "/protect": {
+    "scrollsSideways": [],
+    "targets": 22,
+    "inlineLinksExempt": [
+      "a \"How it works\" 308.6x38.3"
+    ],
+    "smallest": 44
+  },
+  "/activity": {
+    "scrollsSideways": [],
+    "targets": 11,
+    "inlineLinksExempt": [],
+    "smallest": 44
+  },
+  "/how-it-works": {
+    "scrollsSideways": [
+      "table-scroll: content 544px in a 326px box"
+    ],
+    "targets": 18,
+    "inlineLinksExempt": [
+      "a \"activity page\" 94.1x20",
+      "a \"Fe\" 17.4x20",
+      "a \"fe/src/kernel.fe\" 112.6x20",
+      "a \"fe/src/vault.fe\" 101.9x20",
+      "a \"fe/src/adversary.fe\" 138.5x20",
+      "a \"fe/src/cli.fe\" 82.3x20",
+      "a \"web/src/lib/hardstop/sim.ts\" 203.8x20",
+      "a \"the developers page\" 151.1x20"
+    ],
+    "smallest": 44
+  },
+  "/developers": {
+    "scrollsSideways": [
+      "code: content 676px in a 322px box",
+      "code: content 878px in a 322px box",
+      "code: content 605px in a 322px box",
+      "table-scroll: content 576px in a 326px box"
+    ],
+    "targets": 14,
+    "inlineLinksExempt": [
+      "a \"kernel.fe\" 64.3x20",
+      "a \"fe/src/kernel.fe\" 98.5x18",
+      "a \"cli.fe\" 34.9x20"
+    ],
+    "smallest": 44
+  },
+  "/protect with errors": {
+    "scrollsSideways": [],
+    "targets": 24,
+    "inlineLinksExempt": [
+      "a \"How it works\" 308.6x38.3"
+    ],
+    "smallest": 44
+  },
+  "/protect review": {
+    "scrollsSideways": [],
+    "targets": 12,
+    "inlineLinksExempt": [],
+    "smallest": 44
+  },
+  "/activity with vault, receipts and a scheduled change": {
+    "scrollsSideways": [],
+    "targets": 39,
+    "inlineLinksExempt": [],
+    "smallest": 44
+  }
+}

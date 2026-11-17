@@ -104,6 +104,12 @@
   summary {
     cursor: pointer;
   }
+
+  /* Focus is moved here after the skip link or a page change. It is the whole
+     page, so it has no ring; the next Tab shows one. */
+  main:focus {
+    outline: none;
+  }
 }
 
 @layer components {
@@ -443,6 +449,13 @@
     font-weight: 600;
   }
 
+  /* In the error summary each message is a link to its field. */
+  a.error {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+
   .choice {
     display: flex;
     align-items: flex-start;
@@ -493,6 +506,15 @@
     font-weight: 600;
     text-align: right;
     overflow-wrap: anywhere;
+  }
+
+  /* A link that is a row's value is a target on its own, so it gets a full-size one. */
+  .rows dd a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 
   /* --- the gauge: spent so far, and the stop it cannot pass -------------- */
