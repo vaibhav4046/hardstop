@@ -4,7 +4,7 @@
 //!
 //! `fe test` cannot move the clock, so anything that needs time to pass
 //! (a queued raise maturing, a new window) is tested on the kernel in
-//! `tests.fe` and against a real chain in `chain/`.
+//! `tests.fe` and against the compiled contract in `web/tests/`.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Evm}
@@ -103,6 +103,76 @@ contract BrokenToken {
     recv BrokenMsg {
         Transfer { to, amount } -> bool {
             false
+        }
+    }
+}
+
+/// A hostile contract that is both the token and the agent. Its `transfer`
+/// re-enters `pay` three times and records what the vault answered.
+msg EvilMsg {
+    #[selector = sol("transfer(address,uint256)")]
+    Transfer { to: Address, amount: u256 } -> bool,
+    #[selector = sol("go(address,address,uint256)")]
+    Go { vault: Address, to: Address, amount: u256 } -> u8,
+    #[selector = sol("codes()")]
+    Codes -> (u8, u8, u8, u256),
+}
+
+contract Evil uses (call: mut Call) {
+    mut target: Address,
+    mut depth: u256,
+    mut replay: u8,
+    mut second: u8,
+    mut third: u8,
+
+    recv EvilMsg {
+        Go { vault, to, amount } -> u8 uses (mut call, mut target) {
+            target = vault
+            call.call(
+                addr: vault,
+                gas: 2000000,
+                value: Wei::zero(),
+                message: VaultMsg::Pay { to, amount, nonce: 0 },
+            )
+        }
+
+        Transfer { to, amount } -> bool uses (
+            mut call,
+            target,
+            mut depth,
+            mut replay,
+            mut second,
+            mut third,
+        ) {
+            depth = depth + 1
+            if depth == 1 {
+                replay = call
+                    .call(
+                        addr: target,
+                        gas: 500000,
+                        value: Wei::zero(),
+                        message: VaultMsg::Pay { to, amount, nonce: 0 },
+                    )
+                second = call
+                    .call(
+                        addr: target,
+                        gas: 500000,
+                        value: Wei::zero(),
+                        message: VaultMsg::Pay { to, amount, nonce: 1 },
+                    )
+                third = call
+                    .call(
+                        addr: target,
+                        gas: 500000,
+                        value: Wei::zero(),
+                        message: VaultMsg::Pay { to, amount: 1, nonce: 2 },
+                    )
+            }
+            true
+        }
+
+        Codes -> (u8, u8, u8, u256) uses (replay, second, third, depth) {
+            (replay, second, third, depth)
         }
     }
 }
@@ -265,12 +335,85 @@ fn preview_agrees_with_pay_and_changes_nothing() uses (evm: mut Evm) {
     assert!(code == 6 && expected == 1)
 }
 
-#[test(should_revert)]
-fn failed_transfer_reverts_the_whole_payment() uses (evm: mut Evm) {
+#[test]
+fn failed_transfer_reverts_and_leaves_the_ledger_untouched()
+uses (evm: mut Evm)
+{
     let broken = evm.create2<BrokenToken>(value: Wei::zero(), args: (), salt: 9)
     let w = world_with(broken)
     // The kernel allows it, the token refuses: nothing may be recorded.
-    let _: u8 = agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0)
+    let outcome = evm
+        .try_call(
+            addr: w.agent,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ActorMsg::Pay { vault: w.vault, to: w.shop, amount: 4 * USD, nonce: 0 },
+        )
+    assert!(!outcome.success())
+    let (window, spent, next_nonce): (u64, u256, u64) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::LedgerOf {},
+        )
+    assert!(window == 0 && spent == 0 && next_nonce == 0)
+}
+
+#[test]
+fn a_hostile_token_cannot_reenter_past_the_caps() uses (evm: mut Evm) {
+    // `Evil` is both the token and the agent. While the vault is paying it,
+    // it calls `pay` again three ways.
+    let evil = evm.create2<Evil>(value: Wei::zero(), args: (), salt: 21)
+    let shop = Address::new(0x5109)
+    let vault = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                evm.address(),
+                evil,
+                evil,
+                10 * USD,
+                20 * USD,
+                FAR_FUTURE,
+                DAY,
+                DAY,
+                shop,
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 22,
+        )
+    let outer: u8 = evm
+        .call(
+            addr: evil,
+            gas: GAS,
+            value: Wei::zero(),
+            message: EvilMsg::Go { vault, to: shop, amount: 10 * USD },
+        )
+    assert!(outer == 0)
+    let (replay, second, third, depth): (u8, u8, u8, u256) = evm
+        .call(
+            addr: evil,
+            gas: GAS,
+            value: Wei::zero(),
+            message: EvilMsg::Codes {},
+        )
+    assert!(depth == 2)
+    // Replaying the payment in flight: refused, it is already counted.
+    assert!(replay == 6)
+    // A second, correctly numbered payment inside the cap: allowed, and counted.
+    assert!(second == 0)
+    // One unit past the window cap: refused.
+    assert!(third == 11)
+    let (_, spent, next_nonce): (u64, u256, u64) = evm
+        .call(
+            addr: vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::LedgerOf {},
+        )
+    assert!(spent == 20 * USD && next_nonce == 2)
 }
 
 // --- the owner's controls -------------------------------------------------
@@ -520,6 +663,73 @@ fn zero_length_window_is_rejected() uses (evm: mut Evm) {
                 FAR_FUTURE,
                 0,
                 DAY,
+                Address::zero(),
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 4,
+        )
+}
+
+#[test(should_revert, selector = 0x0d9ab13f)]
+fn stranger_is_reverted_even_while_paused() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Pause {},
+    )
+    // Without the revert a stranger could write `Blocked` entries of its
+    // choosing into the vault's log for as long as the pause lasts.
+    let _: u8 = evm
+        .call(
+            addr: w.stranger,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ActorMsg::Pay { vault: w.vault, to: w.thief, amount: 999 * USD, nonce: 77 },
+        )
+}
+
+#[test(should_revert, selector = 0xd06b96b1)]
+fn owner_and_agent_must_differ() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let both = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 2)
+    let _ = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                both,
+                both,
+                token,
+                1,
+                1,
+                FAR_FUTURE,
+                DAY,
+                DAY,
+                Address::zero(),
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 4,
+        )
+}
+
+#[test(should_revert, selector = 0xd06b96b1)]
+fn cooling_period_under_a_minute_is_rejected() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let _ = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                evm.address(),
+                Address::new(0xa),
+                token,
+                1,
+                1,
+                FAR_FUTURE,
+                DAY,
+                59,
                 Address::zero(),
                 Address::zero(),
                 Address::zero(),

@@ -170,8 +170,17 @@ impl Queued {
 
     /// Whether the queued policy is in force at `now`.
     pub fn matured(self, now: u64) -> bool {
-        self.effective_at != 0 && now >= self.effective_at
+        cooled(at: self.effective_at, now)
     }
+}
+
+/// Whether something that takes effect at `at` is in effect at `now`.
+///
+/// Zero means "nothing scheduled". The last representable second means "the
+/// cooling period ran past the end of time", and such a change never takes
+/// effect: rounding it down to that last second would cut the wait short.
+pub fn cooled(at: u64, now: u64) -> bool {
+    at != 0 && at != MAX_U64 && now >= at
 }
 
 impl Rules {
@@ -211,11 +220,13 @@ pub fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decis
     if schedule.window_secs == 0 {
         return Decision::Deny(Reason::InvalidPolicy)
     }
-    if policy.paused {
-        return Decision::Deny(Reason::Paused)
-    }
+    // Who is asking comes before anything about the rules: a stranger learns
+    // nothing about the vault's state and, in the vault, gets a revert.
     if !request.from_agent {
         return Decision::Deny(Reason::NotAgent)
+    }
+    if policy.paused {
+        return Decision::Deny(Reason::Paused)
     }
     if now < schedule.anchor {
         return Decision::Deny(Reason::NotYetActive(schedule.anchor))
@@ -311,7 +322,8 @@ pub fn cancel(rules: Rules, now: u64) -> Rules {
 }
 
 /// When something loosened at `now` takes effect: `now + cooling_secs`,
-/// never zero (zero means "nothing queued") and never past the end of time.
+/// never zero (zero means "nothing queued"). If that would be past the end
+/// of time it is the last second, which `cooled` treats as never.
 pub fn matures_at(_ schedule: Schedule, now: u64) -> u64 {
     let secs = schedule.cooling_secs
     let at = if secs > MAX_U64 - now {
@@ -330,17 +342,24 @@ pub fn matures_at(_ schedule: Schedule, now: u64) -> u64 {
 /// nothing proposed after `now` can loosen the rules before then.
 ///
 /// With nothing queued the bound is exact: an agent with an approved
-/// recipient and enough balance can reach it. With a loosening that matures
-/// inside the interval it is an upper bound.
+/// recipient, enough balance and sequence numbers left can reach it. With a
+/// loosening that matures inside the interval it is an upper bound.
+///
+/// Two things it does not look at: the vault's balance (it says what the
+/// rules allow, not what is there to take), and where `rules` came from. The
+/// promise about the owner assumes the queue was produced by `amend`, which
+/// only ever queues something looser than the active policy. Hand-built
+/// rules with a tighter queue would make `cancel` a loosening.
 pub fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
     if rules.schedule.window_secs == 0 || until < now {
         return 0
     }
     let queued = rules.queued
-    if !queued.is_some() || queued.effective_at > until {
+    if !cooled(at: queued.effective_at, now: until) {
+        // Nothing queued, or nothing that takes effect by `until`.
         return span(rules.schedule, rules.active, ledger, from: now, to: until)
     }
-    if queued.effective_at <= now {
+    if queued.matured(now) {
         return span(
             rules.schedule,
             queued.policy,

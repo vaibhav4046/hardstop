@@ -76,8 +76,29 @@ correctly; the UI must not describe the cap as "per rolling 24 hours".
 ## D8. No time travel in `fe test`
 
 The Fe test runner cannot move the block timestamp. Time-dependent behaviour
-is tested on the kernel (which takes `now` as an argument) and against a real
-local chain in `chain/`.
+is tested on the kernel (which takes `now` as an argument) and against the
+compiled contract on a JS EVM with a controllable clock, in `web/tests/`.
+
+## D10. "Who is asking" is checked before anything else
+
+Found by the independent review (`security/AUDIT.md`, finding 1). `decide`
+used to check the pause switch first, so during a pause a stranger's request
+was refused as "paused", which the vault logs, instead of "not the agent",
+which the vault reverts. The caller check now comes first. Reason codes are
+unchanged.
+
+## D11. The engine under attack is a trait with three functions
+
+`Engine` has `decide`, `amend` and `exposure`; the last two default to the
+real kernel. A broken copy overrides only what it breaks, so the campaign
+can be pointed at a wrong bound or a wrong ratchet, not only a wrong
+verdict. Cost: the campaign is generic over `E` and slightly harder to read.
+
+## D12. A vault needs two different keys and at least a minute of cooling
+
+The constructor rejects `owner == agent` and a cooling period under 60
+seconds. Both were legal before the review and both made the product's
+claims false for that vault.
 
 ## D9. No AI attribution in commit messages
 

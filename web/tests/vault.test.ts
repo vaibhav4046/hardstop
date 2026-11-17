@@ -57,6 +57,38 @@ test('a stranger is reverted and leaves no trace', async () => {
   assert.equal((await sim.state()).ledger.nextNonce, 0n)
 })
 
+test('a stranger is reverted even while the vault is paused', async () => {
+  const sim = await vault()
+  await sim.pause()
+  const outcome = await sim.pay(THIEF, 999n * USD, 77n, THIEF)
+  assert.equal(outcome.ok, false)
+  assert.equal(outcome.revert, 'NotAgent')
+  assert.deepEqual(outcome.events, [])
+})
+
+test('pausing cancels a raise that was waiting', async () => {
+  const sim = await vault()
+  await sim.propose({ perPayment: 500n * USD, perWindow: 500n * USD, validUntil: END, paused: false })
+  assert.notEqual((await sim.state()).queued, null)
+  await sim.pause()
+  assert.equal((await sim.state()).queued, null)
+  sim.chain.advance(3n * DAY)
+  const state = await sim.state()
+  assert.equal(state.policy.paused, true)
+  assert.equal(state.policy.perPayment, 10n * USD)
+})
+
+test('a vault cannot be created with owner and agent the same, or with almost no cooling period', async () => {
+  const base = {
+    owner: OWNER, agent: AGENT, perPayment: 1n, perWindow: 1n, validUntil: END,
+    windowSecs: DAY, coolingSecs: DAY, payees: [SHOP], funding: 0n, now: T0,
+  }
+  await assert.rejects(Sim.create({ ...base, agent: OWNER }), /InvalidPolicy/)
+  await assert.rejects(Sim.create({ ...base, coolingSecs: 59n }), /InvalidPolicy/)
+  await assert.rejects(Sim.create({ ...base, windowSecs: 0n }), /InvalidPolicy/)
+  await Sim.create({ ...base, coolingSecs: 60n })
+})
+
 test('the agent cannot use any owner control', async () => {
   const sim = await vault()
   const raise = { perPayment: 1000n * USD, perWindow: 1000n * USD, validUntil: END, paused: false }

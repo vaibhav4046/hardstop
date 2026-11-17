@@ -110,6 +110,45 @@ rather than documented attacks on Circle customers". The arXiv abstract
 (2610.35835 v3) confirms the mechanism and "ten different frontier models"
 but gives no count. Both were read through a summarising fetch tool.
 
+**Independent adversarial review and fixes.** Findings and fixes are in
+`security/AUDIT.md`. After the fixes:
+
+```
+$ fe test                                    (Windows, EVM)
+test result: ok. 68 passed; 0 failed
+
+$ fe test --backend native                   (WSL2)
+test result: ok. 44 passed; 0 failed
+
+$ ./out/hardstop campaign 5206533097626292048 200 40
+cases 200
+requests 8000
+allowed 1745
+denied 6255
+violation 0
+digest 885356084767103301
+promises 2938
+promises_with_queue 347
+promises_with_spend 565
+promises_reached 100
+
+$ cd web && npm test
+✔ vault bytecode and native kernel agree on 2400 payment requests
+ℹ 2400 payment requests (336 allowed, 1951 denied, 113 reverted) and 480
+  exposure queries: vault and native kernel agreed on all of them
+ℹ tests 16   ℹ pass 16   ℹ fail 0
+```
+
+The fingerprint changed from the earlier `18432554080552133010` because the
+order of two checks in `decide` changed and the campaign now makes more
+random choices per step. Fourteen broken kernels are each caught on both
+targets. Vault runtime: 7,539 bytes.
+
+Two broken kernels were NOT caught on the first attempt after the review
+(`OneSecondEarly`, `AmendKeepsOldMaturity`). The campaign was changed to steer
+the clock onto the second a raise matures and to have the owner stack a
+bigger raise on a waiting one; both are caught now.
+
 **Competing entry checked.** `devprashant19/Leash` README and rule list read
 through the GitHub API on 2026-11-17; not run. See `DECISIONS.md` D2.
 

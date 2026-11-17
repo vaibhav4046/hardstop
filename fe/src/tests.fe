@@ -125,10 +125,14 @@ fn a_new_window_starts_empty() {
 fn refusals_come_in_a_fixed_order() {
     var r = rules()
     let stranger = Request { amount: 0, nonce: 9, from_agent: false, to_approved: false }
-    // Everything is wrong with this request; the first check that fails wins.
+    let agent = Request { amount: 0, nonce: 9, from_agent: true, to_approved: false }
+    // Everything is wrong with these requests; the first check that fails wins.
     assert!(code(r, fresh(), stranger, now: T0 + 40 * DAY) == 3)
+    assert!(code(r, fresh(), agent, now: T0 + 40 * DAY) == 5)
     r.active.paused = true
-    assert!(code(r, fresh(), stranger, now: T0 + 40 * DAY) == 2)
+    assert!(code(r, fresh(), agent, now: T0 + 40 * DAY) == 2)
+    // A stranger is told "not the agent" and nothing else, paused or not.
+    assert!(code(r, fresh(), stranger, now: T0 + 40 * DAY) == 3)
     r.schedule.window_secs = 0
     assert!(code(r, fresh(), stranger, now: T0 + 40 * DAY) == 1)
 }
@@ -423,4 +427,154 @@ fn exposure_includes_a_raise_that_matures_in_time() {
     assert!(
         exposure(rules: r, ledger: fresh(), now: T0, until: T0 + DAY) == 1020,
     )
+}
+
+// --- found by review -------------------------------------------------------
+// Each of these pins a behaviour that an independent adversarial review
+// showed the suite did not pin before.
+
+fn higher() -> Policy {
+    Policy { per_payment: 500, per_window: 1000, valid_until: T0 + 30 * DAY, paused: false }
+}
+
+#[test]
+fn proposing_again_restarts_the_wait() {
+    let first = amend(rules: rules(), proposed: higher(), now: T0)
+    var bigger = higher()
+    bigger.per_payment = 100000
+    bigger.per_window = 100000
+    let second = amend(rules: first, proposed: bigger, now: T0 + DAY - 1)
+    // The bigger raise waits its own full cooling period.
+    assert!(second.queued.effective_at == T0 + 2 * DAY - 1)
+    // And the smaller one it replaced does not arrive on its old schedule.
+    assert!(
+        code(second, fresh(), ask(amount: 11, nonce: 0), now: T0 + DAY) == 10,
+    )
+}
+
+#[test]
+fn a_matured_raise_is_the_baseline_for_the_next_proposal() {
+    let first = amend(rules: rules(), proposed: higher(), now: T0)
+    // Two days later the raise is in force. Lowering one field of it is a
+    // tightening, so it applies at once and nothing is queued.
+    var lower = higher()
+    lower.per_payment = 50
+    let second = amend(rules: first, proposed: lower, now: T0 + 2 * DAY)
+    assert!(
+        second.active.per_payment == 50 && second.active.per_window == 1000,
+    )
+    assert!(!second.queued.is_some())
+    // Cancelling after the raise took effect keeps it: there is nothing left to cancel.
+    let kept = cancel(rules: first, now: T0 + 2 * DAY)
+    assert!(kept.active.per_payment == 500 && !kept.queued.is_some())
+}
+
+#[test]
+fn exposure_uses_a_raise_that_already_took_effect() {
+    let raised = amend(rules: rules(), proposed: higher(), now: T0)
+    assert!(
+        exposure(
+                rules: raised,
+                ledger: fresh(),
+                now: T0 + 2 * DAY,
+                until: T0 + 2 * DAY,
+            ) == 1000,
+    )
+}
+
+#[test]
+fn exposure_ignores_spending_from_an_older_window() {
+    let stale = Ledger { window: 0, spent: 15, next_nonce: 1 }
+    assert!(
+        exposure(
+                rules: rules(),
+                ledger: stale,
+                now: T0 + DAY,
+                until: T0 + 2 * DAY - 1,
+            ) == 20,
+    )
+    var zero = rules()
+    zero.active.per_payment = 0
+    assert!(
+        exposure(rules: zero, ledger: fresh(), now: T0, until: T0 + DAY) == 0,
+    )
+}
+
+/// If the cooling period would end after the last representable second, the
+/// raise never takes effect. Rounding it down to that second would cut the
+/// wait short.
+#[test]
+fn a_raise_that_would_mature_past_the_end_of_time_never_does() {
+    let late = Rules {
+        schedule: Schedule { anchor: MAX_U64 - 1000, window_secs: DAY, cooling_secs: DAY },
+        active: Policy { per_payment: 10, per_window: 20, valid_until: MAX_U64, paused: false },
+        queued: Queued::none(),
+    }
+    let forever = Policy { per_payment: 500, per_window: 1000, valid_until: MAX_U64, paused: false }
+    let bound = exposure(
+        rules: late,
+        ledger: fresh(),
+        now: MAX_U64 - 5,
+        until: MAX_U64,
+    )
+    assert!(bound == 20)
+    let r = amend(rules: late, proposed: forever, now: MAX_U64 - 5)
+    assert!(r.queued.effective_at == MAX_U64)
+    assert!(
+        code(r, fresh(), ask(amount: 500, nonce: 0), now: MAX_U64) == 10,
+    )
+    assert!(
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: MAX_U64 - 5,
+                until: MAX_U64,
+            ) == 20,
+    )
+    let at_the_end = amend(rules: late, proposed: forever, now: MAX_U64)
+    assert!(
+        code(
+                at_the_end,
+                fresh(),
+                ask(amount: 500, nonce: 0),
+                now: MAX_U64,
+            ) == 10,
+    )
+}
+
+/// `exposure` is exact only while sequence numbers remain. With the counter
+/// used up nothing can be paid, and the bound is merely an upper bound.
+#[test]
+fn exposure_is_only_an_upper_bound_once_sequence_numbers_run_out() {
+    let dead = Ledger { window: 0, spent: 0, next_nonce: MAX_U64 }
+    assert!(
+        exposure(rules: rules(), ledger: dead, now: T0, until: T0 + 10) == 20,
+    )
+    assert!(
+        code(rules(), dead, ask(amount: 1, nonce: MAX_U64), now: T0) == 7,
+    )
+}
+
+/// The promise "whatever the owner signs" assumes the queue came from
+/// `amend`, which never queues something tighter than the active policy.
+/// Rules built by hand with a tighter queue break it: cancelling loosens.
+/// The vault cannot reach this state; the command-line tool can be given it.
+#[test]
+fn exposure_owner_promise_needs_a_queue_built_by_amend() {
+    let by_hand = Rules {
+        schedule: Schedule { anchor: T0, window_secs: 3600, cooling_secs: DAY },
+        active: policy(),
+        queued: Queued { policy: Queued::none().policy, effective_at: T0 + 10 },
+    }
+    let until = T0 + DAY - 1
+    assert!(
+        exposure(rules: by_hand, ledger: fresh(), now: T0, until) == 20,
+    )
+    let after_cancel = cancel(rules: by_hand, now: T0 + 5)
+    assert!(
+        exposure(rules: after_cancel, ledger: fresh(), now: T0 + 5, until) == 480,
+    )
+    // Whereas after any `amend`, the active policy is never looser than the queue.
+    let amended = amend(rules: rules(), proposed: higher(), now: T0)
+    assert!(!loosens(amended.queued.policy, to: amended.active))
 }

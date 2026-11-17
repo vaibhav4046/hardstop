@@ -17,6 +17,7 @@ use std::evm::erc20::safe_transfer
 use ingot::kernel::{
     amend,
     cancel,
+    cooled,
     decide,
     exposure,
     left_in_window,
@@ -37,9 +38,12 @@ pub msg VaultMsg {
     Pay { to: Address, amount: u256, nonce: u64 } -> u8,
 
     // Read-only: what would `pay` answer right now, and what would be left?
+    // It answers for the rules only. It does not check that the vault holds
+    // enough to make the transfer; an allowed `pay` reverts if it does not.
     #[selector = sol("preview(address,address,uint256,uint64)")]
     Preview { caller: Address, to: Address, amount: u256, nonce: u64 } -> (u8, u256),
-    // Read-only: the most the agent can move from now until `until`.
+    // Read-only: the most the rules let the agent move from now until
+    // `until`. The vault's balance is a further limit this does not apply.
     #[selector = sol("exposure(uint64)")]
     Exposure { until: u64 } -> u256,
 
@@ -143,9 +147,9 @@ fn seconds(_ at: Timestamp) -> u64 {
     at.as_seconds().downcast_saturate()
 }
 
-fn is_approved(from: u64, now: u64) -> bool {
-    from != 0 && now >= from
-}
+/// The shortest cooling period a vault may be created with. Anything
+/// shorter is a ratchet in name only.
+const MIN_COOLING_SECS: u64 = 60
 
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     owner: Address,
@@ -184,7 +188,9 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         mut approved_from,
     )
     {
-        if window_secs == 0 || cooling_secs == 0 {
+        // A vault whose owner is also its agent has no owner-only controls,
+        // and one with next to no cooling period has no ratchet.
+        if window_secs == 0 || cooling_secs < MIN_COOLING_SECS || owner_ == agent_ {
             revert_error(InvalidPolicy {})
         }
         let now = seconds(ctx.timestamp())
@@ -225,7 +231,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 amount,
                 nonce,
                 from_agent: ctx.caller() == agent,
-                to_approved: is_approved(from: approved_from.get(key: to), now),
+                to_approved: cooled(at: approved_from.get(key: to), now),
             }
             match decide(rules, ledger, request, now) {
                 Decision::Allow(next) => {
@@ -267,7 +273,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 amount,
                 nonce,
                 from_agent: caller == agent,
-                to_approved: is_approved(from: approved_from.get(key: to), now),
+                to_approved: cooled(at: approved_from.get(key: to), now),
             }
             let decision = decide(rules, ledger, request, now)
             (decision.code(), decision.detail(policy: rules.current(now)))

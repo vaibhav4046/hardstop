@@ -59,7 +59,9 @@ willingness to keep the money. If every approved recipient is honest, a
 compromised agent can only overpay people the owner already chose to pay.
 
 It can also: waste its own gas on refused requests, and fill the vault's
-event log with `Blocked` entries (it pays for each one).
+event log with `Blocked` entries (it pays for each one). Nobody else can
+write to that log: a caller that is not the agent is reverted, paused or
+not.
 
 ## What the agent cannot do
 
@@ -69,16 +71,18 @@ Each line is a test. `F` = `fe/src/vault_tests.fe`, `K` = `fe/src/tests.fe`,
 
 | Claim | Evidence |
 |---|---|
-| A caller that is not the agent cannot spend. | F `stranger_cannot_pay` (exact error `NotAgent()`), C, D (80 stranger calls) |
+| A caller that is not the agent cannot spend, and cannot write to the log, even during a pause. | F `stranger_cannot_pay`, `stranger_is_reverted_even_while_paused` (exact error `NotAgent()`), C, D (113 stranger calls) |
 | The agent cannot change limits, recipients, the queue or pause state, and cannot withdraw. | F `agent_cannot_*` (exact error `NotOwner()`), C |
 | Owner, agent, token, window length and cooling period cannot change at all. | Immutable contract fields; no handler lists them `mut`. |
+| Owner and agent are different addresses, and the cooling period is at least a minute. | F `owner_and_agent_must_differ`, `cooling_period_under_a_minute_is_rejected`, C |
 | A denied payment moves nothing and leaves the ledger as it was. | F `over_limit_payment_moves_nothing`, D (every request) |
 | A payment cannot exceed the caps; splitting does not help. | K, F `splitting_cannot_beat_the_daily_cap`, A |
 | A request cannot run twice. | K, F `replayed_request_is_refused`, A (`AcceptsReplays` mutant is caught) |
 | Pause is immediate. | K, F `pause_is_instant`, C |
 | A raise cannot take effect before the cooling period ends, to the second. | K, C, A (`SkipsCooling` mutant is caught) |
 | Arithmetic cannot overflow or underflow. | K `extreme_inputs_never_panic`; Fe arithmetic is checked by default and the kernel is written so the checks never fire. |
-| A failed transfer does not leave a recorded payment. | F `failed_transfer_reverts_the_whole_payment`, C |
+| A failed transfer does not leave a recorded payment. | F `failed_transfer_reverts_and_leaves_the_ledger_untouched`, C |
+| A token that re-enters `pay` cannot get past the caps or replay. | F `a_hostile_token_cannot_reenter_past_the_caps` |
 | What the app shows is what the contract did. | The app has no copy of the rules; `web/src/lib/hardstop/sim.ts` only encodes calls and decodes results. D compares the contract with the native kernel on every request. |
 | Total paid never exceeds the exposure bound. | A (every game), C `a greedy agent takes exactly the exposure bound`, D (every vault) |
 
@@ -107,9 +111,10 @@ none.
 5. **A malicious or unusual token.** The token is fixed at creation and
    trusted. A token that lies about transfers, charges fees, rebases, or
    re-enters could break the accounting between the ledger and real
-   balances. The vault updates its ledger before calling the token, so a
-   re-entrant `pay` sees the payment already counted, but this has not been
-   tested against a hostile token.
+   balances, or freeze `pay` and `withdraw` by always failing. The vault
+   updates its ledger before calling the token, and a test with a
+   re-entering token shows it cannot replay or exceed the caps that way; a
+   token that simply lies about transfers is not defended against.
 6. **Block timestamp drift.** Limits use `block.timestamp`, which a block
    proposer can nudge by seconds. Irrelevant at day-length windows, relevant
    if someone configures one-second windows.

@@ -3,10 +3,16 @@
 //! `campaign` plays many random games. In each game an agent fires hostile
 //! requests (over the cap, one unit over, replayed, from a stranger, to an
 //! unapproved recipient, zero, enormous) while time jumps around window
-//! edges and the owner keeps amending the rules. After every request the
-//! verdict is checked against `spec_allows`, a second, independent statement
-//! of the rules, and against the exposure bound computed at the start of the
-//! game.
+//! edges and the owner keeps amending the rules.
+//!
+//! Two things are checked after every request:
+//!
+//! 1. The verdict, against `spec_allows`: a second statement of the rules
+//!    that shares no code with `decide`.
+//! 2. The exposure promise. Again and again during a game the campaign asks
+//!    the engine "how much can leave between now and the end of the cooling
+//!    period?", then counts what actually leaves, whatever the owner
+//!    proposes meanwhile. One unit over the answer is a violation.
 //!
 //! Like the kernel, this module is pure and compiles for both targets, so
 //! the same games run under `fe test` on the EVM and natively. Everything is
@@ -21,7 +27,6 @@ use ingot::kernel::{
     cancel,
     decide,
     exposure,
-    left_in_window,
     Decision,
     Ledger,
     Policy,
@@ -31,9 +36,19 @@ use ingot::kernel::{
     Schedule,
 }
 
-/// Something that decides requests. The real kernel, or a broken copy of it.
+/// The three kernel functions a vault relies on. An implementation supplies
+/// `decide`; `amend` and `exposure` default to the real kernel's, so a broken
+/// copy overrides only the part it breaks.
 pub trait Engine {
     fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision
+
+    fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+        amend(rules, proposed, now)
+    }
+
+    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+        exposure(rules, ledger, now, until)
+    }
 }
 
 /// The real kernel.
@@ -98,18 +113,37 @@ pub struct Report {
     /// Fingerprint of every verdict, in order. Two targets that agree on
     /// every verdict produce the same digest.
     pub digest: u64,
+    /// How many times the exposure promise was taken afresh.
+    pub promises: u64,
+    /// Of those: taken while a raise was queued.
+    pub promises_with_queue: u64,
+    /// Of those: taken with money already spent in the current window.
+    pub promises_with_spend: u64,
+    /// Of those: the agent went on to take every last unit promised.
+    pub promises_reached: u64,
 }
 
 impl Copy for Report {}
 
-/// The rules, stated a second time and in a different shape from `decide`:
-/// one conjunction instead of an ordered chain of early returns.
+const MAX_U64: u64 = 18446744073709551615
+
+/// The rules, stated a second time. Nothing here calls into the kernel: the
+/// maturity rule, the window arithmetic and the cap comparison are each
+/// written out again, in a different shape from `decide` (one conjunction
+/// instead of an ordered chain of early returns, and a subtraction where
+/// `decide` adds).
 pub fn spec_allows(rules: Rules, ledger: Ledger, request: Request, now: u64) -> bool {
     let schedule = rules.schedule
     if schedule.window_secs == 0 || now < schedule.anchor {
         return false
     }
-    let policy = rules.current(now)
+    let takes_over = rules.queued.effective_at
+    let raised = takes_over != 0 && takes_over != MAX_U64 && takes_over <= now
+    let policy = if raised {
+        rules.queued.policy
+    } else {
+        rules.active
+    }
     let window = (now - schedule.anchor) / schedule.window_secs
     let spent: u256 = if window == ledger.window {
         ledger.spent
@@ -121,10 +155,11 @@ pub fn spec_allows(rules: Rules, ledger: Ledger, request: Request, now: u64) -> 
         && request.to_approved
         && now <= policy.valid_until
         && request.nonce == ledger.next_nonce
-        && ledger.next_nonce != 18446744073709551615
+        && ledger.next_nonce != MAX_U64
         && request.amount != 0
         && request.amount <= policy.per_payment
-        && request.amount <= left_in_window(policy, spent)
+        && request.amount <= policy.per_window
+        && spent <= policy.per_window - request.amount
 }
 
 fn mix(_ digest: u64, _ value: u64) -> u64 {
@@ -160,15 +195,15 @@ fn pick_amount(_ rng: mut Rng, _ policy: Policy, left: u256) -> u256 {
     } else {
         left
     }
-    if roll < 3 {
+    if roll < 4 {
         // Exactly as much as is allowed.
         most
-    } else if roll < 5 {
+    } else if roll < 6 {
         // One unit too many.
         most + 1
-    } else if roll == 5 {
-        0
     } else if roll == 6 {
+        0
+    } else if roll == 7 {
         // Everything.
         115792089237316195423570985008687907853269984665640564039457584007913129639935
     } else {
@@ -178,9 +213,14 @@ fn pick_amount(_ rng: mut Rng, _ policy: Policy, left: u256) -> u256 {
     }
 }
 
-fn pick_step(_ rng: mut Rng, window_secs: u64, now: u64, anchor: u64) -> u64 {
-    let roll = rng.below(8)
-    if roll < 3 {
+/// How far to move the clock. `raise_at` is when a queued raise takes
+/// effect, or zero.
+fn pick_step(_ rng: mut Rng, window_secs: u64, now: u64, anchor: u64, raise_at: u64) -> u64 {
+    let roll = rng.below(9)
+    if roll == 8 && raise_at > now {
+        // Land on the last second before a waiting raise, or on its first.
+        raise_at - now - 1 + rng.below(2)
+    } else if roll < 3 {
         0
     } else if roll < 5 {
         1 + rng.below(3)
@@ -206,6 +246,10 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
         at_case: 0,
         at_step: 0,
         digest: 0xcbf29ce484222325,
+        promises: 0,
+        promises_with_queue: 0,
+        promises_with_spend: 0,
+        promises_reached: 0,
     }
 
     var case: u64 = 0
@@ -230,31 +274,69 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
             anchor + rng.below(window_secs)
         }
 
-        // The promise under test: from here until the cooling period would
-        // end, no more than `bound` leaves, whatever happens.
-        let until = now + cooling_secs - 1
-        let bound = exposure(rules, ledger, now, until)
+        // The promise under test. `until == 0` means none has been taken yet.
+        var until: u64 = 0
+        var bound: u256 = 0
         var paid: u256 = 0
+        var reached = false
 
         var step: u64 = 0
         while step < steps {
-            now = now + pick_step(mut rng, window_secs, now, anchor)
+            now = now
+                + pick_step(
+                    mut rng,
+                    window_secs,
+                    now,
+                    anchor,
+                    raise_at: rules.queued.effective_at,
+                )
+
+            // Take the promise afresh when the last one has run out, and now
+            // and then before it has: "from this second until the cooling
+            // period would end, no more than `bound` leaves, whatever the
+            // owner proposes from here on".
+            if now > until || rng.one_in(5) {
+                until = now + cooling_secs - 1
+                bound = E::exposure(rules, ledger, now, until)
+                paid = 0
+                reached = false
+                report.promises = report.promises + 1
+                if rules.queued.is_some() && !rules.queued.matured(now) {
+                    report.promises_with_queue = report.promises_with_queue + 1
+                }
+                let counted = now >= anchor && (now - anchor) / window_secs == ledger.window
+                if counted && ledger.spent != 0 {
+                    report.promises_with_spend = report.promises_with_spend + 1
+                }
+            }
 
             // The owner changes its mind now and then.
             let owner = rng.below(12)
             if owner == 0 {
-                rules = amend(
+                rules = E::amend(
                     rules,
                     proposed: pick_policy(mut rng, around: now, window_secs),
                     now,
                 )
             } else if owner == 1 {
                 rules = cancel(rules, now)
+            } else if owner == 2 && rules.queued.is_some() && !rules.queued.matured(now) {
+                // Not content with the raise that is waiting, the owner asks
+                // for a bigger one.
+                var bigger = rules.queued.policy
+                bigger.per_payment = bigger.per_payment + (1 + rng.below(50)) as u256
+                bigger.per_window = bigger.per_window + (1 + rng.below(100)) as u256
+                rules = E::amend(rules, proposed: bigger, now)
             }
 
             let policy = rules.current(now)
             let in_window = now >= anchor && (now - anchor) / window_secs == ledger.window
             let spent: u256 = if in_window { ledger.spent } else { 0 }
+            let left: u256 = if spent >= policy.per_window {
+                0
+            } else {
+                policy.per_window - spent
+            }
             let nonce_roll = rng.below(16)
             let nonce = if nonce_roll == 0 && ledger.next_nonce > 0 {
                 // Replay the last payment.
@@ -265,7 +347,7 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                 ledger.next_nonce
             }
             let request = Request {
-                amount: pick_amount(mut rng, policy, left: left_in_window(policy, spent)),
+                amount: pick_amount(mut rng, policy, left),
                 nonce,
                 from_agent: !rng.one_in(20),
                 to_approved: !rng.one_in(16),
@@ -287,11 +369,15 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                         || next.spent != spent + request.amount {
                         violation = BAD_LEDGER
                     }
-                    if now <= until {
-                        paid = paid.saturating_add(request.amount)
-                        if violation == OK && paid > bound {
-                            violation = OVER_EXPOSURE
-                        }
+                    // `now <= until` always holds here: the promise was
+                    // re-taken above if it had run out.
+                    paid = paid.saturating_add(request.amount)
+                    if violation == OK && paid > bound {
+                        violation = OVER_EXPOSURE
+                    }
+                    if paid == bound && !reached {
+                        reached = true
+                        report.promises_reached = report.promises_reached + 1
                     }
                     ledger = next
                 },
@@ -332,7 +418,11 @@ pub fn greedy_take(rules: Rules, ledger: Ledger, now: u64, until: u64, stride: u
                 && rules.schedule.window_secs != 0
                 && (at - rules.schedule.anchor) / rules.schedule.window_secs == ledger.window
             let spent: u256 = if in_window { ledger.spent } else { 0 }
-            let left = left_in_window(policy, spent)
+            let left: u256 = if spent >= policy.per_window {
+                0
+            } else {
+                policy.per_window - spent
+            }
             let amount = if policy.per_payment < left {
                 policy.per_payment
             } else {

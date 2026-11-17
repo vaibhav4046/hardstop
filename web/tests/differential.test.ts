@@ -105,7 +105,7 @@ test(`vault bytecode and native kernel agree on ${VAULTS * STEPS} payment reques
   for (let v = 0; v < VAULTS; v++) {
     const r = rng(SEED + v * 7919)
     const windowSecs = r.pick([60n, 3600n, 86_400n])
-    const coolingSecs = r.pick([30n, 3600n, 86_400n])
+    const coolingSecs = r.pick([60n, 3600n, 86_400n])
     const first = randomPolicy(r, T0, windowSecs)
     const sim = await Sim.create({
       owner: OWNER,

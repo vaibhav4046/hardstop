@@ -62,8 +62,9 @@ against the kernel: over the cap, one unit over, replayed, from a stranger,
 to an unapproved recipient, zero, enormous, with time jumping around window
 edges and the owner amending the rules mid-game. Every verdict is checked
 against a second, independently written statement of the rules and against
-the exposure bound. The same campaign is pointed at eight deliberately
-broken kernels and must catch each one.
+the exposure bound, which it re-takes many times per game. The same
+campaign is pointed at fourteen deliberately broken kernels and must catch
+each one.
 
 The kernel and the adversary have no `#[cfg]` and no `uses` clause, so they
 compile for the EVM and natively from one source and cannot perform effects
@@ -143,6 +144,10 @@ web/
 ```
 
 Design decisions and their costs: [`DECISIONS.md`](DECISIONS.md).
+An independent adversarial review, what it found and what was fixed:
+[`security/AUDIT.md`](security/AUDIT.md).
+An independent adversarial review, what it found and what was fixed:
+[`security/AUDIT.md`](security/AUDIT.md).
 Trust boundaries and what is not defended: [`security/THREAT_MODEL.md`](security/THREAT_MODEL.md),
 [`security/ASSUMPTIONS.md`](security/ASSUMPTIONS.md).
 
@@ -157,15 +162,15 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 50 tests on the EVM
-fe test --backend native          # the 30 kernel + adversary tests again, natively
+fe test                           # 68 tests on the EVM
+fe test --backend native          # the 44 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
 ./out/hardstop campaign 5206533097626292048 20000 40
 
 cd ../web
 npm ci
-npm test                          # 12 time-travel tests + the differential test
+npm test                          # 15 tests on the compiled contract + the differential test
 ```
 
 Every command above runs in [CI](.github/workflows/ci.yml) on each push,
@@ -178,13 +183,14 @@ Measured on 2026-11-17; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 50 passed, 0 failed |
-| `fe test --backend native` | 30 passed, 0 failed |
-| Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `18432554080552133010` asserted on both |
-| Adversary vs broken kernels | 8 of 8 mutants caught, on both targets |
-| Contract vs native kernel (`web/tests/differential.test.ts`) | 2,400 payment requests (343 allowed, 1,977 denied, 80 reverted) and 480 exposure queries: agreed on all |
-| Time-travel tests against the contract | 12 passed |
-| Vault runtime size | 7,518 bytes |
+| `fe test` (EVM) | 68 passed, 0 failed |
+| `fe test --backend native` | 44 passed, 0 failed |
+| Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
+| Adversary vs broken kernels | 14 of 14 mutants caught, on both targets |
+| Exposure promise under attack | taken 2,938 times in 200 games: 347 with a raise waiting, 565 with money already spent, reached exactly 100 times, never exceeded |
+| Contract vs native kernel (`web/tests/differential.test.ts`) | 2,400 payment requests (336 allowed, 1,951 denied, 113 reverted) and 480 exposure queries: agreed on all |
+| Tests against the compiled contract with a controllable clock | 15 passed |
+| Vault runtime size | 7,539 bytes |
 
 `fe test` has no fuzzer and cannot move the block timestamp. The seeded
 campaign is the substitute for the first; the JS-EVM tests are the
@@ -209,7 +215,9 @@ substitute for the second.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
 - **A stolen owner key is out of scope**, as is a malicious token.
-- **Unaudited**, and built on a young compiler.
+- **Not professionally audited**, and built on a young compiler. An AI
+  reviewer attacked it once ([`security/AUDIT.md`](security/AUDIT.md));
+  that is not the same thing.
 
 The full list, with what breaks under each, is in the threat model.
 

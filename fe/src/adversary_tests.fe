@@ -14,8 +14,10 @@ use ingot::adversary::{
     OVER_EXPOSURE,
 }
 use ingot::kernel::{
+    amend,
     decide,
     exposure,
+    loosens,
     Decision,
     Ledger,
     Policy,
@@ -47,6 +49,21 @@ fn the_kernel_survives_the_campaign() {
     assert!(report.denied * 4 > report.requests)
 }
 
+/// The exposure promise is only worth checking if the campaign takes it in
+/// interesting states and the agent actually pushes against it.
+#[test]
+fn the_campaign_presses_on_the_exposure_bound() {
+    let report = campaign<Kernel>(seed: SEED, cases: 200, steps: STEPS)
+    assert!(report.violation == OK)
+    // Taken many times per game, not once.
+    assert!(report.promises > 200 * 10)
+    // Taken while a raise was waiting, and with money already spent.
+    assert!(report.promises_with_queue * 20 > report.promises)
+    assert!(report.promises_with_spend * 20 > report.promises)
+    // And the agent took every last unit of it, in at least one promise in fifty.
+    assert!(report.promises_reached * 50 > report.promises)
+}
+
 /// The same 200 games on both targets must produce the same fingerprint of
 /// verdicts. If the EVM build and the native build ever disagreed on a
 /// single request, one of the two runs would fail here.
@@ -55,8 +72,8 @@ fn both_targets_reach_the_same_verdicts() {
     let report = campaign<Kernel>(seed: SEED, cases: 200, steps: STEPS)
     assert!(report.violation == OK)
     assert!(report.requests == 8000)
-    assert!(report.allowed == 1739)
-    assert!(report.digest == 18432554080552133010)
+    assert!(report.allowed == 1745)
+    assert!(report.digest == 885356084767103301)
 }
 
 #[test]
@@ -83,6 +100,9 @@ fn a_greedy_agent_gets_exactly_the_exposure_bound() {
 }
 
 // --- broken kernels the campaign must catch --------------------------------
+//
+// Each one differs from the real kernel in a single way. A test passes only
+// if the campaign reports a violation, and of the expected kind.
 
 /// Lets a payment through that is one unit over the single-payment cap.
 struct OneOverCap {}
@@ -146,6 +166,19 @@ impl Engine for SkipsCooling {
     }
 }
 
+/// Lets a queued raise take effect one second early.
+struct OneSecondEarly {}
+
+impl Engine for OneSecondEarly {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        var early = rules
+        if early.queued.effective_at > 1 {
+            early.queued.effective_at = early.queued.effective_at - 1
+        }
+        decide(rules: early, ledger, request, now)
+    }
+}
+
 /// Pays anyone, approved or not.
 struct PaysAnyone {}
 
@@ -192,6 +225,89 @@ impl Engine for UnderCounts {
     }
 }
 
+/// Promises half of what can actually leave.
+struct UnderstatesExposure {}
+
+impl Engine for UnderstatesExposure {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        decide(rules, ledger, request, now)
+    }
+
+    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+        exposure(rules, ledger, now, until) / 2
+    }
+}
+
+/// Computes the bound as if no raise were waiting.
+struct ExposureForgetsQueue {}
+
+impl Engine for ExposureForgetsQueue {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        decide(rules, ledger, request, now)
+    }
+
+    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+        let unqueued = Rules {
+            schedule: rules.schedule,
+            active: rules.active,
+            queued: Queued::none(),
+        }
+        exposure(rules: unqueued, ledger, now, until)
+    }
+}
+
+/// Takes spending from an older window off the bound for the current one.
+struct ExposureCountsStaleSpend {}
+
+impl Engine for ExposureCountsStaleSpend {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        decide(rules, ledger, request, now)
+    }
+
+    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+        var stale = ledger
+        if now >= rules.schedule.anchor && rules.schedule.window_secs != 0 {
+            stale.window = (now - rules.schedule.anchor) / rules.schedule.window_secs
+        }
+        exposure(rules, ledger: stale, now, until)
+    }
+}
+
+/// Applies a raise the moment it is proposed.
+struct AmendSkipsCooling {}
+
+impl Engine for AmendSkipsCooling {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        decide(rules, ledger, request, now)
+    }
+
+    fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+        if loosens(rules.current(now), to: proposed) {
+            Rules { schedule: rules.schedule, active: proposed, queued: Queued::none() }
+        } else {
+            amend(rules, proposed, now)
+        }
+    }
+}
+
+/// When a raise is already waiting, a new and bigger one inherits its
+/// place in the queue instead of starting its own wait.
+struct AmendKeepsOldMaturity {}
+
+impl Engine for AmendKeepsOldMaturity {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+        decide(rules, ledger, request, now)
+    }
+
+    fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+        var next = amend(rules, proposed, now)
+        if rules.queued.is_some() && !rules.queued.matured(now) && next.queued.is_some() {
+            next.queued.effective_at = rules.queued.effective_at
+        }
+        next
+    }
+}
+
 #[test]
 fn catches_a_kernel_that_is_one_over_the_cap() {
     assert!(
@@ -228,6 +344,13 @@ fn catches_a_kernel_that_skips_cooling() {
 }
 
 #[test]
+fn catches_a_raise_that_lands_one_second_early() {
+    assert!(
+        campaign<OneSecondEarly>(seed: SEED, cases: 200, steps: STEPS).violation != OK,
+    )
+}
+
+#[test]
 fn catches_a_kernel_that_pays_anyone() {
     assert!(
         campaign<PaysAnyone>(seed: SEED, cases: 200, steps: STEPS).violation == ALLOWED_WRONGLY,
@@ -245,5 +368,45 @@ fn catches_a_kernel_that_is_too_strict() {
 fn catches_a_kernel_that_under_counts() {
     assert!(
         campaign<UnderCounts>(seed: SEED, cases: 200, steps: STEPS).violation == BAD_LEDGER,
+    )
+}
+
+#[test]
+fn catches_an_exposure_bound_that_is_too_low() {
+    assert!(
+        campaign<UnderstatesExposure>(seed: SEED, cases: 200, steps: STEPS).violation
+            == OVER_EXPOSURE,
+    )
+}
+
+#[test]
+fn catches_an_exposure_bound_that_forgets_a_waiting_raise() {
+    assert!(
+        campaign<ExposureForgetsQueue>(seed: SEED, cases: 200, steps: STEPS).violation
+            == OVER_EXPOSURE,
+    )
+}
+
+#[test]
+fn catches_an_exposure_bound_that_counts_stale_spending() {
+    assert!(
+        campaign<ExposureCountsStaleSpend>(seed: SEED, cases: 200, steps: STEPS).violation
+            == OVER_EXPOSURE,
+    )
+}
+
+#[test]
+fn catches_a_raise_applied_without_waiting() {
+    assert!(
+        campaign<AmendSkipsCooling>(seed: SEED, cases: 200, steps: STEPS).violation
+            == OVER_EXPOSURE,
+    )
+}
+
+#[test]
+fn catches_a_raise_that_jumps_the_queue() {
+    assert!(
+        campaign<AmendKeepsOldMaturity>(seed: SEED, cases: 200, steps: STEPS).violation
+            == OVER_EXPOSURE,
     )
 }

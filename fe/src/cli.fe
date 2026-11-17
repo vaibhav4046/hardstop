@@ -253,6 +253,10 @@ pub fn run() -> i32 uses (out: mut Stdout, args: Args, input: mut Stdin) {
                 println!("at_case ", report.at_case)
                 println!("at_step ", report.at_step)
                 println!("digest ", report.digest)
+                println!("promises ", report.promises)
+                println!("promises_with_queue ", report.promises_with_queue)
+                println!("promises_with_spend ", report.promises_with_spend)
+                println!("promises_reached ", report.promises_reached)
                 return if report.violation == 0 { 0 } else { 1 }
             },
             Option::None => {
