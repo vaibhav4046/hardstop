@@ -3,7 +3,7 @@ import { ProtectForm } from '@/components/protect-form'
 
 export const metadata: Metadata = {
   title: 'Protect my AI',
-  description: 'Set a cap per payment, a cap per day, an end date and up to three recipients, then create a practice vault.',
+  description: 'Set a cap per payment, a cap per day, an end date and up to three recipients, then create a vault on a test network or in your browser.',
 }
 
 export default function Protect() {

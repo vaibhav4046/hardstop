@@ -3,7 +3,7 @@ import { ActivityBoard } from '@/components/activity-board'
 
 export const metadata: Metadata = {
   title: 'Activity',
-  description: 'Your practice vault: what the agent asked for, what the vault answered, and the controls only you have.',
+  description: 'Your vault: what the agent asked for, what the vault answered, and the controls only you have.',
 }
 
 export default function Activity() {
