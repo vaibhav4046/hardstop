@@ -15,7 +15,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 |---|---|---|
 | The kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `88 passed; 0 failed` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux / macOS / WSL) | `49 passed`, incl. `both_targets_reach_the_same_verdicts` |
-| The agent's `Pay` cannot change the rules; owner handlers cannot skip the owner check; proofs cannot be hand-made, reused or dropped; verdict codes cannot collide | `FE=fe bash scripts/pay-cannot-loosen.sh` | 16 lines starting `ok` |
+| The agent's `Pay` cannot change the rules; owner handlers cannot skip the owner check; a proof cannot be hand-made or reused, or silently left unused (`let _ =` still compiles); the verdict-code constants stay distinct. Not covered: an owner handler assigning raised limits directly (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 16 lines starting `ok` |
 | The attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` (after the native build) | `violation 0` |
 | The web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `58` pass |
 | The whole site, in a browser | `cd web && npm run e2e` | 58 tests (see the note in the results table) |
@@ -173,10 +173,12 @@ The verdict codes are checked at compile time too. `Reason::code` returns
 named constants (`CODE_PAUSED`, `CODE_OVER_PAYMENT_LIMIT`, ...), and a chain
 of `static_assert`s in `kernel.fe` makes 0 "allowed" and every refusal code
 the previous one plus one. The vault returns these codes, the native tool
-prints them and the web app names them, so a code that drifted would
-mislabel every receipt; instead the build fails ("static assertion failed",
-8-0081), and the same CI script proves it by turning one code into a
-duplicate. These checks add no bytecode: the compiled contracts are
+prints them and the web app names them, so a constant edited into a
+duplicate would mislabel every receipt; instead the build fails ("static
+assertion failed", 8-0081), and the same CI script proves it. What this does
+not check: that each `Reason` maps to its own constant. Pointing two
+reasons at the same constant still compiles; the tests that assert each
+reason's code catch that, not the compiler. These checks add no bytecode: the compiled contracts are
 byte-identical with or without them.
 
 The other half is that the same `decide` is the body of a native program:

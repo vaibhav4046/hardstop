@@ -52,10 +52,14 @@ queued, approved_from, mut ledger, mut call, mut log)`: the rules appear
 without `mut`, so the agent's only handler cannot change them. Owner
 authority is a type: `amend`, `cancel`, recipient approval and withdrawal
 each need an `OwnerProof`, which only `authorize(owner, caller)` can make
-(its field is private to the kernel). A proof is spent by its first use and
-cannot be dropped unused. CI proves these on every push: a `Pay` that writes
-the rules, an owner handler with its owner check deleted, a hand-made
-`OwnerProof`, a proof used twice and a proof dropped all fail to compile.
+(its field is private to the kernel). A proof is spent by its first use,
+and leaving one unused is a compile error unless it is discarded on purpose
+with `let _ =`. CI proves these on every push: a `Pay` that writes the
+rules, an owner handler with its owner check deleted, a hand-made
+`OwnerProof`, a proof used twice and a proof left unused all fail to
+compile. The cooling period itself is not a compiler guarantee: an owner
+handler could still assign raised limits directly instead of going through
+`amend`.
 The limits: `authorize` is public, so the compiler would accept a handler
 that passes the caller as both arguments and proves anyone is the owner.
 Proofs are bound to the stored owner and the real caller only by the vault's

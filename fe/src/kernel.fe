@@ -235,9 +235,11 @@ const NEVER: Instant = Instant { secs: MAX_U64 }
 
 /// Wire codes for a verdict. The vault returns them from `pay` and logs them,
 /// the native tool prints them and the web app names them, so they must never
-/// shift. The compiler checks that: 0 is "allowed" and each refusal is the one
-/// before it plus one, so no two codes collide and none is skipped. Editing a
-/// code into a duplicate fails to build (`scripts/pay-cannot-loosen.sh`).
+/// shift. The compiler checks the constants: 0 is "allowed" and each refusal
+/// is the one before it plus one, so no two constants collide and none is
+/// skipped; editing one into a duplicate fails to build
+/// (`scripts/pay-cannot-loosen.sh`). It does not check that each `Reason`
+/// below uses its own constant; the tests on each reason's code do that.
 pub const CODE_ALLOWED: u8 = 0
 pub const CODE_INVALID_POLICY: u8 = 1
 pub const CODE_PAUSED: u8 = 2
