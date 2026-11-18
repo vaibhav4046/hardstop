@@ -203,6 +203,7 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | Tests against the compiled contract with a controllable clock | 15 passed |
 | Launcher, and the wallet path against a stand-in wallet (`launcher.test.ts`, `live.test.ts`) | 7 and 9 passed |
 | The same wallet code on Base Sepolia, a public test network (2026-11-18) | launcher installed ([tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099)), vault created ([tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62)), agent paid $4 ([tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a)), agent refused $80 over its per-payment limit ([tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967)), agent's attempt to raise its own limit refused before sending. All four succeeded; vault left with $96, recipient $4 |
+| A vault opened by clicking through MetaMask on the live site (2026-11-18) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
 | Vault runtime size | 7,539 bytes |
 | Browser suite (`npm run e2e`, Chromium, production build) | 55 passed, 0 failed: seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
@@ -234,10 +235,15 @@ substitute for the second.
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
   The launcher, `0x956fbbde5fcb981e5a8507b369c79105815d562d`, is installed on
   Base Sepolia (see the table above); on Sepolia it installs itself on first
-  use. The Base Sepolia run signed as the owner with a throwaway test key
-  from a script, through the same `src/lib/live` code the site runs; a launch
-  clicked through MetaMask has not yet completed. The agent is a trial key
-  kept in the browser; a real agent would hold its own key.
+  use. Two vaults exist there: one opened from a script with a throwaway
+  test key, one opened by clicking through MetaMask on the live site (see
+  the table above). The agent is a trial key kept in the browser; a real
+  agent would hold its own key.
+- **MetaMask can refuse the owner's transactions after a network switch.**
+  A site connected while MetaMask was on Ethereum mainnet and then switched
+  to Base Sepolia got error 4100 on every send, though its permissions listed
+  both. The site now asks for the account again once and retries; only that
+  one case was seen, in Comet (a Chromium browser) on 2026-11-18.
 - **MetaMask warns before connecting.** On 2026-11-18 MetaMask's site scanner
   showed "Continue at your own risk" for `hardstop-omega.vercel.app`. The site
   is not on MetaMask's public blocklist (`eth-phishing-detect`); a review has

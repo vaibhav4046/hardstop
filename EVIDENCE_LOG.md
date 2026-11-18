@@ -361,6 +361,33 @@ Read back independently with `eth_getCode`, `eth_getTransactionReceipt` and
 covers "thousands" of agent payments was wrong; at the measured fee it is
 about 34, and the comment now says so.
 
-Still not done: a launch clicked through MetaMask. The owner's account holds
-0.0001 test ETH; the last attempt stopped at MetaMask ("The requested account
-and/or method has not been authorized by the user").
+**A vault through MetaMask on the live site (later, 2026-11-18).** Every
+owner send was refused within about 16 ms with 4100 ("The requested account
+and/or method has not been authorized by the user"), with no MetaMask window,
+while reads worked. Logged in the page: `eth_requestAccounts`, `eth_chainId`,
+`eth_getBalance`, `eth_getCode` ok, `eth_sendTransaction` 4100.
+`wallet_getPermissions` listed the account and `0x14a34` among permitted
+chains; only one wallet was announced (EIP-6963: MetaMask); adding `chainId`
+to the transaction made no difference. The site had been connected while
+MetaMask was on Ethereum mainnet and switched to Base Sepolia afterwards.
+After `wallet_requestPermissions({ eth_accounts: {} })`, which the owner
+approved, the same click went through:
+
+```
+vault   0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2  7,667 bytes; owner() = the MetaMask account
+launch  0xfea50873...c5b8  status 1  gas 1,969,784
+        sent by 0xc066ac... to 0xdb9b1e...: the account is a MetaMask smart
+        account (EIP-7702, code 0xef0100 63c0c19a...) and MetaMask relayed it;
+        Launched(owner = the MetaMask account, vault, agent 0xeac694...)
+agent pays $4    0xa9d98697...c562  status 1  gas 122,312  paid
+agent pays $80   0xeb1947f5...2744  status 1  gas  49,956  refused, over per-payment limit
+agent raises own limit: rejected NotOwner in the rehearsal, nothing sent
+vault after: 96 test dollars
+```
+
+Fix: owner sends go through `sendAsOwner` in `lib/live/wallet.ts`, which on
+4100 asks for the account again once and retries. `live.test.ts` has a test
+with the stand-in wallet refusing the account until asked again. The cause is
+inferred from the fix working once; it was seen in Comet only. Also: the
+Activity page title and live receipts no longer say "practice".
+
