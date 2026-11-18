@@ -32,6 +32,12 @@ export class FakeNetwork {
   readonly relayed: { from: Hex; to: Hex | null }[] = []
   /** When set, the next request for approval is turned down, as if the person closed the wallet. */
   refuseNext = false
+  /**
+   * When set, sends are refused with 4100 until the site asks for the account
+   * again, as MetaMask did on 2026-11-18 for a site connected on one network
+   * and switched to another.
+   */
+  accountRefused = false
   private readonly evm: EVM
   private readonly common: Common
   private block = 1n
@@ -87,8 +93,14 @@ export class FakeNetwork {
         if (!result.ok) throw Object.assign(new Error('execution reverted'), { code: 3, data: result.data })
         return toHex(result.gasUsed + 21_000n)
       }
+      case 'wallet_requestPermissions':
+        this.accountRefused = false
+        return [{ parentCapability: 'eth_accounts' }]
       case 'eth_sendTransaction': {
         const call = params[0] as Call
+        if (this.accountRefused) {
+          throw Object.assign(new Error('The requested account and/or method has not been authorized by the user.'), { code: 4100 })
+        }
         if (this.refuseNext) {
           this.refuseNext = false
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })

@@ -78,6 +78,25 @@ export function isRefusal(error: unknown): boolean {
   return (error as { code?: unknown })?.code === 4001
 }
 
+type OwnerTx = { from: Hex; to: Hex; data: Hex; value?: Hex }
+
+/**
+ * Sends as the owner through the wallet. A site connected while the wallet was
+ * on one network and then switched can have its account refused on the new one
+ * (MetaMask, error 4100, seen 2026-11-18). Asking for the account again fixes
+ * it, so do that once and retry; the wallet shows the person a connect window.
+ */
+export async function sendAsOwner(wallet: Wallet, tx: OwnerTx): Promise<Hex> {
+  const send = async () => (await wallet.request({ method: 'eth_sendTransaction', params: [tx] })) as Hex
+  try {
+    return await send()
+  } catch (error) {
+    if ((error as { code?: unknown })?.code !== 4100) throw error
+    await wallet.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] })
+    return send()
+  }
+}
+
 export async function accountOf(wallet: Wallet): Promise<Hex> {
   const accounts = (await wallet.request({ method: 'eth_requestAccounts' })) as string[]
   if (!accounts[0]) throw new Error('The wallet did not share an account.')

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function Activity() {
   return (
     <div className="wrap page">
-      <h1 className="page-title mb-[var(--gap-part)]">Your practice vault</h1>
+      <h1 className="page-title mb-[var(--gap-part)]">Your vault</h1>
       <ActivityBoard />
     </div>
   )

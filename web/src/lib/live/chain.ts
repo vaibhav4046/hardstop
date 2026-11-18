@@ -11,7 +11,7 @@
 import { privateKeyToAccount } from 'viem/accounts'
 import type { Hex } from 'viem'
 import type { ChainLike, Receipt } from '../hardstop/chain.ts'
-import { isRevert, revertData, toHex, waitFor, type Wallet } from './wallet.ts'
+import { isRevert, revertData, sendAsOwner, toHex, waitFor, type Wallet } from './wallet.ts'
 
 /** How stale the clock may be before the latest block is asked for again. */
 const CLOCK_MS = 4000
@@ -67,10 +67,7 @@ export class LiveChain implements ChainLike {
     let hash: Hex
     if (sender === this.agent) hash = await this.sendAsAgent(to, data)
     else if (sender === this.owner) {
-      hash = (await this.wallet.request({
-        method: 'eth_sendTransaction',
-        params: [{ from, to, data, value: toHex(value) }],
-      })) as Hex
+      hash = await sendAsOwner(this.wallet, { from, to, data, value: toHex(value) })
     } else throw new Error(`Nobody here holds a key for ${from}.`)
 
     const receipt = await waitFor(this.wallet, hash, this.pollMs)

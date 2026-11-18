@@ -178,6 +178,15 @@ test('a network without the deployment proxy is turned away before anything is s
   assert.equal(network.approved.length, 0)
 })
 
+test('when the wallet refuses the account on this network (4100), the site asks for it again once and the launch goes through', async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  network.accountRefused = true
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, FAST)
+  assert.equal(network.accountRefused, false, 'the account was asked for again')
+  assert.equal(live.owner, OWNER)
+  assert.equal(network.approved.length, 2)
+})
+
 test('a wallet with no test ETH is told so plainly before anything is signed', async () => {
   const network = await FakeNetwork.create(OWNER, NOW, true, 0n)
   await assert.rejects(launchVault(network, NETWORK, SETUP, () => {}, FAST), /no test ETH on .*faucet/)

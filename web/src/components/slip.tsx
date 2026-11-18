@@ -73,7 +73,7 @@ export function Slip({ entry, nameOf, vault, isNew = false, explorer }: Props) {
           </div>
         )}
         <div>
-          <dt>Practice clock</dt>
+          <dt>{explorer === undefined ? 'Practice clock' : 'Network clock'}</dt>
           <dd>{formatTime(entry.at)}</dd>
         </div>
       </dl>

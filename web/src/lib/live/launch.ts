@@ -12,7 +12,7 @@ import { generatePrivateKey } from 'viem/accounts'
 import { launcherAbi, launcherBytecode } from '../hardstop/artifacts.ts'
 import { Sim, ZERO, type Setup } from '../hardstop/sim.ts'
 import { LiveChain } from './chain.ts'
-import { accountOf, toHex, switchTo, waitFor, type Network, type Wallet } from './wallet.ts'
+import { accountOf, sendAsOwner, toHex, switchTo, waitFor, type Network, type Wallet } from './wallet.ts'
 
 /** The deterministic deployment proxy (Arachnid's), present at this address on the supported networks. */
 export const DEPLOYER: Hex = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
@@ -64,10 +64,7 @@ export async function launchVault(
   if (!(await hasCode(wallet, LAUNCHER))) {
     if (!(await hasCode(wallet, DEPLOYER))) throw new Error(`${network.name} does not have the deployment proxy this site relies on.`)
     onStep('installing')
-    const installed = (await wallet.request({
-      method: 'eth_sendTransaction',
-      params: [{ from: owner, to: DEPLOYER, data: `${SALT}${launcherBytecode.slice(2)}` }],
-    })) as Hex
+    const installed = await sendAsOwner(wallet, { from: owner, to: DEPLOYER, data: `${SALT}${launcherBytecode.slice(2)}` })
     const receipt = await waitFor(wallet, installed, pollMs)
     if (receipt.status !== '0x1' || !(await hasCode(wallet, LAUNCHER))) throw new Error('Installing the launcher failed.')
   }
@@ -83,10 +80,7 @@ export async function launchVault(
   })
 
   onStep('launching')
-  const launchedIn = (await wallet.request({
-    method: 'eth_sendTransaction',
-    params: [{ from: owner, to: LAUNCHER, data, value: toHex(network.gasMoney) }],
-  })) as Hex
+  const launchedIn = await sendAsOwner(wallet, { from: owner, to: LAUNCHER, data, value: toHex(network.gasMoney) })
   onStep('confirming')
   const receipt = await waitFor(wallet, launchedIn, pollMs)
   if (receipt.status !== '0x1') throw new Error('The network refused the transaction that creates the vault.')
