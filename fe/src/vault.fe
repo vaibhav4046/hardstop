@@ -5,32 +5,33 @@
 //! the kernel decided. Money leaves in two ways only: to an approved
 //! recipient on an `Allow` verdict, or back to the owner.
 //!
-//! Each handler's `uses` clause is its whole authority. `Pay` lists `active`,
-//! `queued` and `approved_from` without `mut`, so the agent's code path
-//! cannot change its own limits or its own recipients; the compiler rejects
-//! a `Pay` that tries. `owner`, `agent`, `token` and `schedule` are
-//! immutable: no handler can list them `mut`.
+//! Each handler's `uses` clause is its whole authority. `Pay` lists `terms`
+//! and `approved_from` without `mut`, so the agent's code path cannot change
+//! its own limits or its own recipients; the compiler rejects a `Pay` that
+//! tries. `owner`, `agent` and `token` are immutable: no handler can list
+//! them `mut`.
 //!
-//! The owner handlers change the rules through kernel functions that each
-//! demand an `OwnerProof`. Drop a handler's `only` line and it has no proof
-//! to pass, so it does not compile. The compiler does not stop a handler
-//! from getting a proof another way: `authorize` is public, so
-//! `authorize(owner: ctx.caller(), caller: ctx.caller())` would compile and
-//! prove anyone is the owner. What keeps proofs honest here is that `only`
-//! is the one place this file calls `authorize`, always with the stored
-//! `owner` and `ctx.caller()`; `scripts/pay-cannot-loosen.sh` checks this
-//! file's source for exactly that. Proofs also guard only the kernel calls
-//! and `pay_owner`: a handler that lists `mut active` could still assign a
-//! `Policy` directly, without any proof.
+//! The rules are stored as `Terms` (`kernel::sealed`), whose field this file
+//! cannot see. A handler that lists `mut terms` can store only terms the
+//! kernel made: from `open`, which works only while the vault is being
+//! deployed, or from `Terms::amend`, `cancel` and `pause`, which apply the
+//! kernel's cooling period. Hand-built terms, a hand-built `Rules` and a
+//! written field do not compile.
+//!
+//! Those three methods, `Terms::approve_from` and `pay_owner` take an
+//! `OwnerCall`. Only `prove` makes one: it compares the stored `Owner`
+//! (which only `open` makes) with the caller read from `ctx`, passed as the
+//! concrete `Evm`, so a stand-in context does not compile. Drop a handler's
+//! `only` line and it has no proof to pass, so it does not compile either.
+//! Not the compiler's: which address `init` gives `open` (the source check
+//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_`), and the
+//! recipient map: a handler that lists `mut approved_from` could write a
+//! date into it directly, without a proof or a cooling period.
 #![cfg(target = "evm")]
 
-use std::evm::{Address, Call, Ctx, Log, StorageMap, revert_error}
+use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}
 use std::evm::erc20::safe_transfer
 use ingot::kernel::{
-    amend,
-    approve_from,
-    authorize,
-    cancel,
     cooled,
     decide,
     exposure,
@@ -38,15 +39,13 @@ use ingot::kernel::{
     Decision,
     Instant,
     Ledger,
-    OwnerProof,
     Policy,
-    Queued,
     Reason,
     Request,
-    Rules,
     Schedule,
     Seconds,
 }
+use ingot::kernel::sealed::{open, prove, Owner, OwnerCall, Terms}
 
 pub msg VaultMsg {
     // The agent's only door.
@@ -158,10 +157,10 @@ pub struct InvalidPolicy {}
 #[error]
 pub struct ZeroAddress {}
 
-/// Reverts with `NotOwner` unless `caller` is `allowed`; otherwise the
-/// proof every rule-changing kernel function asks for.
-fn only(_ allowed: Address, caller: Address) -> OwnerProof {
-    match authorize(owner: allowed, caller) {
+/// Reverts with `NotOwner` unless the caller of this call is `owner`;
+/// otherwise the proof every rule-changing kernel function asks for.
+fn only(_ owner: Owner, ctx: Evm) -> OwnerCall {
+    match prove(owner, ctx) {
         Option::Some(proof) => proof,
         Option::None => revert_error(NotOwner {}),
     }
@@ -169,10 +168,10 @@ fn only(_ allowed: Address, caller: Address) -> OwnerProof {
 
 /// Sends `amount` of `token` to the owner. Takes a proof so that `Withdraw`
 /// cannot move money without having checked its caller.
-fn pay_owner(_ proof: own OwnerProof, token: Address, owner: Address, amount: u256)
+fn pay_owner(_ proof: own OwnerCall, token: Address, owner: Owner, amount: u256)
 uses (ctx: Ctx, call: mut Call)
 {
-    safe_transfer(token, receiver: owner, amount)
+    safe_transfer(token, receiver: owner.address(), amount)
 }
 
 fn seconds(_ at: Timestamp) -> Instant {
@@ -184,12 +183,10 @@ fn seconds(_ at: Timestamp) -> Instant {
 const MIN_COOLING_SECS: u64 = 60
 
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
-    owner: Address,
+    owner: Owner,
     agent: Address,
     token: Address,
-    schedule: Schedule,
-    mut active: Policy,
-    mut queued: Queued,
+    mut terms: Terms,
     mut ledger: Ledger,
     mut approved_from: StorageMap<Address, Instant>,
 
@@ -208,17 +205,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         payee_b: Address,
         payee_c: Address,
     )
-    uses (
-        ctx,
-        mut owner,
-        mut agent,
-        mut token,
-        mut schedule,
-        mut active,
-        mut queued,
-        mut ledger,
-        mut approved_from,
-    )
+    uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from)
     {
         if owner_ == Address::zero() || agent_ == Address::zero() || token_ == Address::zero() {
             revert_error(ZeroAddress {})
@@ -229,21 +216,28 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             revert_error(InvalidPolicy {})
         }
         let now = seconds(ctx.timestamp())
-        owner = owner_
+        let (owner_of, terms_of) = match open(
+            ctx,
+            owner: owner_,
+            schedule: Schedule {
+                anchor: now,
+                window_secs: Seconds::of(window_secs),
+                cooling_secs: Seconds::of(cooling_secs),
+            },
+            policy: Policy {
+                per_payment,
+                per_window,
+                valid_until: Instant::at(valid_until),
+                paused: false,
+            },
+        ) {
+            Option::Some(opened) => opened,
+            Option::None => revert_error(InvalidPolicy {}),
+        }
+        owner = owner_of
         agent = agent_
         token = token_
-        schedule = Schedule {
-            anchor: now,
-            window_secs: Seconds::of(window_secs),
-            cooling_secs: Seconds::of(cooling_secs),
-        }
-        active = Policy {
-            per_payment,
-            per_window,
-            valid_until: Instant::at(valid_until),
-            paused: false,
-        }
-        queued = Queued::none()
+        terms = terms_of
         ledger = Ledger { window: 0, spent: 0, next_nonce: 0 }
         if payee_a != Address::zero() {
             approved_from.set(key: payee_a, value: now)
@@ -261,16 +255,14 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             ctx,
             agent,
             token,
-            schedule,
-            active,
-            queued,
+            terms,
             approved_from,
             mut ledger,
             mut call,
             mut log,
         ) {
             let now = seconds(ctx.timestamp())
-            let rules = Rules { schedule, active, queued }
+            let rules = terms.rules()
             let request = Request {
                 amount,
                 nonce,
@@ -309,10 +301,10 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         Preview { caller, to, amount, nonce } -> (u8, u256)
-        uses (ctx, agent, schedule, active, queued, ledger, approved_from)
+        uses (ctx, agent, terms, ledger, approved_from)
         {
             let now = seconds(ctx.timestamp())
-            let rules = Rules { schedule, active, queued }
+            let rules = terms.rules()
             let request = Request {
                 amount,
                 nonce,
@@ -323,9 +315,9 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             (decision.code(), decision.detail(policy: rules.current(now)))
         }
 
-        Exposure { until } -> u256 uses (ctx, schedule, active, queued, ledger) {
+        Exposure { until } -> u256 uses (ctx, terms, ledger) {
             exposure(
-                rules: Rules { schedule, active, queued },
+                rules: terms.rules(),
                 ledger,
                 now: seconds(ctx.timestamp()),
                 until: Instant::at(until),
@@ -333,87 +325,71 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         Propose { per_payment, per_window, valid_until, paused }
-        uses (ctx, owner, schedule, mut active, mut queued, mut log)
+        uses (ctx, owner, mut terms, mut log)
         {
-            let proof = only(owner, caller: ctx.caller())
+            let proof = only(owner, ctx)
             let proposed = Policy {
                 per_payment,
                 per_window,
                 valid_until: Instant::at(valid_until),
                 paused,
             }
-            let next = amend(
-                proof,
-                rules: Rules { schedule, active, queued },
-                proposed,
-                now: seconds(ctx.timestamp()),
-            )
-            active = next.active
-            queued = next.queued
+            let next = terms.amend(proof, proposed, now: seconds(ctx.timestamp()))
+            terms = next
             log.emit(
                 PolicyProposed {
                     per_payment,
                     per_window,
                     valid_until,
                     paused,
-                    effective_at: next.queued.effective_at.secs(),
+                    effective_at: next.rules().queued.effective_at.secs(),
                 },
             )
         }
 
-        CancelQueued uses (ctx, owner, schedule, mut active, mut queued, mut log) {
-            let proof = only(owner, caller: ctx.caller())
-            let next = cancel(
-                proof,
-                rules: Rules { schedule, active, queued },
-                now: seconds(ctx.timestamp()),
-            )
-            active = next.active
-            queued = next.queued
+        CancelQueued uses (ctx, owner, mut terms, mut log) {
+            let proof = only(owner, ctx)
+            terms = terms.cancel(proof, now: seconds(ctx.timestamp()))
             log.emit(QueueCancelled {})
         }
 
-        Pause uses (ctx, owner, schedule, mut active, mut queued, mut log) {
-            let proof = only(owner, caller: ctx.caller())
-            let now = seconds(ctx.timestamp())
-            let rules = Rules { schedule, active, queued }
-            var stopped = rules.current(now)
-            stopped.paused = true
-            let next = amend(proof, rules, proposed: stopped, now)
-            active = next.active
-            queued = next.queued
+        Pause uses (ctx, owner, mut terms, mut log) {
+            let proof = only(owner, ctx)
+            let next = terms.pause(proof, now: seconds(ctx.timestamp()))
+            terms = next
+            let stopped = next.rules().active
             log.emit(
                 PolicyProposed {
                     per_payment: stopped.per_payment,
                     per_window: stopped.per_window,
                     valid_until: stopped.valid_until.secs(),
-                    paused: true,
+                    paused: stopped.paused,
                     effective_at: 0,
                 },
             )
         }
 
-        SetRecipient { who, approved } uses (ctx, owner, schedule, mut approved_from, mut log) {
-            let proof = only(owner, caller: ctx.caller())
-            let from = approve_from(
-                proof,
-                schedule,
-                current: approved_from.get(key: who),
-                approved,
-                now: seconds(ctx.timestamp()),
-            )
+        SetRecipient { who, approved } uses (ctx, owner, terms, mut approved_from, mut log) {
+            let proof = only(owner, ctx)
+            let from = terms
+                .approve_from(
+                    proof,
+                    current: approved_from.get(key: who),
+                    approved,
+                    now: seconds(ctx.timestamp()),
+                )
             approved_from.set(key: who, value: from)
             log.emit(RecipientChanged { who, approved_from: from.secs() })
         }
 
         Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
-            let proof = only(owner, caller: ctx.caller())
+            let proof = only(owner, ctx)
             pay_owner(proof, token, owner, amount)
             log.emit(Withdrawn { amount })
         }
 
         Owner -> Address uses (owner) {
-            owner
+            owner.address()
         }
         Agent -> Address uses (agent) {
             agent
@@ -422,16 +398,18 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             token
         }
 
-        ScheduleOf -> (u64, u64, u64) uses (schedule) {
+        ScheduleOf -> (u64, u64, u64) uses (terms) {
+            let schedule = terms.rules().schedule
             (schedule.anchor.secs(), schedule.window_secs.secs(), schedule.cooling_secs.secs())
         }
 
-        PolicyOf -> (u256, u256, u64, bool) uses (ctx, schedule, active, queued) {
-            let policy = Rules { schedule, active, queued }.current(now: seconds(ctx.timestamp()))
+        PolicyOf -> (u256, u256, u64, bool) uses (ctx, terms) {
+            let policy = terms.rules().current(now: seconds(ctx.timestamp()))
             (policy.per_payment, policy.per_window, policy.valid_until.secs(), policy.paused)
         }
 
-        QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, queued) {
+        QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, terms) {
+            let queued = terms.rules().queued
             if queued.matured(now: seconds(ctx.timestamp())) {
                 // Already in force; `policy()` reports it.
                 (0, 0, 0, false, 0)

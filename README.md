@@ -13,9 +13,9 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
 | Claim | Check it | Expect |
 |---|---|---|
-| The kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `88 passed; 0 failed` |
+| The kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `90 passed; 0 failed` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux / macOS / WSL) | `49 passed`, incl. `both_targets_reach_the_same_verdicts` |
-| The agent's `Pay` cannot change the rules; owner handlers cannot skip the owner check; a proof cannot be hand-made or reused, or silently left unused (`let _ =` still compiles); the verdict-code constants stay distinct. Not covered: an owner handler assigning raised limits directly (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 16 lines starting `ok` |
+| The agent's `Pay` cannot change the rules or recipients; no handler can store rules the kernel did not make (no instant raise); owner handlers cannot skip the owner check, and a proof can only come from the stored owner and the real caller; a proof cannot be hand-made or reused, or dropped as a bare statement (`let _ =` still compiles); the verdict-code constants stay distinct. Not covered by the compiler: which address `init` makes the owner (a source check), and a handler writing the recipient map directly (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 22 lines starting `ok` |
 | The attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` (after the native build) | `violation 0` |
 | The web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `58` pass |
 | The whole site, in a browser | `cd web && npm run e2e` | 58 tests (see the note in the results table) |
@@ -113,10 +113,10 @@ The agent's entire authority is one handler signature. This is `Pay` in
 
 ```fe
 Pay { to, amount, nonce } -> u8
-    uses (ctx, agent, token, schedule, active, queued, approved_from, mut ledger, mut call, mut log)
+    uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log)
 {
     let now = seconds(ctx.timestamp())
-    let rules = Rules { schedule, active, queued }
+    let rules = terms.rules()
     let request = Request {
         amount,
         nonce,
@@ -130,44 +130,74 @@ Pay { to, amount, nonce } -> u8
             ...
 ```
 
-`active`, `queued` and `approved_from` appear without `mut`. "The agent
-cannot raise its own limit or approve its own recipient" is therefore not
-only a tested behaviour: a `Pay` that assigned to any of them would not
-compile. CI proves it on every push: [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)
-edits a copy of `Pay` to write `active`, `queued` or `approved_from` and
-requires the compiler to refuse each (errors 8-0018 and 8-0066), while a
-control edit to the `mut` ledger still compiles. And `decide` has no `uses` clause at all, so the function that
-makes the decision provably cannot read storage, call out, or log.
+`terms` and `approved_from` appear without `mut`. "The agent cannot raise
+its own limit or approve its own recipient" is therefore not only a tested
+behaviour: a `Pay` that assigned to either would not compile. CI proves it
+on every push: [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)
+edits a copy of `Pay` to write `terms` or `approved_from` and requires the
+compiler to refuse each (errors 8-0018 and 8-0066), while a control edit to
+the `mut` ledger still compiles. And `decide` has no `uses` clause at all,
+so the function that makes the decision provably cannot read storage, call
+out, or log.
 
-The owner's side is a type, not only a runtime `onlyOwner`. The kernel
-functions that change the rules (`amend`, `cancel`, `approve_from`) and the
-vault's `pay_owner` each take an `OwnerProof`. Its one field is private to
-the kernel, so `OwnerProof { .. }` does not compile anywhere else, and the
-only way to get one is `authorize(owner, caller)`, which returns it only when
-the two match. The vault's `only` calls `authorize` with the stored owner and
-`ctx.caller()` and reverts `NotOwner` otherwise. A proof is not `Copy` and
-every function that takes one takes it `own`, so its first use spends it; it
-is also `#[must_use]`, so one cannot be made and dropped. The same script
-deletes the `only(...)` line from each of `Propose`, `CancelQueued`, `Pause`,
-`SetRecipient` and `Withdraw` and requires each build to fail with "undefined
-variable `proof`" (8-0012), requires a hand-made `OwnerProof` to fail as "not
-visible", one proof passed to `pay_owner` twice to fail with "cannot use a
-value after it was moved" (16-0002), and a proof made and dropped to fail
-with "unused value of type `OwnerProof`" (8-0082).
+**The cooling period is enforced by the compiler for the rules.** The vault
+does not store the kernel's plain `Rules`. It stores `Terms`, from
+[`fe/src/kernel/sealed.fe`](fe/src/kernel/sealed.fe), whose one field only
+that module can see: any other module that builds `Terms`, reads its field
+or writes it fails with "not visible" (2-0003). New terms come from four
+functions only: `open`, and `Terms::amend`, `cancel` and `pause`, which run
+the kernel's `amend` and `cancel`, so a looser policy waits out the cooling
+period. An owner handler lists `mut terms` and still cannot raise a limit at
+once: the script requires storing hand-built terms (2-0003), storing a
+hand-built `Rules` (8-0000, "expected `Terms`"), and writing a field of
+`terms` (2-0003) each to fail in `Propose`. A handler can still build a
+`Policy` or a `Rules` (it needs one to make a proposal); it cannot make
+either the vault's rules.
 
-What the compiler does not prove: that the proof was made from the real
-caller. `authorize` is public, so
-`authorize(owner: ctx.caller(), caller: ctx.caller())` in a handler compiles
-and proves anyone is the owner. The kernel is pure, so it cannot see the
-real caller itself. So the script also runs a source check, a text check of
-`vault.fe` and not a compiler guarantee: `authorize` must be called exactly
-once, inside `fn only`, and every `only(...)` call must be in a handler and
-pass the stored `owner` and `ctx.caller()`, neither of them rebound. It then
-shows that two forgeries it rejects (the line above, and `owner` rebound to
-the caller) do compile, so the source check is what catches them. A helper in
-another module that hands out proofs would get past it. Nor does a proof
-force a handler to go through `amend`: one that lists `mut active` can still
-assign a hand-built `Policy` directly.
+Two parts of this are checked when the code runs, not when it compiles.
+`open` accepts any starting policy, so it returns nothing unless the
+contract is still being deployed (its own code size is zero): a handler that
+calls it compiles and gets `None`. And storage nobody wrote reads as zeroed
+terms, with a cooling period of zero; `amend`, `cancel`, `pause` and
+`approve_from` leave those unchanged, so a second, never-written `Terms`
+field cannot be used to raise a limit. `fe test` checks both
+(`open_works_only_while_deploying`, `zeroed_terms_cannot_be_raised`), and
+each test fails if its check is removed. Not covered: recipient approvals.
+Their cooling period comes from the kernel's `approve_from`, but the map is a
+plain `StorageMap`, so a handler that lists `mut approved_from` (only
+`SetRecipient` does) could write a date into it directly; the script shows
+that this compiles.
+
+**The owner proof is bound to the real caller by the compiler.**
+`Terms::amend`, `cancel`, `pause` and `approve_from`, and the vault's
+`pay_owner`, each take an `OwnerCall`. Its field is private to `sealed.fe`,
+and only `prove(owner, ctx)` makes one, when `ctx.caller()` is the address
+in `owner`. `owner` must be an `Owner`, another sealed type that only `open`
+makes, so only during deployment. `ctx` must be an `Evm`, the concrete type
+whose methods read the EVM itself. A stand-in that implements `Ctx` and
+reports any caller does compile (the trait's seal is public as
+`std::evm::effects::EvmCapabilitySeal`), and could be supplied to a
+`with (Ctx = ...)` block, but handing it to `prove` is a type error
+("expected `Evm`", 8-0000). The kernel's `authorize` is still public: the
+tests, the adversary and the native tool use it, because Fe 26.6 has no
+test-only visibility (`#[cfg]` takes only target, target_os and
+target_family, and `pub(in path)` is "not yet supported"). Its
+`OwnerProof` is accepted by nothing the vault calls (8-0000, "expected
+`OwnerCall`").
+
+A proof is not `Copy` and every function that takes one takes it `own`, so
+its first use spends it. It is `#[must_use]`, so a bare `only(...)` whose
+proof is thrown away fails (8-0082); `let _ = only(...)` still compiles. The
+script deletes the `only(owner, ctx)` line from each of `Propose`,
+`CancelQueued`, `Pause`, `SetRecipient` and `Withdraw` and requires "undefined
+variable `proof`" (8-0012), and requires a hand-made `OwnerCall`, an `Owner`
+made for the caller, `authorize`, the stand-in context, and one proof used
+twice ("cannot use a value after it was moved", 16-0002) each to fail. What
+the compiler does not decide is which address `init` gives `open`; the
+script's source check requires one `open` call, in `init`, with
+`owner: owner_`, and that `Owner` stored. Nor does a proof check what a
+handler does with it: it says who is calling, not that `Propose` passes on
+what the owner asked for.
 
 The verdict codes are checked at compile time too. `Reason::code` returns
 named constants (`CODE_PAUSED`, `CODE_OVER_PAYMENT_LIMIT`, ...), and a chain

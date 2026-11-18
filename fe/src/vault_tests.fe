@@ -7,8 +7,10 @@
 //! `tests.fe` and against the compiled contract in `web/tests/`.
 #![cfg(target = "evm")]
 
-use std::evm::{Address, Call, Evm}
+use std::evm::{Address, Call, Ctx, Evm, revert_error}
 use ingot::token::{TestDollar, TokenMsg}
+use ingot::kernel::{Instant, Policy, Schedule, Seconds}
+use ingot::kernel::sealed::{open, prove, Owner, Terms}
 use ingot::vault::{Vault, VaultMsg}
 
 const USD: u256 = 1000000
@@ -806,4 +808,118 @@ fn zero_token_is_rejected() uses (evm: mut Evm) {
             ),
             salt: 7,
         )
+}
+
+// --- what the compiler cannot check: `open` and zeroed storage -------------
+
+msg ReopenMsg {
+    #[selector = sol("reopen()")]
+    Reopen -> bool,
+    #[selector = sol("raiseSpare()")]
+    RaiseSpare -> u256,
+}
+
+/// Uses the sealed kernel types the way a careless or hostile vault might.
+/// It opens in its constructor like the vault does, then tries to open again
+/// after deployment, and to raise a limit through a `Terms` that nobody
+/// wrote (all zeros, a cooling period of zero).
+contract Reopener uses (ctx: Ctx) {
+    owner: Owner,
+    mut terms: Terms,
+    mut spare: Terms,
+
+    init()
+    uses (ctx, mut owner, mut terms)
+    {
+        let (owner_of, terms_of) = match open(
+            ctx,
+            owner: ctx.caller(),
+            schedule: Schedule {
+                anchor: Instant::at(0),
+                window_secs: Seconds::of(DAY),
+                cooling_secs: Seconds::of(DAY),
+            },
+            policy: Policy {
+                per_payment: 1,
+                per_window: 1,
+                valid_until: Instant::at(FAR_FUTURE),
+                paused: false,
+            },
+        ) {
+            Option::Some(opened) => opened,
+            Option::None => revert_error(OpenRefused {}),
+        }
+        owner = owner_of
+        terms = terms_of
+    }
+
+    recv ReopenMsg {
+        Reopen -> bool uses (ctx) {
+            open(
+                ctx,
+                owner: ctx.caller(),
+                schedule: Schedule {
+                    anchor: Instant::at(0),
+                    window_secs: Seconds::of(DAY),
+                    cooling_secs: Seconds::of(DAY),
+                },
+                policy: Policy {
+                    per_payment: 1000,
+                    per_window: 1000,
+                    valid_until: Instant::at(FAR_FUTURE),
+                    paused: false,
+                },
+            )
+                .is_some()
+        }
+
+        RaiseSpare -> u256 uses (ctx, owner, mut spare) {
+            let proof = match prove(owner, ctx) {
+                Option::Some(proof) => proof,
+                Option::None => revert_error(OpenRefused {}),
+            }
+            let now = Instant::at(ctx.timestamp().as_seconds().downcast_saturate())
+            spare = spare
+                .amend(
+                    proof,
+                    proposed: Policy {
+                        per_payment: 1000,
+                        per_window: 1000,
+                        valid_until: Instant::at(FAR_FUTURE),
+                        paused: false,
+                    },
+                    now,
+                )
+            spare.rules().current(now).per_payment
+        }
+    }
+}
+
+#[error]
+struct OpenRefused {}
+
+#[test]
+fn open_works_only_while_deploying() uses (evm: mut Evm) {
+    let reopener = evm.create2<Reopener>(value: Wei::zero(), args: (), salt: 8)
+    let reopened: bool = evm
+        .call(
+            addr: reopener,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ReopenMsg::Reopen {},
+        )
+    assert!(!reopened)
+}
+
+#[test]
+fn zeroed_terms_cannot_be_raised() uses (evm: mut Evm) {
+    let reopener = evm.create2<Reopener>(value: Wei::zero(), args: (), salt: 9)
+    let cap: u256 = evm
+        .call(
+            addr: reopener,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ReopenMsg::RaiseSpare {},
+        )
+    assert!(cap == 0)
 }

@@ -19,6 +19,11 @@
 //! Every function that changes the rules takes an `OwnerProof`, and
 //! `authorize` is the only way to get one. See `OwnerProof` for what that
 //! does and does not prove.
+//!
+//! The values here are plain, so that tests, the adversary and the native
+//! tool can build any state they like. The vault does not use them that way:
+//! it holds the sealed types of `kernel::sealed` (EVM only), the one module
+//! that reads the caller, and it can change its rules only through them.
 
 /// A moment, in Unix seconds.
 pub struct Instant { secs: u64 }
@@ -124,10 +129,10 @@ impl core::ops::Eq for Seconds {
 ///
 /// What it does not guarantee: that the arguments to `authorize` were the
 /// real owner and the real caller. `authorize` is public, so code that can
-/// call it can pass the same value twice and get a proof for anyone. The
-/// vault binds proofs to its stored owner and `ctx.caller()` in one place,
-/// its `only` function, and `scripts/pay-cannot-loosen.sh` checks the
-/// vault's source for that. That is a source check, not a compiler one.
+/// call it can pass the same value twice and get a proof for anyone. That is
+/// what the tests and the adversary do. The vault cannot use such a proof:
+/// what it calls takes a `sealed::OwnerCall`, which only `sealed::prove`
+/// makes, from the real caller.
 #[must_use]
 pub struct OwnerProof { granted: bool }
 

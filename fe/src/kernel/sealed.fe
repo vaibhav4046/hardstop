@@ -1,0 +1,145 @@
+//! What a vault on the EVM holds, sealed so that only the kernel can make it.
+//!
+//! The pure kernel works on plain values: anyone can build a `Rules`, and
+//! `authorize` hands an `OwnerProof` to whoever passes it the same value
+//! twice. That is what the tests, the adversary and the native tool need. A
+//! vault must not have that freedom, so it does not store a `Rules` and its
+//! kernel calls do not take an `OwnerProof`. It stores the types below, whose
+//! fields are private to this module tree, so no other module can build one,
+//! read a field or write one (the compiler refuses all three as "not
+//! visible").
+//!
+//! - `Terms` wraps the rules. New `Terms` come only from `open` and from
+//!   `Terms::amend`, `cancel` and `pause`, which run the kernel's own
+//!   `amend` and `cancel`: a loosening waits out the cooling period.
+//! - `Owner` is the address allowed to change them. It comes only from
+//!   `open`.
+//! - `OwnerCall` is what `amend`, `cancel`, `pause` and `approve_from` ask
+//!   for. It comes only from `prove`, which compares an `Owner` with the
+//!   caller read from an `Evm`. `Evm` is a concrete type whose methods read
+//!   the EVM itself, so a stand-in that implements `Ctx` cannot be passed.
+//!
+//! Two checks here run when the code runs, not when it compiles: `open`
+//! refuses unless the contract is still being deployed (its code size is
+//! zero), and a `Terms` or `Owner` read from storage nobody wrote (all
+//! zeros) does nothing: `prove` refuses the zero owner, and `amend`,
+//! `cancel` and `pause` leave zeroed terms as they are.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Evm}
+use super::{
+    amend,
+    approve_from,
+    cancel,
+    Instant,
+    OwnerProof,
+    Policy,
+    Queued,
+    Rules,
+    Schedule,
+    Seconds,
+}
+
+/// The address allowed to change a vault's rules.
+pub struct Owner { address: Address }
+
+/// A vault's rules, as only the kernel can change them.
+pub struct Terms { rules: Rules }
+
+/// Evidence that the current call comes from the `Owner` it was proved
+/// against. Like `OwnerProof`: not `Copy`, spent by its first use, and a
+/// proof that is made and dropped is refused.
+#[must_use]
+pub struct OwnerCall { granted: bool }
+
+impl Copy for Owner {}
+impl Copy for Terms {}
+
+impl Owner {
+    pub fn address(self) -> Address {
+        self.address
+    }
+}
+
+/// The owner and the first rules of a contract that is being deployed:
+/// `policy` in force from the start, nothing queued. `None` once the
+/// contract has code (that is, after its constructor), or when `owner` is
+/// the zero address or the window is zero long.
+pub fn open(_ ctx: Evm, owner: Address, schedule: Schedule, policy: Policy) -> Option<
+    (Owner, Terms),
+> {
+    if ctx.extcodesize(ctx.address()) != 0
+        || owner == Address::zero()
+        || schedule.window_secs == Seconds::of(0) {
+        return Option::None
+    }
+    let rules = Rules { schedule, active: policy, queued: Queued::none() }
+    Option::Some((Owner { address: owner }, Terms { rules }))
+}
+
+/// An `OwnerCall` when the caller of the current call is `owner`.
+pub fn prove(_ owner: Owner, ctx: Evm) -> Option<OwnerCall> {
+    if owner.address != Address::zero() && ctx.caller() == owner.address {
+        Option::Some(OwnerCall { granted: true })
+    } else {
+        Option::None
+    }
+}
+
+/// The kernel's proof, for the kernel's own functions. Only made from an
+/// `OwnerCall`, which this spends.
+fn kernel_proof(_ call: own OwnerCall) -> OwnerProof {
+    OwnerProof { granted: call.granted }
+}
+
+impl Terms {
+    pub fn rules(self) -> Rules {
+        self.rules
+    }
+
+    /// Zeroed storage, not something `open` made.
+    fn blank(self) -> bool {
+        self.rules.schedule.window_secs == Seconds::of(0)
+    }
+
+    /// The kernel's `amend`.
+    pub fn amend(self, _ proof: own OwnerCall, proposed: Policy, now: Instant) -> Terms {
+        let proof = kernel_proof(proof)
+        if self.blank() {
+            return self
+        }
+        Terms { rules: amend(proof, rules: self.rules, proposed, now) }
+    }
+
+    /// The kernel's `cancel`.
+    pub fn cancel(self, _ proof: own OwnerCall, now: Instant) -> Terms {
+        let proof = kernel_proof(proof)
+        if self.blank() {
+            return self
+        }
+        Terms { rules: cancel(proof, rules: self.rules, now) }
+    }
+
+    /// The policy in force, paused, applied at once; anything queued is
+    /// dropped.
+    pub fn pause(self, _ proof: own OwnerCall, now: Instant) -> Terms {
+        var stopped = self.rules.current(now)
+        stopped.paused = true
+        self.amend(proof, proposed: stopped, now)
+    }
+
+    /// The kernel's `approve_from`, with this vault's schedule.
+    pub fn approve_from(
+        self,
+        _ proof: own OwnerCall,
+        current: Instant,
+        approved: bool,
+        now: Instant,
+    ) -> Instant {
+        let proof = kernel_proof(proof)
+        if self.blank() {
+            return current
+        }
+        approve_from(proof, self.rules.schedule, current, approved, now)
+    }
+}
