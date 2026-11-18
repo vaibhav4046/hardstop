@@ -17,7 +17,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux / macOS / WSL) | `49 passed`, incl. `both_targets_reach_the_same_verdicts` |
 | The agent's `Pay` cannot change the rules or recipients; no handler can store rules the kernel did not make (no instant raise); owner handlers cannot skip the owner check, and a proof can only come from the stored owner and the real caller; a proof cannot be hand-made or reused, or dropped as a bare statement (`let _ =` still compiles); the verdict-code constants stay distinct. Not covered by the compiler: which address `init` makes the owner (a source check), and a handler writing the recipient map directly (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 22 lines starting `ok` |
 | The attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` (after the native build) | `violation 0` |
-| The web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `58` pass |
+| The web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `69` pass |
 | The whole site, in a browser | `cd web && npm run e2e` | 58 tests (see the note in the results table) |
 | It runs on a public network | Base Sepolia transactions in the gas table below | each one `status 1` |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | a purchasing agent and a hostile agent, $0 past the limits |
@@ -277,7 +277,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 88 tests on the EVM
+fe test                           # 90 tests on the EVM
 fe test --backend native          # the 49 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
@@ -285,7 +285,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 58 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 69 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 58 browser tests against the production build
@@ -301,7 +301,7 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 88 passed, 0 failed |
+| `fe test` (EVM) | 90 passed, 0 failed |
 | `fe test --backend native` | 49 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 14 of 14 mutants caught, on both targets |
@@ -312,8 +312,8 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | The same wallet code on Base Sepolia, a public test network (2026-11-18, previous contracts) | launcher installed ([tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099)), vault created ([tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62)), agent paid $4 ([tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a)), agent refused $80 over its per-payment limit ([tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967)), agent's attempt to raise its own limit refused before sending. All four succeeded; vault left with $96, recipient $4 |
 | A vault opened by clicking through MetaMask on the live site (2026-11-18, previous contracts) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
-| Current contracts on Base Sepolia (zero-address check, typed time units, single-use `OwnerProof`, capped test-token mint) | launcher `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` installed, vault `0xae1e31f0cfcf65699e108a32c7ba2464d0def9e5` created; paid twice, refused $80 (code 10, read from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed and cancelled; vault left with $92. Transactions in the gas table below |
-| Vault runtime size | 7,941 bytes, read from Base Sepolia with `eth_getCode` |
+| Current contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions in the gas table below |
+| Vault runtime size | 7,958 bytes, read from Base Sepolia with `eth_getCode` |
 | Browser suite (`npm run e2e`, Chromium, production build) | 58 tests, all passing (55 of 55 in one full run on 2026-11-18, before 3 were added); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
@@ -325,14 +325,14 @@ EVM chain, the price per gas differs):
 
 | Call | Gas | Transaction |
 |---|---|---|
-| Install the launcher (once per network) | 2,319,595 | [tx](https://sepolia.basescan.org/tx/0xbc34a27b81f75040697946db0c7986115fe9747b0f55a88d11fb4a88ca5b8e82) |
-| Create a vault (launcher, token mint, agent gas) | 1,863,159 | [tx](https://sepolia.basescan.org/tx/0xb76fb81ce0ef2543ddb114db9c2971de0b125127179c593bc045bbdf144a6417) |
-| `pay`, allowed, first in the vault | 122,149 | [tx](https://sepolia.basescan.org/tx/0x7cd108f9b3b6cfcdc3fa891540a1759010908f2ffb9fe1453bf11b689dbc2160) |
-| `pay`, allowed, later | 70,861 | [tx](https://sepolia.basescan.org/tx/0x6c97634a48e4f47718c3bf56b12988122e7ba46c3793b2dc2c2f9ba6729d3494) |
-| `pay`, refused (over the per-payment limit) | 49,840 | [tx](https://sepolia.basescan.org/tx/0x3dcec5bc1cb0a76a62f9661bf1a73ebe005055dd0087c10e1574932f2a3d5185) |
-| `propose`, a raise that waits | 103,760 | [tx](https://sepolia.basescan.org/tx/0x18d1b489218a6ed6fc7e30f9b38fead01a6536301f680c905c5514cd47d7cc94) |
-| `cancelQueued` | 39,798 | [tx](https://sepolia.basescan.org/tx/0xdfb6eaa24591d6e00fe7e35be2fc603a6294cd3d8944de1fa9e42244b4f83c12) |
-| `pause` | 43,673 | [tx](https://sepolia.basescan.org/tx/0x01d4383638b0c444e63272923c4bb359755912c768445a0cd5cfd9360d8fb41d) (previous launcher; the vault code is byte-identical) |
+| Install the launcher (once per network) | 2,280,200 | [tx](https://sepolia.basescan.org/tx/0xc08665972a57e4ab9f383ceee7330cc6fa523db86a33c55d2734ea1c56a76163) |
+| Create a vault (launcher, token mint, agent gas) | 1,888,050 | [tx](https://sepolia.basescan.org/tx/0x7d562ad1aceae4911ec7369e976d3d9a3d09b01458033d60e6183e71980ce9c5) |
+| `pay`, allowed, first in the vault | 123,930 | [tx](https://sepolia.basescan.org/tx/0xbff1564f660d8f5adbff43765e3fe92ff3b1be8655769d8387b02e01d675fbf6) |
+| `pay`, allowed, later | 72,642 | [tx](https://sepolia.basescan.org/tx/0x8e9acffd4ef0f67abc7f0df79cc44312f6583f939a186efc0ffb3a6090811029) |
+| `pay`, refused (over the per-payment limit) | 51,718 | [tx](https://sepolia.basescan.org/tx/0x2532ecfa4986ccc2c05c6eb1ab46bdf93050540b44edcbf33403d2a7725b083e) |
+| `propose`, a raise that waits | 106,121 | [tx](https://sepolia.basescan.org/tx/0xa5ddd19de9dd8cda591c6fbd7a0c5d9fbe6df7432cf9fe636966a96f84183c79) |
+| `cancelQueued` | 41,610 | [tx](https://sepolia.basescan.org/tx/0x45c35fcffabe877fb98602031d0c7146d4c7aefb320a8c728ed9be5ed404b241) |
+| `pause` | 46,065 | [tx](https://sepolia.basescan.org/tx/0x694ac57a474aa3f5909b25814ee3f945d05d97a827e500e64270954645e244b1) |
 
 On the first contracts (before the zero-address check, typed time units and
 `OwnerProof`) every run-time call cost within 0.3% of these (`pay`, first:
@@ -390,9 +390,10 @@ approved recipient):
 ## Limitations
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b`, is
+  The current launcher, `0xa5ecc8802db5520ab089d63b39bb4508d3794299`, is
   installed on Base Sepolia; on Sepolia it installs itself on first use.
-  Earlier ones stay on Base Sepolia with the vaults opened through them:
+  Earlier ones stay on Base Sepolia with the vaults opened through them
+  (`0x811e79d3bd786fb5701e0e66cc287fcaa24e558b`, before sealed `Terms`, and):
   `0x956fbbde5fcb981e5a8507b369c79105815d562d` (the first contracts; two
   vaults, one opened through MetaMask on the live site),
   `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` (before `OwnerProof`) and

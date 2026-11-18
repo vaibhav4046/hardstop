@@ -536,3 +536,32 @@ $ scripts/pay-cannot-loosen.sh                -> 16 ok
 artifacts.ts vs a fresh build                 -> no difference
 $ npm test                                    -> 58 passed
 ```
+
+**Second judge round and the fixes it led to (2026-11-18).** Re-judged on the
+fixed version: security 84 (first on security among spending-limit entries,
+no money-path flaw found), Fe expert 81 (third; second among entries that
+build on Fe 26.6 as shipped), product 78 (fifth of 34; best of the AI-agent
+entries). Fixed afterwards:
+
+- Cooling period and owner proof are now compiler-enforced for the vault:
+  it stores sealed `Terms` (new module `fe/src/kernel/sealed.fe`) that only
+  the kernel's `open`/`amend`/`cancel`/`pause` produce, and its calls need an
+  `OwnerCall` that only `prove(owner, ctx: Evm)` makes. New refusals in
+  `scripts/pay-cannot-loosen.sh` (22 ok): hand-built terms or rules, a field
+  write, a hand-made `OwnerCall`/`Owner`, `authorize`, a stand-in `Ctx`.
+  Remaining limits are listed in the README's Fe highlight. ABI unchanged.
+- Watcher reads `PolicyProposed`/`QueueCancelled` and reports a raise
+  proposed and cancelled between checks; refuses to check less often than
+  twice per cooling period. MCP server and watcher accept only known vault
+  builds (code hash without the 128 constructor bytes); checked against the
+  four real Base Sepolia vaults from every launcher, all accepted. Wording
+  follows the vault's window; a mined revert reads "sent, reverted".
+- New launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` on Base Sepolia,
+  vault exercised end to end (README gas table).
+
+```
+$ fe test                         -> 90 passed, 0 failed
+$ (WSL) scripts/native.sh         -> 49 passed; both_targets_reach_the_same_verdicts PASS
+$ scripts/pay-cannot-loosen.sh    -> 22 ok
+$ npm test                        -> 69 passed
+```

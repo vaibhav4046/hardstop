@@ -80,12 +80,12 @@ Details in the README's "Fe highlight".
 ## Evidence it works
 
 - `fe test`: 90 passed on the EVM; 49 passed natively.
-- Web: 58 unit tests (including the MCP server and watcher) and 58 browser
+- Web: 69 unit tests (including the MCP server and watcher) and 58 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check and
   the unit tests on every push; the browser suite runs locally
   (`npm run e2e`).
-- On Base Sepolia (public test network): the launcher, six vaults (one
+- On Base Sepolia (public test network): the launcher, seven vaults (one
   opened by clicking through MetaMask on the live site), paid and refused
   payments, and measured gas for every call, each with its transaction link,
   in the README.
