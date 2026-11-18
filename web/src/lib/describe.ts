@@ -1,7 +1,7 @@
 // Words for what the contract answered. The verdict itself is read from the
 // entry (reason code, revert name, events); this file only phrases it.
 
-import { explain } from './hardstop/reasons.ts'
+import { explain, type Formatters } from './hardstop/reasons.ts'
 import { FORMAT, formatDuration, formatTime, formatUsd } from './money.ts'
 import { AGENT_RAISE, type Entry } from './session.ts'
 
@@ -15,8 +15,11 @@ export type Verdict = {
   sentence: string
 }
 
-/** A payment request or a rule-change attempt by the agent. */
-export function verdict(entry: Extract<Entry, { kind: 'payment' | 'agentRaise' }>): Verdict {
+/**
+ * A payment request or a rule-change attempt by the agent. `f` phrases money,
+ * times and the window: the app's windows are one day; the MCP server passes its vault's.
+ */
+export function verdict(entry: Extract<Entry, { kind: 'payment' | 'agentRaise' }>, f: Formatters = FORMAT): Verdict {
   const { outcome } = entry
   if (entry.kind === 'agentRaise') {
     if (outcome.revert === 'NotOwner') {
@@ -38,12 +41,23 @@ export function verdict(entry: Extract<Entry, { kind: 'payment' | 'agentRaise' }
   }
   const { code, detail } = entry.outcome
   if (code !== undefined) {
-    const said = explain(code, detail ?? 0n, FORMAT)
+    const said = explain(code, detail ?? 0n, f)
     return {
       tone: said.allowed ? 'paid' : 'blocked',
       stamp: said.allowed ? 'Paid' : 'Blocked',
       headline: said.headline,
       sentence: said.sentence,
+    }
+  }
+  if (outcome.tx) {
+    // Mined, then undone: the vault changed between the check and inclusion (the owner withdrew,
+    // say). A reverted transaction moves nothing and records nothing.
+    return {
+      tone: 'plain',
+      stamp: 'Reverted',
+      headline: 'Sent, reverted',
+      sentence:
+        'The payment was sent, but the network reverted it, so nothing was paid and nothing was counted against your limits. The vault changed after the payment was checked; usually the owner withdrew funds in between.',
     }
   }
   return {

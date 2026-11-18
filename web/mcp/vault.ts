@@ -6,14 +6,14 @@
 // Only the agent's key is ever read. The owner's key is never asked for, and
 // the connection refuses to send anything as anyone but the agent.
 
-import { decodeFunctionResult, encodeFunctionData, formatEther, type Hex } from 'viem'
+import { decodeFunctionResult, encodeFunctionData, formatEther, keccak256, type Hex } from 'viem'
 import { generatePrivateKey } from 'viem/accounts'
 import { vaultAbi } from '../src/lib/hardstop/artifacts.ts'
-import { Sim, type Policy, type State } from '../src/lib/hardstop/sim.ts'
+import { Sim, type Policy, type Schedule, type State } from '../src/lib/hardstop/sim.ts'
 import type { LiveChain } from '../src/lib/live/chain.ts'
 import { attach } from '../src/lib/live/launch.ts'
 import { NETWORKS, networkOf, type Network, type Wallet } from '../src/lib/live/wallet.ts'
-import { formatTime, formatUsd, inputValue } from '../src/lib/money.ts'
+import { formatDuration, formatTime, formatUsd, inputValue } from '../src/lib/money.ts'
 import { leftToday as leftInDay, today, type Recipient } from '../src/lib/session.ts'
 
 /** Where the owner changes the rules. Every "ask the owner" points here. */
@@ -31,7 +31,8 @@ export type Config = {
   recipients: Recipient[]
 }
 
-export type Vault = { config: Config; sim: Sim; chain: LiveChain; wallet: Wallet }
+/** `schedule` never changes after a vault is created, so it is read once, at connection. */
+export type Vault = { config: Config; sim: Sim; chain: LiveChain; wallet: Wallet; schedule: Schedule }
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/
 const KEY = /^(0x)?[0-9a-fA-F]{64}$/
@@ -93,6 +94,9 @@ export function parseRecipients(text: string): Recipient[] {
     })
 }
 
+/** A refusal that trying again cannot fix: the address is not a vault this program trusts, say. */
+export class Refused extends Error {}
+
 /** The message for a missing agent key. The owner's key is never the answer. */
 export const NO_KEY =
   "HARDSTOP_AGENT_KEY is not set. Set it to the agent's private key for this vault (64 hex characters). Never use the owner's key: this server does not need it and must not have it."
@@ -150,6 +154,42 @@ async function readAddress(wallet: Wallet, vault: Hex, functionName: 'owner' | '
   return (decodeFunctionResult({ abi: vaultAbi, functionName, data: answer }) as Hex).toLowerCase() as Hex
 }
 
+async function readSchedule(wallet: Wallet, vault: Hex): Promise<Schedule> {
+  const data = encodeFunctionData({ abi: vaultAbi, functionName: 'schedule' })
+  const answer = (await wallet.request({ method: 'eth_call', params: [{ to: vault, data }, 'latest'] })) as Hex
+  const [anchor, windowSecs, coolingSecs] = decodeFunctionResult({ abi: vaultAbi, functionName: 'schedule', data: answer })
+  return { anchor, windowSecs, coolingSecs }
+}
+
+/**
+ * A vault's runtime code is the compiled contract followed by 128 bytes its
+ * constructor fills in: owner, agent and token (32 bytes each) and the packed
+ * schedule. Those differ from vault to vault, so what is compared is the
+ * keccak256 of the code without them. Every vault build a HARDSTOP launcher
+ * has deployed is listed; all of them answer the same functions and emit the
+ * same events (the builds differ in the kernel's internals). The first entry
+ * is checked against `vaultBytecode` in src/lib/hardstop/artifacts.ts by
+ * tests/vault-code.test.ts, so a rebuilt vault cannot be forgotten here.
+ */
+export const VAULT_IMMUTABLE_BYTES = 128
+export const KNOWN_VAULT_CODE: Readonly<Record<Hex, string>> = {
+  '0x94c9fa9ac1757b70c2624ccd6e8823e0bdfa4fb3fd413f7e57e98d99fd313e75':
+    'the current build (launchers 0x811e79d3bd786fb5701e0e66cc287fcaa24e558b and 0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1)',
+  '0x815c1dd4f08463bc5ed5b2222e552e4963d1cc1b153723d1137852d61d49bf04':
+    'an earlier build (launcher 0xe7d4489cde5cdaabbce571162ec14beca324b7c3)',
+  '0xfcd06b30860cdc183314f1860f53500bf4dd8c8792ec3dae46658f1aae418e63':
+    'an earlier build (launchers 0x956fbbde5fcb981e5a8507b369c79105815d562d and 0x3b835612009343eea6d14f79302412bcfb09e9df)',
+}
+
+/** keccak256 of a vault's runtime code without its constructor-filled tail; undefined if the code is too short to be a vault. */
+export function vaultCodeHash(code: Hex): Hex | undefined {
+  const body = code.length - 2 - 2 * VAULT_IMMUTABLE_BYTES
+  return body > 0 ? keccak256(`0x${code.slice(2, 2 + body)}`) : undefined
+}
+
+/** The vault constructor refuses a cooling period shorter than this (fe/src/vault.fe, MIN_COOLING_SECS). */
+const MIN_COOLING_SECS = 60n
+
 /** Finds the vault on the network and checks that the agent key, if given, is this vault's agent. */
 export async function connect(config: Config, wallet: Wallet = rpcWallet(config.rpc)): Promise<Vault> {
   const { network, vault } = config
@@ -161,6 +201,18 @@ export async function connect(config: Config, wallet: Wallet = rpcWallet(config.
   }
   const code = (await wallet.request({ method: 'eth_getCode', params: [vault, 'latest'] })) as Hex
   if (code.length <= 2) throw new Error(`There is no vault at ${vault} on ${network.name}. Check HARDSTOP_VAULT and HARDSTOP_CHAIN_ID.`)
+  const codeHash = vaultCodeHash(code)
+  if (!codeHash || !(codeHash in KNOWN_VAULT_CODE)) {
+    throw new Refused(
+      `The contract at ${vault} on ${network.name} is not a HARDSTOP vault: its code matches no vault build this program knows, so nothing it answers can be trusted. Check HARDSTOP_VAULT. Nothing was sent.`,
+    )
+  }
+  const schedule = await readSchedule(wallet, vault)
+  if (schedule.windowSecs === 0n || schedule.coolingSecs < MIN_COOLING_SECS) {
+    throw new Refused(
+      `The vault at ${vault} has a schedule no HARDSTOP launcher could have made (a zero window or a cooling period under a minute). Check HARDSTOP_VAULT.`,
+    )
+  }
 
   const [owner, token, agent] = await Promise.all([
     readAddress(wallet, vault, 'owner'),
@@ -176,7 +228,7 @@ export async function connect(config: Config, wallet: Wallet = rpcWallet(config.
     )
   }
   const sim = config.agentKey ? attached.sim : Sim.attach(attached.chain, token, vault, owner, agent)
-  return { config, sim, chain: attached.chain, wallet }
+  return { config, sim, chain: attached.chain, wallet, schedule }
 }
 
 /** ETH the vault's agent has for network fees. Read for the vault's own agent, so it is right without a key too. */
@@ -189,10 +241,35 @@ export const iso = (seconds: bigint): string => new Date(Number(seconds) * 1000)
 export const usd = (units: bigint): string => inputValue(units)
 export const txLink = (network: Network, hash: Hex): string => `${network.explorer}/tx/${hash}`
 
-export function describePolicy(policy: Policy): string {
-  return `up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} per day, until ${formatTime(policy.validUntil)}${policy.paused ? ', paused' : ''}`
+/**
+ * How to talk about a vault's spending window. A vault can be launched with any
+ * window length; "day" is said only when it is exactly 86,400 seconds.
+ */
+export type WindowWords = {
+  /** "per day", "per 1 hour", "per window of 90 seconds" */
+  per: string
+  /** "today", "in this window" */
+  left: string
+  /** "Today", "This window" */
+  current: string
+  /** "day", "window" */
+  period: string
+  /** One window as a span of time: "24 hours", "1 hour", "90 seconds" */
+  span: string
 }
 
+export function windowWords(windowSecs: bigint): WindowWords {
+  if (windowSecs === DAY) return { per: 'per day', left: 'today', current: 'Today', period: 'day', span: '24 hours' }
+  const round = windowSecs % 60n === 0n
+  const span = round ? formatDuration(windowSecs) : `${windowSecs} seconds`
+  return { per: round ? `per ${span}` : `per window of ${span}`, left: 'in this window', current: 'This window', period: 'window', span }
+}
+
+export function describePolicy(policy: Policy, windowSecs: bigint): string {
+  return `up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${windowWords(windowSecs).per}, until ${formatTime(policy.validUntil)}${policy.paused ? ', paused' : ''}`
+}
+
+/** `per_day_usd` is the limit per spending window (`window_secs`); the name dates from when every window was a day. */
 export const policyJson = (policy: Policy) => ({
   per_payment_usd: usd(policy.perPayment),
   per_day_usd: usd(policy.perWindow),
@@ -208,19 +285,22 @@ export async function status(vault: Vault): Promise<Status> {
   await chain.refresh(true)
   const state: State = await sim.state()
   const { spent, resetsAt } = today(state)
-  const until = state.now + DAY
+  const { windowSecs } = state.schedule
+  const words = windowWords(windowSecs)
+  // One window ahead: for a daily vault, the next 24 hours.
+  const until = state.now + windowSecs
   const [leftToday, worstCase, gas] = await Promise.all([leftInDay(sim, state), sim.exposure(until), agentGas(vault)])
   const { policy, queued } = state
 
   const lines = [
     `HARDSTOP vault ${sim.vault} on ${config.network.name} (a test network: its dollars have no value).`,
-    `Rules in force: ${describePolicy(policy)}.`,
-    `Today: ${formatUsd(spent)} spent, ${formatUsd(leftToday)} left. The day resets ${formatTime(resetsAt)}.`,
+    `Rules in force: ${describePolicy(policy, windowSecs)}.`,
+    `${words.current}: ${formatUsd(spent)} spent, ${formatUsd(leftToday)} left. The ${words.period} resets ${formatTime(resetsAt)}.`,
     `The vault holds ${formatUsd(state.vaultBalance)}. The agent has ${formatEther(gas)} ETH left for network fees.`,
     queued
-      ? `A change is waiting: ${describePolicy(queued)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.`
+      ? `A change is waiting: ${describePolicy(queued, windowSecs)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.`
       : 'No change to the rules is waiting.',
-    `Worst case over the next 24 hours, by the contract's own arithmetic: ${formatUsd(worstCase)}. This span can cross the daily reset, so it can include part of tomorrow's allowance.`,
+    `Worst case over the next ${words.span}, by the contract's own arithmetic: ${formatUsd(worstCase)}. This span can cross the ${words.period}'s reset, so it can include part of the next ${words.period}'s allowance.`,
     `Next request number: ${state.ledger.nextNonce}.`,
   ]
   return {
@@ -231,6 +311,9 @@ export async function status(vault: Vault): Promise<Status> {
       network: config.network.name,
       chain_id: config.network.chainId,
       now: iso(state.now),
+      // The *_today_*, per_day, day_resets_at and worst_case_24h names are kept, but they mean
+      // "this window" and "the next window_secs": a day only when window_secs is 86400.
+      window_secs: windowSecs.toString(),
       rules: policyJson(policy),
       spent_today_usd: usd(spent),
       left_today_usd: usd(leftToday),

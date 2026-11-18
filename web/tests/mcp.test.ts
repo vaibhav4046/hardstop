@@ -208,3 +208,73 @@ test('bad arguments are refused in plain words before anything is sent', async (
   assert.match(text(odd), /amount_usd must be a dollar amount/)
   assert.equal(network.relayed.length, 0)
 })
+
+test('a payment mined but reverted is reported as sent and reverted, with its link; one never sent as not sent', async () => {
+  const { call, network, owner } = await setUp()
+  // The owner empties the vault after the server's rehearsal and before the payment is included.
+  network.beforeRelay = async () => {
+    const out = await owner.sim.withdraw(100n * USD)
+    assert.equal(out.ok, true)
+  }
+  const reverted = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 4 })
+  assert.equal(reverted.isError, undefined, text(reverted))
+  assert.equal(network.relayed.length, 1, 'the payment did leave')
+  assert.equal(data(reverted).result, 'reverted')
+  assert.equal(data(reverted).paid, false)
+  assert.match(String(data(reverted).transaction), /^0x[0-9a-f]{64}$/)
+  assert.match(String(data(reverted).explorer), /^https:\/\/sepolia\.basescan\.org\/tx\/0x[0-9a-f]{64}$/)
+  assert.match(text(reverted), /^Sent, reverted \(nothing was paid\): \$4\.00 to Cloud hosting\. The payment was sent, but the network reverted it/)
+  assert.match(text(reverted), /Transaction: https:\/\/sepolia\.basescan\.org\/tx\//)
+  assert.equal(await owner.sim.balanceOf(PAYEE), 0n)
+
+  // The vault is now empty: the rehearsal fails, so nothing is sent.
+  const notSent = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 4 })
+  assert.equal(data(notSent).result, 'not_sent')
+  assert.equal(data(notSent).transaction, null)
+  assert.match(text(notSent), /^Not sent: [^\n]*\nLeft today: [^\n]*\nNo transaction was sent\.\n/)
+  assert.equal(network.relayed.length, 1)
+})
+
+test('an address whose code is not a known HARDSTOP vault build is refused before anything is read from it', async () => {
+  const { live, network } = await setUp()
+  const { call } = await connected(
+    { HARDSTOP_AGENT_KEY: live.agentKey, HARDSTOP_VAULT: live.token, HARDSTOP_CHAIN_ID: String(FAKE_CHAIN_ID) },
+    network,
+  )
+  const result = await call('hardstop_status')
+  assert.equal(result.isError, true)
+  assert.match(text(result), new RegExp(`^The contract at ${live.token} on Base Sepolia is not a HARDSTOP vault: its code matches no vault build`))
+})
+
+test('a vault with a one-hour window is described per hour, never per day', async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, { ...SETUP, windowSecs: 3_600n, coolingSecs: 3_600n }, () => {}, 1)
+  const owner = await attach(network, live, 1)
+  const { call } = await connected(
+    { HARDSTOP_AGENT_KEY: live.agentKey, HARDSTOP_VAULT: live.vault, HARDSTOP_RECIPIENTS: `Cloud hosting=${PAYEE}` },
+    network,
+  )
+  const status = await call('hardstop_status')
+  assert.equal(status.isError, undefined, text(status))
+  assert.match(text(status), /\$10\.00 per payment and \$20\.00 per 1 hour,/)
+  assert.match(text(status), /^This window: \$0\.00 spent, \$20\.00 left\. The window resets /m)
+  assert.match(text(status), /Worst case over the next 1 hour, .* can cross the window's reset, so it can include part of the next window's allowance\./)
+  assert.equal(data(status).window_secs, '3600')
+  // The worst case spans one window (it reaches the first second of the next, hence two
+  // allowances), not a day of them.
+  assert.equal(data(status).worst_case_24h_usd, '40.00')
+  assert.ok((await owner.sim.exposure(NOW + DAY)) > 40n * USD)
+
+  const paid = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 4 })
+  assert.match(text(paid), /\$16\.00 left in this window\.\nLeft in this window: \$16\.00\./)
+  const over = await call('hardstop_preview_payment', { to: 'Cloud hosting', amount_usd: 10 })
+  assert.equal(data(over).would_pay, true)
+  await owner.sim.pay(PAYEE, 10n * USD, 1n)
+  const full = await call('hardstop_preview_payment', { to: 'Cloud hosting', amount_usd: 10 })
+  assert.match(text(full), /Only \$6\.00 is left in this window\./)
+  const more = await call('hardstop_request_more', { reason: 'More hosting.', per_day_usd: 40 })
+  assert.match(text(more), /- per 1 hour: from \$20\.00 to \$40\.00/)
+
+  // The words; the JSON field names (per_day_usd, left_today_usd...) are kept and documented.
+  for (const result of [status, paid, full, more]) assert.doesNotMatch(text(result).split('\n{')[0], /per day|today|24 hours|tomorrow/i)
+})

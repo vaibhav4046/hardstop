@@ -19,7 +19,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import type { Hex } from 'viem'
 import { z } from 'zod'
 import { verdict } from '../src/lib/describe.ts'
-import { explain, reasonName } from '../src/lib/hardstop/reasons.ts'
+import { explain, reasonName, type Formatters } from '../src/lib/hardstop/reasons.ts'
 import type { Wallet } from '../src/lib/live/wallet.ts'
 import { FORMAT, formatDuration, formatTime, formatUsd, parseUsd } from '../src/lib/money.ts'
 import { apply } from '../src/lib/session.ts'
@@ -34,6 +34,7 @@ import {
   status,
   txLink,
   usd,
+  windowWords,
   type Config,
   type Env,
   type Vault,
@@ -43,7 +44,7 @@ const amount = z
   .union([z.number(), z.string()])
   .describe('Dollar amount of test dollars, for example 4 or "12.50". At most two decimals.')
 
-const INSTRUCTIONS = `This server lets you spend from a HARDSTOP vault as its agent. The vault's contract enforces the owner's limits (per payment, per day, an end date, approved recipients, a pause switch); you cannot change them, and no tool here can. Check hardstop_status before spending, use hardstop_preview_payment when unsure, and if you need more room use hardstop_request_more and show the draft to your user. These are test networks: the dollars have no value.`
+const INSTRUCTIONS = `This server lets you spend from a HARDSTOP vault as its agent. The vault's contract enforces the owner's limits (per payment, per spending window, an end date, approved recipients, a pause switch); you cannot change them, and no tool here can. Check hardstop_status before spending, use hardstop_preview_payment when unsure, and if you need more room use hardstop_request_more and show the draft to your user. These are test networks: the dollars have no value.`
 
 type Reply = { text: string; json: Record<string, unknown> }
 
@@ -57,6 +58,9 @@ const ok = ({ text, json }: Reply): CallToolResult => ({
 })
 
 const failed = (error: unknown): CallToolResult => ({ isError: true, content: [{ type: 'text', text: plain(error) }] })
+
+/** The app's wording, with this vault's window in place of "today". */
+const formatFor = (v: Vault): Formatters => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left })
 
 function dollars(value: number | string, what: string): bigint {
   const units = parseUsd(String(value))
@@ -136,7 +140,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
       {
         title: 'HARDSTOP vault status',
         description:
-          'Read the spending limits in force for you (per payment, per day, end date, paused or not), how much you have spent and have left today, when the day resets, the vault balance, your ETH left for network fees, any rule change waiting to take effect, and the worst case you could spend over the next 24 hours as computed by the contract. Changes nothing. Call this before planning any spending.',
+          'Read the spending limits in force for you (per payment, per spending window, end date, paused or not), how much you have spent and have left in the current window and when it resets, the vault balance, your ETH left for network fees, any rule change waiting to take effect, and the worst case you could spend over the next window as computed by the contract. The window is window_secs long: a day when it is 86400, and the fields named per_day, today and 24h then mean exactly that; otherwise they mean the window. Changes nothing. Call this before planning any spending.',
         annotations: { readOnlyHint: true, openWorldHint: true },
       },
       () => run(status),
@@ -158,7 +162,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
           await v.chain.refresh(true)
           const { ledger } = await v.sim.state()
           const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce)
-          const said = explain(answer.code, answer.detail, FORMAT)
+          const said = explain(answer.code, answer.detail, formatFor(v))
           return {
             text: `${said.allowed ? 'Would be paid' : 'Would be refused'}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence} Nothing was sent.`,
             json: {
@@ -178,7 +182,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
       {
         title: 'Pay from the vault',
         description:
-          'Ask the vault to pay amount_usd to `to`, signed with your agent key. The contract decides: it pays if every limit allows it and refuses otherwise. A refusal is still recorded on the network (so the owner sees it) and costs a small network fee; use hardstop_preview_payment first if unsure. Returns paid or refused, the reason in plain words, what is left today, and a link to the transaction. Leave nonce out unless told otherwise; it defaults to the next request number.',
+          'Ask the vault to pay amount_usd to `to`, signed with your agent key. The contract decides: it pays if every limit allows it and refuses otherwise. A refusal is still recorded on the network (so the owner sees it) and costs a small network fee; use hardstop_preview_payment first if unsure. Returns result paid, refused, reverted (sent and mined, but undone by the network: nothing was paid) or not_sent (no transaction left this server), the reason in plain words, what is left in the current spending window, and a link to the transaction. Leave nonce out unless told otherwise; it defaults to the next request number.',
         inputSchema: {
           to: z.string().describe('Recipient address (0x...) or the name of a known recipient.'),
           amount_usd: amount,
@@ -200,12 +204,15 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
             const number = nonce === undefined ? (await v.sim.state()).ledger.nextNonce : BigInt(nonce)
             const entry = await apply(v.sim, { type: 'pay', to: recipient.address, amount: units.toString(), nonce: number.toString() }, 0)
             if (entry.kind !== 'payment') throw new Error('The vault answered something other than a payment.')
-            const said = verdict(entry)
+            const said = verdict(entry, formatFor(v))
             const paid = said.tone === 'paid'
+            // A transaction that was mined and reverted was sent; only one that never left was not.
+            const result = paid ? 'paid' : said.tone === 'blocked' ? 'refused' : entry.outcome.tx ? 'reverted' : 'not_sent'
+            const label = { paid: 'Paid', refused: 'Refused', reverted: 'Sent, reverted (nothing was paid)', not_sent: 'Not sent' }[result]
             const link = entry.outcome.tx && v.config.network.explorer ? txLink(v.config.network, entry.outcome.tx) : undefined
             const lines = [
-              `${paid ? 'Paid' : said.tone === 'blocked' ? 'Refused' : 'Not sent'}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence}`,
-              `Left today: ${formatUsd(entry.leftToday)}.`,
+              `${label}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence}`,
+              `Left ${windowWords(v.schedule.windowSecs).left}: ${formatUsd(entry.leftToday)}.`,
               link
                 ? `Transaction: ${link}`
                 : entry.outcome.tx
@@ -216,7 +223,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
               text: lines.join('\n'),
               json: {
                 paid,
-                result: paid ? 'paid' : said.tone === 'blocked' ? 'refused' : 'not_sent',
+                result,
                 reason: entry.outcome.code === undefined ? (entry.outcome.revert ?? null) : reasonName(entry.outcome.code),
                 explanation: said.sentence,
                 to: recipient.address,
@@ -269,7 +276,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
         inputSchema: {
           reason: z.string().min(1).max(1000).describe('Why you need more, in a sentence or two.'),
           per_payment_usd: amount.optional().describe('The per-payment limit you are asking for, in dollars.'),
-          per_day_usd: amount.optional().describe('The per-day limit you are asking for, in dollars.'),
+          per_day_usd: amount.optional().describe('The limit per spending window you are asking for, in dollars (per day for a vault with a one-day window).'),
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
       },
@@ -278,9 +285,10 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
           const perPayment = per_payment_usd === undefined ? undefined : dollars(per_payment_usd, 'per_payment_usd')
           const perDay = per_day_usd === undefined ? undefined : dollars(per_day_usd, 'per_day_usd')
           const { policy, schedule } = await v.sim.state()
+          const { per } = windowWords(schedule.windowSecs)
           const asks = [
             perPayment !== undefined && `- per payment: from ${formatUsd(policy.perPayment)} to ${formatUsd(perPayment)}`,
-            perDay !== undefined && `- per day: from ${formatUsd(policy.perWindow)} to ${formatUsd(perDay)}`,
+            perDay !== undefined && `- ${per}: from ${formatUsd(policy.perWindow)} to ${formatUsd(perDay)}`,
           ].filter(Boolean)
           const text = [
             `Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
@@ -289,7 +297,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
             asks.length ? `The agent asks for:\n${asks.join('\n')}` : 'The agent asks for more room under the current rules.',
             `Reason given: ${reason.trim()}`,
             '',
-            `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} per day.`,
+            `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
             `To agree, open ${OWNER_PAGE} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`,
           ].join('\n')
           return {
@@ -314,7 +322,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
       'hardstop://status',
       {
         title: 'HARDSTOP vault status',
-        description: 'The same report as the hardstop_status tool: limits, spending today, balance, gas, waiting changes and the 24-hour worst case.',
+        description: 'The same report as the hardstop_status tool: limits, spending in the current window, balance, gas, waiting changes and the worst case over the next window.',
         mimeType: 'text/plain',
       },
       async (uri) => {
