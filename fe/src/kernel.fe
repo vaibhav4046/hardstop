@@ -16,15 +16,105 @@
 //! 3. `exposure`: the most that can leave through the agent between two
 //!    moments, whatever the agent does.
 
-/// The rules the owner may change. Amounts are token base units, times are
-/// Unix seconds.
+/// A moment, in Unix seconds.
+pub struct Instant { secs: u64 }
+
+/// A length of time, in seconds.
+pub struct Seconds { secs: u64 }
+
+impl Copy for Instant {}
+impl Copy for Seconds {}
+
+impl Instant {
+    pub fn at(_ secs: u64) -> Instant {
+        Instant { secs }
+    }
+
+    pub fn secs(self) -> u64 {
+        self.secs
+    }
+}
+
+impl Seconds {
+    pub fn of(_ secs: u64) -> Seconds {
+        Seconds { secs }
+    }
+
+    pub fn secs(self) -> u64 {
+        self.secs
+    }
+}
+
+/// Saturates at the last representable second, which `cooled` treats as
+/// never.
+impl core::ops::Add<Seconds> for Instant {
+    fn add(own self, _ other: own Seconds) -> Instant {
+        Instant { secs: self.secs.saturating_add(other.secs) }
+    }
+}
+
+/// Saturates at second zero.
+impl core::ops::Sub<Seconds> for Instant {
+    fn sub(own self, _ other: own Seconds) -> Instant {
+        Instant { secs: self.secs.saturating_sub(other.secs) }
+    }
+}
+
+/// The time from `other` to `self`; zero if `other` is later.
+impl core::ops::Sub<Instant> for Instant {
+    type Output = Seconds
+    fn sub(own self, _ other: own Instant) -> Seconds {
+        Seconds { secs: self.secs.saturating_sub(other.secs) }
+    }
+}
+
+/// How many whole `other`s fit in `self`; zero when `other` is zero.
+impl core::ops::Div<Seconds> for Seconds {
+    type Output = u64
+    fn div(own self, _ other: own Seconds) -> u64 {
+        if other.secs == 0 {
+            0
+        } else {
+            self.secs / other.secs
+        }
+    }
+}
+
+impl core::ops::Eq for Instant {
+    fn eq(self, _ other: Instant) -> bool {
+        self.secs == other.secs
+    }
+}
+
+impl core::ops::Ord for Instant {
+    fn lt(self, _ other: Instant) -> bool {
+        self.secs < other.secs
+    }
+    fn le(self, _ other: Instant) -> bool {
+        self.secs <= other.secs
+    }
+    fn gt(self, _ other: Instant) -> bool {
+        self.secs > other.secs
+    }
+    fn ge(self, _ other: Instant) -> bool {
+        self.secs >= other.secs
+    }
+}
+
+impl core::ops::Eq for Seconds {
+    fn eq(self, _ other: Seconds) -> bool {
+        self.secs == other.secs
+    }
+}
+
+/// The rules the owner may change. Amounts are token base units.
 pub struct Policy {
     /// Largest single payment.
     pub per_payment: u256,
     /// Largest total inside one window.
     pub per_window: u256,
     /// Last second at which the agent may still pay.
-    pub valid_until: u64,
+    pub valid_until: Instant,
     /// Owner's stop switch.
     pub paused: bool,
 }
@@ -32,16 +122,16 @@ pub struct Policy {
 /// What is fixed when a vault is created and never changes.
 pub struct Schedule {
     /// Start of window 0. Windows are fixed, not rolling.
-    pub anchor: u64,
-    /// Window length in seconds. Zero makes every request invalid.
-    pub window_secs: u64,
+    pub anchor: Instant,
+    /// Window length. Zero makes every request invalid.
+    pub window_secs: Seconds,
     /// How long a loosening waits before it takes effect.
-    pub cooling_secs: u64,
+    pub cooling_secs: Seconds,
 }
 
 /// A loosening that is waiting out its cooling period.
-/// `effective_at == 0` means nothing is queued.
-pub struct Queued { pub policy: Policy, pub effective_at: u64 }
+/// `effective_at` second zero means nothing is queued.
+pub struct Queued { pub policy: Policy, pub effective_at: Instant }
 
 /// Everything the owner controls.
 pub struct Rules { pub schedule: Schedule, pub active: Policy, pub queued: Queued }
@@ -71,9 +161,9 @@ pub enum Reason {
     /// The caller is not the delegated agent.
     NotAgent,
     /// The schedule starts at the carried time.
-    NotYetActive(u64),
+    NotYetActive(Instant),
     /// The policy ended at the carried time.
-    Expired(u64),
+    Expired(Instant),
     /// The request reused or skipped a sequence number; carries the expected one.
     WrongNonce(u64),
     /// The sequence counter is used up.
@@ -104,6 +194,10 @@ impl Copy for Reason {}
 impl Copy for Decision {}
 
 const MAX_U64: u64 = 18446744073709551615
+/// "Nothing scheduled".
+const NOT_SET: Instant = Instant { secs: 0 }
+/// The last representable second: a change scheduled for it never happens.
+const NEVER: Instant = Instant { secs: MAX_U64 }
 
 impl Reason {
     /// Stable wire code. `0` is reserved for "allowed".
@@ -126,8 +220,8 @@ impl Reason {
     /// The number carried by the reason, or zero.
     pub fn detail(self) -> u256 {
         match self {
-            Reason::NotYetActive(at) => at as u256,
-            Reason::Expired(at) => at as u256,
+            Reason::NotYetActive(at) => at.secs() as u256,
+            Reason::Expired(at) => at.secs() as u256,
             Reason::WrongNonce(expected) => expected as u256,
             Reason::OverPaymentLimit(limit) => limit,
             Reason::OverWindowLimit(left) => left,
@@ -159,17 +253,17 @@ impl Queued {
     /// The empty queue.
     pub fn none() -> Queued {
         Queued {
-            policy: Policy { per_payment: 0, per_window: 0, valid_until: 0, paused: true },
-            effective_at: 0,
+            policy: Policy { per_payment: 0, per_window: 0, valid_until: NOT_SET, paused: true },
+            effective_at: NOT_SET,
         }
     }
 
     pub fn is_some(self) -> bool {
-        self.effective_at != 0
+        self.effective_at != NOT_SET
     }
 
     /// Whether the queued policy is in force at `now`.
-    pub fn matured(self, now: u64) -> bool {
+    pub fn matured(self, now: Instant) -> bool {
         cooled(at: self.effective_at, now)
     }
 }
@@ -179,14 +273,14 @@ impl Queued {
 /// Zero means "nothing scheduled". The last representable second means "the
 /// cooling period ran past the end of time", and such a change never takes
 /// effect: rounding it down to that last second would cut the wait short.
-pub fn cooled(at: u64, now: u64) -> bool {
-    at != 0 && at != MAX_U64 && now >= at
+pub fn cooled(at: Instant, now: Instant) -> bool {
+    at != NOT_SET && at != NEVER && now >= at
 }
 
 impl Rules {
     /// The policy in force at `now`: the queued one once its cooling period
     /// is over, the active one before that.
-    pub fn current(self, now: u64) -> Policy {
+    pub fn current(self, now: Instant) -> Policy {
         if self.queued.matured(now) {
             self.queued.policy
         } else {
@@ -207,17 +301,17 @@ pub fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
 
 /// Index of the fixed window that contains `at`. Requires a non-zero window
 /// length and `at >= schedule.anchor`; callers check both first.
-fn window_at(_ schedule: Schedule, at: u64) -> u64 {
+fn window_at(_ schedule: Schedule, at: Instant) -> u64 {
     (at - schedule.anchor) / schedule.window_secs
 }
 
 /// Decide one request. Checks run in a fixed order, so the same inputs always
 /// give the same reason.
-pub fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+pub fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
     let schedule = rules.schedule
     let policy = rules.current(now)
 
-    if schedule.window_secs == 0 {
+    if schedule.window_secs == Seconds::of(0) {
         return Decision::Deny(Reason::InvalidPolicy)
     }
     // Who is asking comes before anything about the rules: a stranger learns
@@ -304,7 +398,7 @@ pub fn meet(_ a: Policy, _ b: Policy) -> Policy {
 /// takes effect `cooling_secs` later; a proposal with nothing looser clears
 /// the queue. So a limit can drop in one step but can only rise after the
 /// cooling period, and any later tightening cancels a pending rise.
-pub fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+pub fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
     let in_force = rules.current(now)
     let active = meet(in_force, proposed)
     let queued = if loosens(active, to: proposed) {
@@ -317,21 +411,17 @@ pub fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
 
 /// Drop a queued loosening that has not taken effect yet. One that already
 /// has is the policy in force and stays.
-pub fn cancel(rules: Rules, now: u64) -> Rules {
+pub fn cancel(rules: Rules, now: Instant) -> Rules {
     Rules { schedule: rules.schedule, active: rules.current(now), queued: Queued::none() }
 }
 
 /// When something loosened at `now` takes effect: `now + cooling_secs`,
 /// never zero (zero means "nothing queued"). If that would be past the end
 /// of time it is the last second, which `cooled` treats as never.
-pub fn matures_at(_ schedule: Schedule, now: u64) -> u64 {
-    let secs = schedule.cooling_secs
-    let at = if secs > MAX_U64 - now {
-        MAX_U64
-    } else {
-        now + secs
-    }
-    if at == 0 { 1 } else { at }
+pub fn matures_at(_ schedule: Schedule, now: Instant) -> Instant {
+    // `+` saturates at `NEVER`, the last second.
+    let at = now + schedule.cooling_secs
+    if at == NOT_SET { Instant::at(1) } else { at }
 }
 
 /// The most the agent can move between `now` and `until`, both inclusive,
@@ -350,8 +440,8 @@ pub fn matures_at(_ schedule: Schedule, now: u64) -> u64 {
 /// promise about the owner assumes the queue was produced by `amend`, which
 /// only ever queues something looser than the active policy. Hand-built
 /// rules with a tighter queue would make `cancel` a loosening.
-pub fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
-    if rules.schedule.window_secs == 0 || until < now {
+pub fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
+    if rules.schedule.window_secs == Seconds::of(0) || until < now {
         return 0
     }
     let queued = rules.queued
@@ -373,7 +463,7 @@ pub fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
         rules.active,
         ledger,
         from: now,
-        to: queued.effective_at - 1,
+        to: queued.effective_at - Seconds::of(1),
     )
     // After the switch, assume the new policy's windows start empty.
     let empty = Ledger { window: MAX_U64, spent: 0, next_nonce: 0 }
@@ -388,7 +478,13 @@ pub fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
 }
 
 /// The most one policy lets through between `from` and `to`, inclusive.
-fn span(_ schedule: Schedule, _ policy: Policy, _ ledger: Ledger, from: u64, to: u64) -> u256 {
+fn span(
+    _ schedule: Schedule,
+    _ policy: Policy,
+    _ ledger: Ledger,
+    from: Instant,
+    to: Instant,
+) -> u256 {
     if policy.paused || policy.per_payment == 0 {
         return 0
     }
