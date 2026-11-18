@@ -295,6 +295,39 @@
     flex: none;
   }
 
+  /* A setup to copy, on the Activity page: the text in a dark well that
+     scrolls inside itself, the Copy button beside it (under it on a phone). */
+  .setup {
+    display: grid;
+    gap: 0.75rem;
+    align-items: start;
+  }
+
+  @media (min-width: 40rem) {
+    .setup {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+  }
+
+  .setup pre {
+    min-width: 0;
+    max-height: 22rem;
+    overflow: auto;
+    padding: 0.875rem 1rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: var(--radius-field);
+    background: rgb(0 0 0 / 0.35);
+    color: var(--color-gold);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  .setup .btn {
+    justify-self: start;
+  }
+
   /* --- sections --------------------------------------------------------- */
 
   .section {

@@ -199,6 +199,16 @@ Named distances: `--gap-hair` 0.375rem, `--gap-line` 0.75rem,
   Cursor, GitHub Copilot, Windsurf and Python from Simple Icons (CC0 icon
   data); OpenAI and Hermes (the Nous Research mark) from LobeHub icons (MIT).
   Neither set has a VS Code logo, so that entry shows GitHub Copilot.
+- **Connect your AI on a vault** (`/activity`, only for a vault on a test
+  network; `vault-connect.tsx`): this vault's setup for Claude Code, Claude
+  Desktop, Cursor and VS Code, and the owner's 24/7 watcher, filled in with
+  its address, chain and agent key, one at a time behind a switch, each with
+  a Copy button and a polite announcement. The forms are those in
+  `web/mcp/clients/*`. The agent key is masked (`0x••••••••`) in what is
+  shown and is in the page only while "Show agent key" is open, with a
+  sentence saying it is the agent's test-network key, never the owner's, and
+  what holding it allows. Copy always copies the complete setup. VS Code keeps
+  its own masked prompt for the key; the watcher takes no key.
 - **Icons and link previews**: `web/src/app/icon.svg` (vector, the mark on a
   dark tile) is what browsers show. `favicon.ico` (16, 32, 48px) and
   `apple-icon.png` (180px) are rendered from that vector for browsers and

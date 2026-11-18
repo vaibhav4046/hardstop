@@ -94,8 +94,8 @@ export function EvidencePath() {
       </div>
       <p className="small soft">
         The left side is how the limit was raised in the test described above. The right side is what the vault&rsquo;s
-        contract does; you can try each step on the practice vault below. The vault does not send alerts yet, so a
-        waiting raise is only caught by an owner who looks.
+        contract does; you can try each step on the practice vault below. This site sends no alerts itself; the optional
+        watcher you run yourself (web/mcp/watch.ts) reports a waiting raise around the clock.
       </p>
     </div>
   )

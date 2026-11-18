@@ -32,13 +32,7 @@ You need Node 24 or later, and `npm ci` run once in `web/`. The server runs as T
 | `HARDSTOP_HTTP_TOKEN` | HTTP mode only. Required before the server is reachable from anywhere but localhost. |
 | `HARDSTOP_FAKE=1` | Demo: an in-memory network and vault. No other settings are needed. |
 
-**Finding your agent key and vault.** A vault opened on the site keeps them in that browser. Open the site, then the developer console, and run:
-
-```js
-JSON.parse(localStorage.getItem('hardstop.live.v1')).vault
-```
-
-The result includes `vault`, `agentKey` and `chainId`. The site has no button for this yet.
+**Finding your agent key and vault.** A vault opened on the site keeps them in that browser. On your vault's page, open Connect your AI: it has this vault's setup for each client, filled in and ready to copy, and the agent key behind "Show agent key".
 
 The key is never logged, never echoed in an error, and never passed to child processes. A configuration problem comes back to the assistant as one plain sentence that names the variable to fix.
 

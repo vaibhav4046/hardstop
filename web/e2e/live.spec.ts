@@ -7,7 +7,8 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { FakeNetwork } from '../tests/fake-network.ts'
-import { expect, newest, press, receipts, shot, test } from './helpers'
+import path from 'node:path'
+import { expect, newest, overflow, press, receipts, REPO, shot, test } from './helpers'
 
 const OWNER = '0x00000000000000000000000000000000000a11ce'
 const LIVE_KEY = 'hardstop.live.v1'
@@ -121,5 +122,69 @@ test.describe('A vault on a test network', () => {
     await page.getByRole('button', { name: 'Create it in this browser' }).click()
     await page.waitForURL('**/activity')
     await expect(page.getByText('In this browser only')).toBeVisible()
+    // A vault in this browser has no agent to connect: the panel is only for one on a network.
+    await expect(page.locator('section[aria-labelledby="connect-vault-title"]')).toHaveCount(0)
+  })
+
+  test('Connect your AI: each setup is filled in with this vault, and the agent key shows only when asked', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const network = await FakeNetwork.create(OWNER, BigInt(Math.floor(Date.now() / 1000)))
+    await connect(page, network)
+    await openOnNetwork(page)
+    const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null').vault, LIVE_KEY)
+    const { agentKey, vault, chainId } = saved as { agentKey: string; vault: string; chainId: number }
+
+    const panel = page.locator('section[aria-labelledby="connect-vault-title"]')
+    await panel.scrollIntoViewIfNeeded()
+    const shown = panel.locator('pre').first()
+    const clipboard = () => page.evaluate(() => navigator.clipboard.readText())
+
+    // Closed, the key is nowhere in the page; the setups show it masked but copy it whole.
+    expect(await page.content()).not.toContain(agentKey.slice(2))
+    await expect(shown).toContainText(`HARDSTOP_VAULT=${vault}`)
+    await expect(shown).toContainText(`HARDSTOP_CHAIN_ID=${chainId}`)
+    await expect(shown).toContainText('HARDSTOP_AGENT_KEY=0x••••••••')
+    await panel.getByRole('button', { name: 'Copy' }).first().click()
+    await expect(panel.getByRole('status')).toHaveText('Claude Code setup copied.')
+    expect(await clipboard()).toBe(
+      `claude mcp add --env HARDSTOP_AGENT_KEY=${agentKey} --env HARDSTOP_VAULT=${vault} --env HARDSTOP_CHAIN_ID=${chainId} --transport stdio --scope user hardstop -- node /ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts`,
+    )
+
+    // The JSON setups are valid JSON with the same values.
+    for (const [label, root] of [
+      ['Claude Desktop', 'mcpServers'],
+      ['Cursor', 'mcpServers'],
+    ] as const) {
+      await panel.getByRole('button', { name: label, exact: true }).click()
+      await panel.getByRole('button', { name: 'Copy' }).first().click()
+      const config = JSON.parse(await clipboard())
+      expect(config[root].hardstop.env).toEqual({ HARDSTOP_AGENT_KEY: agentKey, HARDSTOP_VAULT: vault, HARDSTOP_CHAIN_ID: String(chainId) })
+    }
+
+    // VS Code asks for the key itself; the watcher needs none.
+    await panel.getByRole('button', { name: 'VS Code', exact: true }).click()
+    await panel.getByRole('button', { name: 'Copy' }).first().click()
+    const vscode = await clipboard()
+    expect(vscode).not.toContain(agentKey)
+    expect(JSON.parse(vscode).servers.hardstop.env.HARDSTOP_VAULT).toBe(vault)
+    await panel.getByRole('button', { name: 'Watch 24/7', exact: true }).click()
+    await panel.getByRole('button', { name: 'Copy' }).first().click()
+    const watch = await clipboard()
+    expect(watch).toContain(`HARDSTOP_VAULT=${vault} HARDSTOP_CHAIN_ID=${chainId} node mcp/watch.ts`)
+    expect(watch).not.toContain(agentKey)
+
+    // Asked for, the key appears, with what it is.
+    await panel.locator('summary', { hasText: 'Show agent key' }).click()
+    await expect(panel.getByText('never your wallet', { exact: false })).toBeVisible()
+    await expect(panel.getByLabel('Agent key')).toHaveText(agentKey)
+
+    const results = await new AxeBuilder({ page }).include('section[aria-labelledby="connect-vault-title"]').analyze()
+    expect(results.violations.map((violation) => violation.id)).toEqual([])
+    await shot(page, 'LIVE-02-connect-your-ai')
+
+    // On a phone the long lines scroll inside their own boxes; the page does not.
+    await page.setViewportSize({ width: 360, height: 780 })
+    expect((await overflow(page)).offenders).toEqual([])
+    await panel.screenshot({ path: path.join(REPO, 'qa', 'screenshots', 'LIVE-03-connect-your-ai-360.png') })
   })
 })

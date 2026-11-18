@@ -9,6 +9,7 @@ import { AgentPanel } from './agent-panel'
 import { Amount } from './amount'
 import { OwnerControls } from './owner-controls'
 import { announcement, Slip } from './slip'
+import { VaultConnect } from './vault-connect'
 
 export function ActivityBoard() {
   const vault = useVault()
@@ -337,6 +338,8 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
 
         <OwnerControls view={view} isBusy={isBusy} run={run} onReset={vault.reset} />
       </div>
+
+      {live && <VaultConnect live={live} />}
     </div>
   )
 }
