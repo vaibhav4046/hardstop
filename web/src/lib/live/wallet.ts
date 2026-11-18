@@ -24,7 +24,9 @@ export const NETWORKS: Network[] = [
     name: 'Base Sepolia',
     explorer: 'https://sepolia.basescan.org',
     rpc: 'https://sepolia.base.org',
-    gasMoney: 300_000_000_000_000n, // 0.0003 ETH
+    // 0.00003 ETH: thousands of agent payments at Base Sepolia's fees, and with
+    // the launch's own fees it still fits in one 0.0001 ETH faucet claim.
+    gasMoney: 30_000_000_000_000n,
   },
   {
     chainId: 11155111,
