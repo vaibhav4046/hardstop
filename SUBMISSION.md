@@ -49,20 +49,23 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 
 `Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, schedule, active,
 queued, approved_from, mut ledger, mut call, mut log)`: the rules appear
-without `mut`, so the agent's only handler cannot change them. A `Pay` that
-wrote to them would not compile, and CI proves it on every push. The other
-handlers that change the rules are guarded by an ordinary runtime owner
-check. The same pure `decide` also runs as a native command-line program.
+without `mut`, so the agent's only handler cannot change them. Owner
+authority is a type: `amend`, `cancel`, recipient approval and withdrawal
+each need an `OwnerProof`, which only `authorize(owner, caller)` can make
+(its field is private to the kernel). CI proves both on every push: a `Pay`
+that writes the rules, an owner handler with its owner check deleted, and a
+hand-made `OwnerProof` all fail to compile. The same pure `decide` also runs
+as a native command-line program.
 Details in the README's "Fe highlight".
 
 ## Evidence it works
 
-- `fe test`: 81 passed on the EVM; 45 passed natively.
+- `fe test`: 85 passed on the EVM; 49 passed natively.
 - Web: 37 unit tests and 55 browser tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check and
   the unit tests on every push; the browser suite runs locally
   (`npm run e2e`).
-- On Base Sepolia (public test network): the launcher, three vaults (one
+- On Base Sepolia (public test network): the launcher, four vaults (one
   opened by clicking through MetaMask on the live site), paid and refused
   payments, and measured gas for every call, each with its transaction link,
   in the README.
@@ -70,8 +73,9 @@ Details in the README's "Fe highlight".
 ## Honest limits
 
 Test networks only; unaudited; MetaMask's site scanner currently warns
-before connecting (a review was requested on 2026-11-18); nothing alerts the
-owner when a raise is waiting. Full list in the README's "Limitations".
+before connecting (a review was requested on 2026-11-18); a waiting raise is
+shown on every page of the site, but nothing is sent to an owner who is not
+on it. Full list in the README's "Limitations".
 
 ## AI assistance
 

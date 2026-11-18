@@ -225,8 +225,8 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | The same wallet code on Base Sepolia, a public test network (2026-11-18, previous contracts) | launcher installed ([tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099)), vault created ([tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62)), agent paid $4 ([tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a)), agent refused $80 over its per-payment limit ([tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967)), agent's attempt to raise its own limit refused before sending. All four succeeded; vault left with $96, recipient $4 |
 | A vault opened by clicking through MetaMask on the live site (2026-11-18, previous contracts) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
-| Upgraded contracts on Base Sepolia (zero-address check, typed time units) | launcher `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` installed, vault `0x6b075068dc0619678b52fbce571dcb6e90c3ca2c` created; paid twice, refused $80 (code 10), self-raise reverted `NotOwner`, owner proposed, cancelled, paused; vault left with $92. Transactions in the gas table below |
-| Vault runtime size | 7,955 bytes, read from Base Sepolia with `eth_getCode` |
+| Current contracts on Base Sepolia (zero-address check, typed time units, `OwnerProof`) | launcher `0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1` installed, vault `0x7f7876dfb9c57fa9a367682f6ff680959a206c8e` created; paid twice, refused $80 (code 10), self-raise reverted `NotOwner`, owner proposed, cancelled, paused; vault left with $92. Transactions in the gas table below |
+| Vault runtime size | 7,941 bytes, read from Base Sepolia with `eth_getCode` |
 | Browser suite (`npm run e2e`, Chromium, production build) | 55 passed, 0 failed: seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
@@ -238,19 +238,20 @@ EVM chain, the price per gas differs):
 
 | Call | Gas | Transaction |
 |---|---|---|
-| Install the launcher (once per network) | 2,315,301 | [tx](https://sepolia.basescan.org/tx/0xc790f19bac59041e76ceca189a182463b77bac53f1e41d73529e074ed35016b3) |
-| Create a vault (launcher, token mint, agent gas) | 1,865,936 | [tx](https://sepolia.basescan.org/tx/0x65b00f7fa6a52c835cd304beda2cde4c2c2c01cc87859b4845de470b7ae2e7ec) |
-| `pay`, allowed, first in the vault | 122,149 | [tx](https://sepolia.basescan.org/tx/0xa10958d0855477034f31762595542bd1c1fae1ce1fb2543faa3c8c2a77f48409) |
-| `pay`, allowed, later | 70,861 | [tx](https://sepolia.basescan.org/tx/0x5df0daec9f1f9497e54243e3d7ea6f4ea19d5f0dda24eada568ce5a49a53790c) |
-| `pay`, refused (over the per-payment limit) | 49,840 | [tx](https://sepolia.basescan.org/tx/0x510b429899de54d8057b8eb0630f3771192a7620b6089c40b97852116c7561b4) |
-| `propose`, a raise that waits | 103,758 | [tx](https://sepolia.basescan.org/tx/0xc495f4fb78485dec58ea243a683c9556e3eb856257f5406ff3cb822c0b1731aa) |
-| `cancelQueued` | 39,796 | [tx](https://sepolia.basescan.org/tx/0x041995f0bd44616ac853621420e1b0796bb7f44355538aaf982ad537956b16cf) |
-| `pause` | 43,671 | [tx](https://sepolia.basescan.org/tx/0x57e37ef2e326c4e6bee319e6423a143a3a4b09b4de08960f949b05d12360c42f) |
+| Install the launcher (once per network) | 2,312,243 | [tx](https://sepolia.basescan.org/tx/0x2bd0c853728e50d58edf3ac6b1e0cbddbd289e08eab1064217e4aa748a639bc7) |
+| Create a vault (launcher, token mint, agent gas) | 1,863,136 | [tx](https://sepolia.basescan.org/tx/0x23b0018bce6c3a48563b74c25a5759761c7f8136e697e4ff99ab9737ac362893) |
+| `pay`, allowed, first in the vault | 122,149 | [tx](https://sepolia.basescan.org/tx/0x815eaf04f204292f4bf3d4f5314348b7df1bd6facddcf98b4a1e5e4a89f88f73) |
+| `pay`, allowed, later | 70,861 | [tx](https://sepolia.basescan.org/tx/0xeb2a9ffb43492d269c37ee6a61860ad2fc46c1b06c8249f5713748b3e808e08c) |
+| `pay`, refused (over the per-payment limit) | 49,840 | [tx](https://sepolia.basescan.org/tx/0x7c2b88a14a04d9f9bd53b6f8dd061fcb3494561a22519185c9ba977fb2342b65) |
+| `propose`, a raise that waits | 103,760 | [tx](https://sepolia.basescan.org/tx/0x915ef04be53e37537ee59c28c6495132b2fe374aff424ec459d87d62a74efc93) |
+| `cancelQueued` | 39,798 | [tx](https://sepolia.basescan.org/tx/0x5084dff4ace092a32d6596d616a7a08d3c42077435bbc0d08faddf2d9719fce3) |
+| `pause` | 43,673 | [tx](https://sepolia.basescan.org/tx/0x01d4383638b0c444e63272923c4bb359755912c768445a0cd5cfd9360d8fb41d) |
 
-On the previous contracts every run-time call cost within 0.3% of these
-(`pay`, first: 122,096), while installing and creating cost about 3% less
-(2,245,239 and 1,808,063): the typed time units and the zero-address check
-make the code larger but cost almost nothing per call.
+On the first contracts (before the zero-address check, typed time units and
+`OwnerProof`) every run-time call cost within 0.3% of these (`pay`, first:
+122,096), while installing and creating cost about 3% less (2,245,239 and
+1,808,063): the changes make the code larger but cost almost nothing per
+call.
 
 A refusal is recorded on chain as a transaction, so it costs gas; an agent's
 attempt to change the rules reverts in the rehearsal and is never sent.
@@ -277,11 +278,12 @@ substitute for the second.
 ## Limitations
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0xe7d4489cde5cdaabbce571162ec14beca324b7c3`, is
-  installed on Base Sepolia; on Sepolia it installs itself on first use. The
-  previous one, `0x956fbbde5fcb981e5a8507b369c79105815d562d` (before the
-  zero-address check and typed time units), stays there with the two vaults
-  opened through it, one of them through MetaMask on the live site. A
+  The current launcher, `0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1`, is
+  installed on Base Sepolia; on Sepolia it installs itself on first use. Two
+  earlier ones stay on Base Sepolia with the vaults opened through them:
+  `0x956fbbde5fcb981e5a8507b369c79105815d562d` (the first contracts; two
+  vaults, one opened through MetaMask on the live site) and
+  `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` (before `OwnerProof`). A
   launcher's address follows from its code, so every change to the
   contracts gives a new one. The agent is a trial key kept in the browser;
   a real agent would hold its own key.

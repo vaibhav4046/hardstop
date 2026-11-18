@@ -39,6 +39,9 @@ listed under "Not started".
   a throwaway test key: launcher installed, vault created, agent paid $4,
   refused $80, refused a self-raise (transactions in the README). The same
   again by clicking through MetaMask on the live site, same day.
+- Owner authority is a type: rule changes and withdrawal need an
+  `OwnerProof` that only `authorize(owner, caller)` can make; CI proves a
+  handler without its owner check does not compile.
 - The vault rejects a zero owner, agent or token (`ZeroAddress`), and every
   page of the site shows a waiting loosening with a cancel button.
 - CI proves `Pay` cannot be edited to change the rules: the compiler refuses

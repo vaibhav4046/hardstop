@@ -425,3 +425,34 @@ $ npm test                                     -> 37 passed
   paid twice, refused $80 (code 10), self-raise reverted `NotOwner`, owner
   proposed, cancelled and paused; vault left with 92 test dollars; runtime
   code 7,955 bytes. Gas and transactions in the README.
+
+**Owner authority as a type (2026-11-18).** After a second AI judge review
+(75/100, 6th of 16 assessed) named the runtime `onlyOwner` check as the main
+Fe-specific gap, approved by the owner. Written by an AI agent in a separate
+worktree, fast-forwarded into `main` and re-checked here:
+
+- `kernel.fe`: `OwnerProof { granted: bool }` with a private field;
+  `authorize<T: Eq>(owner, caller) -> Option<OwnerProof>` is the only way to
+  make one. `amend`, `cancel` and the new `approve_from` require it.
+- `vault.fe`: `only()` returns the proof; `Withdraw` pays through
+  `pay_owner(_ proof, ...)`.
+- `scripts/pay-cannot-loosen.sh`: deleting the owner check from each of the
+  five owner handlers must fail with 8-0012 "undefined variable `proof`" and
+  nothing else; a hand-made `OwnerProof` must fail as "not visible".
+
+```
+$ fe fmt --check && fe test                   -> 85 passed, 0 failed
+$ (WSL) scripts/native.sh                     -> 49 passed; both_targets_reach_the_same_verdicts PASS
+$ scripts/pay-cannot-loosen.sh                -> control ok, 9 refusals ok
+ABI files vs the base build                   -> identical, all 7 (agent's check)
+$ npm test                                    -> 36 passed, 1 failed: the quoted `amend` on
+                                                 /developers still had the old signature;
+                                                 updated, then 37 passed
+```
+
+Base Sepolia, throwaway test key: launcher
+`0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1` installed (2,312,243 gas), vault
+`0x7f7876dfb9c57fa9a367682f6ff680959a206c8e` created (1,863,136); paid twice,
+refused $80 (code 10), self-raise reverted `NotOwner`, owner proposed,
+cancelled and paused; vault left with 92 test dollars; runtime code 7,941
+bytes. Run-time gas within 2 units of the previous contracts.
