@@ -39,6 +39,8 @@ listed under "Not started".
   a throwaway test key: launcher installed, vault created, agent paid $4,
   refused $80, refused a self-raise (transactions in the README). The same
   again by clicking through MetaMask on the live site, same day.
+- The vault rejects a zero owner, agent or token (`ZeroAddress`), and every
+  page of the site shows a waiting loosening with a cancel button.
 - CI proves `Pay` cannot be edited to change the rules: the compiler refuses
   each edit (`scripts/pay-cannot-loosen.sh`).
 - Gas for install, create, `pay` (allowed and refused), `propose`,
@@ -66,8 +68,6 @@ listed under "Not started".
 
 - Typed units in `kernel.fe` (seconds, amounts, nonces) instead of bare
   integers.
-- Reject a zero owner or token address when a vault is created.
-- Something that tells the owner a raise is waiting.
 
 - Optional: policy drafting from plain language (needs an LLM API key on the server).
 - The final submission through the owner's private link. The text is ready

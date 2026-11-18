@@ -16,7 +16,19 @@ use core::text::parse_uint
 use std::env::Args
 use std::io::{Stdin, StdinReader, Stdout}
 use ingot::adversary::{campaign, Kernel}
-use ingot::kernel::{decide, exposure, Decision, Ledger, Policy, Queued, Request, Rules, Schedule}
+use ingot::kernel::{
+    decide,
+    exposure,
+    Decision,
+    Instant,
+    Ledger,
+    Policy,
+    Queued,
+    Request,
+    Rules,
+    Schedule,
+    Seconds,
+}
 
 const RULES_FIELDS: usize = 12
 const LEDGER_FIELDS: usize = 3
@@ -54,27 +66,35 @@ fn small(_ value: u256) -> u64 {
     value.downcast_saturate()
 }
 
+fn instant(_ value: u256) -> Instant {
+    Instant::at(small(value))
+}
+
+fn seconds(_ value: u256) -> Seconds {
+    Seconds::of(small(value))
+}
+
 fn rules_of(_ v: [u256; 20]) -> Rules {
     Rules {
         schedule: Schedule {
-            anchor: small(v[0]),
-            window_secs: small(v[1]),
-            cooling_secs: small(v[2]),
+            anchor: instant(v[0]),
+            window_secs: seconds(v[1]),
+            cooling_secs: seconds(v[2]),
         },
         active: Policy {
             per_payment: v[3],
             per_window: v[4],
-            valid_until: small(v[5]),
+            valid_until: instant(v[5]),
             paused: v[6] != 0,
         },
         queued: Queued {
             policy: Policy {
                 per_payment: v[7],
                 per_window: v[8],
-                valid_until: small(v[9]),
+                valid_until: instant(v[9]),
                 paused: v[10] != 0,
             },
-            effective_at: small(v[11]),
+            effective_at: instant(v[11]),
         },
     }
 }
@@ -86,7 +106,7 @@ fn ledger_of(_ v: [u256; 20]) -> Ledger {
 fn print_decision(_ v: [u256; 20]) uses (out: mut Stdout) {
     let rules = rules_of(v)
     let ledger = ledger_of(v)
-    let now = small(v[19])
+    let now = instant(v[19])
     let request = Request {
         amount: v[15],
         nonce: small(v[16]),
@@ -163,8 +183,8 @@ fn print_exposure(_ v: [u256; 20]) uses (out: mut Stdout) {
         exposure(
             rules: rules_of(v),
             ledger: ledger_of(v),
-            now: small(v[15]),
-            until: small(v[16]),
+            now: instant(v[15]),
+            until: instant(v[16]),
         ),
     )
 }
@@ -195,8 +215,8 @@ pub fn run() -> i32 uses (out: mut Stdout, args: Args, input: mut Stdin) {
                 let bound = exposure(
                     rules: rules_of(values),
                     ledger: ledger_of(values),
-                    now: small(values[15]),
-                    until: small(values[16]),
+                    now: instant(values[15]),
+                    until: instant(values[16]),
                 )
                 println!(bound)
                 return 0

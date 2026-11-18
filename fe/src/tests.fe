@@ -9,6 +9,7 @@ use ingot::kernel::{
     loosens,
     meet,
     Decision,
+    Instant,
     Ledger,
     Policy,
     Queued,
@@ -16,6 +17,7 @@ use ingot::kernel::{
     Request,
     Rules,
     Schedule,
+    Seconds,
 }
 
 const DAY: u64 = 86400
@@ -23,13 +25,21 @@ const T0: u64 = 1000000
 const MAX_U64: u64 = 18446744073709551615
 const MAX_U256: u256 = 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
+fn at(_ secs: u64) -> Instant {
+    Instant::at(secs)
+}
+
+fn secs(_ secs: u64) -> Seconds {
+    Seconds::of(secs)
+}
+
 fn policy() -> Policy {
-    Policy { per_payment: 10, per_window: 20, valid_until: T0 + 30 * DAY, paused: false }
+    Policy { per_payment: 10, per_window: 20, valid_until: at(T0 + 30 * DAY), paused: false }
 }
 
 fn rules() -> Rules {
     Rules {
-        schedule: Schedule { anchor: T0, window_secs: DAY, cooling_secs: DAY },
+        schedule: Schedule { anchor: at(T0), window_secs: secs(DAY), cooling_secs: secs(DAY) },
         active: policy(),
         queued: Queued::none(),
     }
@@ -44,7 +54,7 @@ fn ask(amount: u256, nonce: u64) -> Request {
 }
 
 fn code(_ rules: Rules, _ ledger: Ledger, _ request: Request, now: u64) -> u8 {
-    decide(rules, ledger, request, now).code()
+    decide(rules, ledger, request, now: at(now)).code()
 }
 
 // --- decide ---------------------------------------------------------------
@@ -55,7 +65,7 @@ fn allows_a_payment_inside_every_limit() {
         rules: rules(),
         ledger: fresh(),
         request: ask(amount: 4, nonce: 0),
-        now: T0 + 5,
+        now: at(T0 + 5),
     )
     assert!(d.code() == 0)
     assert!(d.detail(policy: policy()) == 16)
@@ -78,7 +88,7 @@ fn payment_cap_is_inclusive() {
         rules: rules(),
         ledger: fresh(),
         request: ask(amount: 11, nonce: 0),
-        now: T0,
+        now: at(T0),
     )
     assert!(d.code() == 10)
     assert!(d.detail(policy: policy()) == 10)
@@ -94,7 +104,7 @@ fn window_cap_counts_what_was_already_spent() {
         rules: rules(),
         ledger: used,
         request: ask(amount: 6, nonce: 3),
-        now: T0 + 9,
+        now: at(T0 + 9),
     )
     assert!(d.code() == 11)
     assert!(d.detail(policy: policy()) == 5)
@@ -110,7 +120,7 @@ fn a_new_window_starts_empty() {
         rules: rules(),
         ledger: used,
         request: ask(amount: 10, nonce: 2),
-        now: T0 + DAY,
+        now: at(T0 + DAY),
     )
     match d {
         Decision::Allow(next) => {
@@ -133,7 +143,7 @@ fn refusals_come_in_a_fixed_order() {
     assert!(code(r, fresh(), agent, now: T0 + 40 * DAY) == 2)
     // A stranger is told "not the agent" and nothing else, paused or not.
     assert!(code(r, fresh(), stranger, now: T0 + 40 * DAY) == 3)
-    r.schedule.window_secs = 0
+    r.schedule.window_secs = secs(0)
     assert!(code(r, fresh(), stranger, now: T0 + 40 * DAY) == 1)
 }
 
@@ -168,7 +178,7 @@ fn reasons_carry_the_number_that_explains_them() {
                 rules: r,
                 ledger: fresh(),
                 request: ask(amount: 4, nonce: 0),
-                now: T0 - 1,
+                now: at(T0 - 1),
             )
                 .detail(policy: policy())
             == T0 as u256,
@@ -177,7 +187,7 @@ fn reasons_carry_the_number_that_explains_them() {
         rules: r,
         ledger: fresh(),
         request: ask(amount: 4, nonce: 0),
-        now: T0 + 31 * DAY,
+        now: at(T0 + 31 * DAY),
     )
     assert!(late.detail(policy: policy()) == (T0 + 30 * DAY) as u256)
     let used = Ledger { window: 0, spent: 0, next_nonce: 7 }
@@ -186,7 +196,7 @@ fn reasons_carry_the_number_that_explains_them() {
                 rules: r,
                 ledger: used,
                 request: ask(amount: 4, nonce: 2),
-                now: T0,
+                now: at(T0),
             )
                 .detail(policy: policy())
             == 7,
@@ -196,11 +206,11 @@ fn reasons_carry_the_number_that_explains_them() {
 #[test]
 fn extreme_inputs_never_panic() {
     let wide = Rules {
-        schedule: Schedule { anchor: 0, window_secs: 1, cooling_secs: MAX_U64 },
+        schedule: Schedule { anchor: at(0), window_secs: secs(1), cooling_secs: secs(MAX_U64) },
         active: Policy {
             per_payment: MAX_U256,
             per_window: MAX_U256,
-            valid_until: MAX_U64,
+            valid_until: at(MAX_U64),
             paused: false,
         },
         queued: Queued::none(),
@@ -230,23 +240,48 @@ fn extreme_inputs_never_panic() {
         rules: rules(),
         ledger: lowered,
         request: ask(amount: 1, nonce: 0),
-        now: T0,
+        now: at(T0),
     )
     assert!(d.code() == 11)
     assert!(d.detail(policy: policy()) == 0)
     assert!(
-        exposure(rules: wide, ledger: fresh(), now: 0, until: MAX_U64) == MAX_U256,
+        exposure(
+                rules: wide,
+                ledger: fresh(),
+                now: at(0),
+                until: at(MAX_U64),
+            ) == MAX_U256,
     )
-    let amended = amend(rules: wide, proposed: policy(), now: MAX_U64)
+    let amended = amend(rules: wide, proposed: policy(), now: at(MAX_U64))
     assert!(!amended.queued.is_some())
+}
+
+/// The time operations saturate rather than overflow or divide by zero, so
+/// they cannot make the kernel panic.
+#[test]
+fn time_arithmetic_is_total() {
+    assert!(at(MAX_U64 - 1) + secs(5) == at(MAX_U64))
+    assert!(at(3) - secs(5) == at(0))
+    assert!(at(3) - at(5) == secs(0))
+    assert!(at(9) - at(5) == secs(4))
+    assert!(secs(9) / secs(4) == 2)
+    assert!(secs(9) / secs(0) == 0)
+    assert!(
+        at(4) < at(5) && at(5) <= at(5) && at(6) > at(5) && at(5) >= at(5),
+    )
 }
 
 // --- amend ----------------------------------------------------------------
 
 #[test]
 fn lowering_a_limit_applies_at_once() {
-    let lower = Policy { per_payment: 3, per_window: 20, valid_until: T0 + 30 * DAY, paused: false }
-    let r = amend(rules: rules(), proposed: lower, now: T0 + 100)
+    let lower = Policy {
+        per_payment: 3,
+        per_window: 20,
+        valid_until: at(T0 + 30 * DAY),
+        paused: false,
+    }
+    let r = amend(rules: rules(), proposed: lower, now: at(T0 + 100))
     assert!(r.active.per_payment == 3)
     assert!(!r.queued.is_some())
     assert!(
@@ -259,13 +294,13 @@ fn raising_a_limit_waits_out_the_cooling_period() {
     let higher = Policy {
         per_payment: 500,
         per_window: 1000,
-        valid_until: T0 + 30 * DAY,
+        valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: higher, now: T0 + 100)
+    let r = amend(rules: rules(), proposed: higher, now: at(T0 + 100))
     assert!(r.active.per_payment == 10)
     assert!(r.active.per_window == 20)
-    assert!(r.queued.effective_at == T0 + 100 + DAY)
+    assert!(r.queued.effective_at == at(T0 + 100 + DAY))
     // One second before the cooling period ends the old cap still holds.
     assert!(
         code(r, fresh(), ask(amount: 500, nonce: 0), now: T0 + 99 + DAY) == 10,
@@ -285,14 +320,14 @@ fn a_mixed_change_tightens_now_and_loosens_later() {
     let mixed = Policy {
         per_payment: 2,
         per_window: 1000,
-        valid_until: T0 + 30 * DAY,
+        valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: mixed, now: T0)
+    let r = amend(rules: rules(), proposed: mixed, now: at(T0))
     assert!(r.active.per_payment == 2)
     assert!(r.active.per_window == 20)
     assert!(r.queued.is_some())
-    assert!(r.current(now: T0 + DAY).per_window == 1000)
+    assert!(r.current(now: at(T0 + DAY)).per_window == 1000)
 }
 
 #[test]
@@ -300,11 +335,11 @@ fn a_queued_raise_can_be_cancelled() {
     let higher = Policy {
         per_payment: 500,
         per_window: 1000,
-        valid_until: T0 + 30 * DAY,
+        valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let queued = amend(rules: rules(), proposed: higher, now: T0)
-    let r = cancel(rules: queued, now: T0 + 50)
+    let queued = amend(rules: rules(), proposed: higher, now: at(T0))
+    let r = cancel(rules: queued, now: at(T0 + 50))
     assert!(!r.queued.is_some())
     assert!(
         code(r, fresh(), ask(amount: 500, nonce: 0), now: T0 + 2 * DAY) == 10,
@@ -316,13 +351,13 @@ fn pausing_is_instant_and_cancels_a_queued_raise() {
     let higher = Policy {
         per_payment: 500,
         per_window: 1000,
-        valid_until: T0 + 30 * DAY,
+        valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let queued = amend(rules: rules(), proposed: higher, now: T0)
+    let queued = amend(rules: rules(), proposed: higher, now: at(T0))
     var stop = queued.active
     stop.paused = true
-    let r = amend(rules: queued, proposed: stop, now: T0 + 10)
+    let r = amend(rules: queued, proposed: stop, now: at(T0 + 10))
     assert!(r.active.paused)
     assert!(!r.queued.is_some())
     assert!(
@@ -337,7 +372,7 @@ fn pausing_is_instant_and_cancels_a_queued_raise() {
 fn resuming_waits_out_the_cooling_period() {
     var paused = rules()
     paused.active.paused = true
-    let r = amend(rules: paused, proposed: policy(), now: T0)
+    let r = amend(rules: paused, proposed: policy(), now: at(T0))
     assert!(r.active.paused)
     assert!(
         code(r, fresh(), ask(amount: 1, nonce: 0), now: T0 + DAY - 1) == 2,
@@ -350,14 +385,14 @@ fn resuming_waits_out_the_cooling_period() {
 #[test]
 fn loosens_and_meet_agree() {
     let a = policy()
-    let b = Policy { per_payment: 11, per_window: 5, valid_until: T0, paused: true }
+    let b = Policy { per_payment: 11, per_window: 5, valid_until: at(T0), paused: true }
     assert!(loosens(a, to: b))
     assert!(loosens(b, to: a))
     let m = meet(a, b)
     assert!(!loosens(a, to: m))
     assert!(!loosens(b, to: m))
     assert!(
-        m.per_payment == 10 && m.per_window == 5 && m.valid_until == T0 && m.paused,
+        m.per_payment == 10 && m.per_window == 5 && m.valid_until == at(T0) && m.paused,
     )
 }
 
@@ -368,16 +403,31 @@ fn exposure_counts_whole_windows() {
     let r = rules()
     // The rest of today.
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0, until: T0 + DAY - 1) == 20,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + DAY - 1),
+            ) == 20,
     )
     // Today and tomorrow.
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0, until: T0 + DAY) == 40,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + DAY),
+            ) == 40,
     )
     // What was already spent today comes off today only.
     let used = Ledger { window: 0, spent: 15, next_nonce: 1 }
     assert!(
-        exposure(rules: r, ledger: used, now: T0 + 5, until: T0 + DAY) == 25,
+        exposure(
+                rules: r,
+                ledger: used,
+                now: at(T0 + 5),
+                until: at(T0 + DAY),
+            ) == 25,
     )
 }
 
@@ -388,25 +438,40 @@ fn exposure_is_zero_when_nothing_can_move() {
         exposure(
                 rules: r,
                 ledger: fresh(),
-                now: T0 + 31 * DAY,
-                until: T0 + 40 * DAY,
+                now: at(T0 + 31 * DAY),
+                until: at(T0 + 40 * DAY),
             ) == 0,
     )
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0 + 5, until: T0 + 4) == 0,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0 + 5),
+                until: at(T0 + 4),
+            ) == 0,
     )
     r.active.paused = true
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0, until: T0 + 10 * DAY) == 0,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + 10 * DAY),
+            ) == 0,
     )
 }
 
 #[test]
 fn exposure_stops_at_expiry() {
     var r = rules()
-    r.active.valid_until = T0 + DAY + 5
+    r.active.valid_until = at(T0 + DAY + 5)
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0, until: T0 + 10 * DAY) == 40,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + 10 * DAY),
+            ) == 40,
     )
 }
 
@@ -415,17 +480,27 @@ fn exposure_includes_a_raise_that_matures_in_time() {
     let higher = Policy {
         per_payment: 500,
         per_window: 1000,
-        valid_until: T0 + 30 * DAY,
+        valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: higher, now: T0)
+    let r = amend(rules: rules(), proposed: higher, now: at(T0))
     // Inside the cooling period the raise changes nothing.
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0, until: T0 + DAY - 1) == 20,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + DAY - 1),
+            ) == 20,
     )
     // One second later it is in force for that second's window.
     assert!(
-        exposure(rules: r, ledger: fresh(), now: T0, until: T0 + DAY) == 1020,
+        exposure(
+                rules: r,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + DAY),
+            ) == 1020,
     )
 }
 
@@ -434,18 +509,18 @@ fn exposure_includes_a_raise_that_matures_in_time() {
 // showed the suite did not pin before.
 
 fn higher() -> Policy {
-    Policy { per_payment: 500, per_window: 1000, valid_until: T0 + 30 * DAY, paused: false }
+    Policy { per_payment: 500, per_window: 1000, valid_until: at(T0 + 30 * DAY), paused: false }
 }
 
 #[test]
 fn proposing_again_restarts_the_wait() {
-    let first = amend(rules: rules(), proposed: higher(), now: T0)
+    let first = amend(rules: rules(), proposed: higher(), now: at(T0))
     var bigger = higher()
     bigger.per_payment = 100000
     bigger.per_window = 100000
-    let second = amend(rules: first, proposed: bigger, now: T0 + DAY - 1)
+    let second = amend(rules: first, proposed: bigger, now: at(T0 + DAY - 1))
     // The bigger raise waits its own full cooling period.
-    assert!(second.queued.effective_at == T0 + 2 * DAY - 1)
+    assert!(second.queued.effective_at == at(T0 + 2 * DAY - 1))
     // And the smaller one it replaced does not arrive on its old schedule.
     assert!(
         code(second, fresh(), ask(amount: 11, nonce: 0), now: T0 + DAY) == 10,
@@ -454,31 +529,32 @@ fn proposing_again_restarts_the_wait() {
 
 #[test]
 fn a_matured_raise_is_the_baseline_for_the_next_proposal() {
-    let first = amend(rules: rules(), proposed: higher(), now: T0)
+    let first = amend(rules: rules(), proposed: higher(), now: at(T0))
     // Two days later the raise is in force. Lowering one field of it is a
     // tightening, so it applies at once and nothing is queued.
     var lower = higher()
     lower.per_payment = 50
-    let second = amend(rules: first, proposed: lower, now: T0 + 2 * DAY)
+    let second = amend(rules: first, proposed: lower, now: at(T0 + 2 * DAY))
     assert!(
         second.active.per_payment == 50 && second.active.per_window == 1000,
     )
     assert!(!second.queued.is_some())
     // Cancelling after the raise took effect keeps it: there is nothing left to cancel.
-    let kept = cancel(rules: first, now: T0 + 2 * DAY)
+    let kept = cancel(rules: first, now: at(T0 + 2 * DAY))
     assert!(kept.active.per_payment == 500 && !kept.queued.is_some())
 }
 
 #[test]
 fn exposure_uses_a_raise_that_already_took_effect() {
-    let raised = amend(rules: rules(), proposed: higher(), now: T0)
+    let raised = amend(rules: rules(), proposed: higher(), now: at(T0))
     assert!(
         exposure(
                 rules: raised,
                 ledger: fresh(),
-                now: T0 + 2 * DAY,
-                until: T0 + 2 * DAY,
-            ) == 1000,
+                now: at(T0 + 2 * DAY),
+                until: at(T0 + 2 * DAY),
+            )
+            == 1000,
     )
 }
 
@@ -489,14 +565,20 @@ fn exposure_ignores_spending_from_an_older_window() {
         exposure(
                 rules: rules(),
                 ledger: stale,
-                now: T0 + DAY,
-                until: T0 + 2 * DAY - 1,
-            ) == 20,
+                now: at(T0 + DAY),
+                until: at(T0 + 2 * DAY - 1),
+            )
+            == 20,
     )
     var zero = rules()
     zero.active.per_payment = 0
     assert!(
-        exposure(rules: zero, ledger: fresh(), now: T0, until: T0 + DAY) == 0,
+        exposure(
+                rules: zero,
+                ledger: fresh(),
+                now: at(T0),
+                until: at(T0 + DAY),
+            ) == 0,
     )
 }
 
@@ -506,20 +588,29 @@ fn exposure_ignores_spending_from_an_older_window() {
 #[test]
 fn a_raise_that_would_mature_past_the_end_of_time_never_does() {
     let late = Rules {
-        schedule: Schedule { anchor: MAX_U64 - 1000, window_secs: DAY, cooling_secs: DAY },
-        active: Policy { per_payment: 10, per_window: 20, valid_until: MAX_U64, paused: false },
+        schedule: Schedule {
+            anchor: at(MAX_U64 - 1000),
+            window_secs: secs(DAY),
+            cooling_secs: secs(DAY),
+        },
+        active: Policy { per_payment: 10, per_window: 20, valid_until: at(MAX_U64), paused: false },
         queued: Queued::none(),
     }
-    let forever = Policy { per_payment: 500, per_window: 1000, valid_until: MAX_U64, paused: false }
+    let forever = Policy {
+        per_payment: 500,
+        per_window: 1000,
+        valid_until: at(MAX_U64),
+        paused: false,
+    }
     let bound = exposure(
         rules: late,
         ledger: fresh(),
-        now: MAX_U64 - 5,
-        until: MAX_U64,
+        now: at(MAX_U64 - 5),
+        until: at(MAX_U64),
     )
     assert!(bound == 20)
-    let r = amend(rules: late, proposed: forever, now: MAX_U64 - 5)
-    assert!(r.queued.effective_at == MAX_U64)
+    let r = amend(rules: late, proposed: forever, now: at(MAX_U64 - 5))
+    assert!(r.queued.effective_at == at(MAX_U64))
     assert!(
         code(r, fresh(), ask(amount: 500, nonce: 0), now: MAX_U64) == 10,
     )
@@ -527,11 +618,11 @@ fn a_raise_that_would_mature_past_the_end_of_time_never_does() {
         exposure(
                 rules: r,
                 ledger: fresh(),
-                now: MAX_U64 - 5,
-                until: MAX_U64,
+                now: at(MAX_U64 - 5),
+                until: at(MAX_U64),
             ) == 20,
     )
-    let at_the_end = amend(rules: late, proposed: forever, now: MAX_U64)
+    let at_the_end = amend(rules: late, proposed: forever, now: at(MAX_U64))
     assert!(
         code(
                 at_the_end,
@@ -548,7 +639,12 @@ fn a_raise_that_would_mature_past_the_end_of_time_never_does() {
 fn exposure_is_only_an_upper_bound_once_sequence_numbers_run_out() {
     let dead = Ledger { window: 0, spent: 0, next_nonce: MAX_U64 }
     assert!(
-        exposure(rules: rules(), ledger: dead, now: T0, until: T0 + 10) == 20,
+        exposure(
+                rules: rules(),
+                ledger: dead,
+                now: at(T0),
+                until: at(T0 + 10),
+            ) == 20,
     )
     assert!(
         code(rules(), dead, ask(amount: 1, nonce: MAX_U64), now: T0) == 7,
@@ -562,19 +658,24 @@ fn exposure_is_only_an_upper_bound_once_sequence_numbers_run_out() {
 #[test]
 fn exposure_owner_promise_needs_a_queue_built_by_amend() {
     let by_hand = Rules {
-        schedule: Schedule { anchor: T0, window_secs: 3600, cooling_secs: DAY },
+        schedule: Schedule { anchor: at(T0), window_secs: secs(3600), cooling_secs: secs(DAY) },
         active: policy(),
-        queued: Queued { policy: Queued::none().policy, effective_at: T0 + 10 },
+        queued: Queued { policy: Queued::none().policy, effective_at: at(T0 + 10) },
     }
-    let until = T0 + DAY - 1
+    let until = at(T0 + DAY - 1)
     assert!(
-        exposure(rules: by_hand, ledger: fresh(), now: T0, until) == 20,
+        exposure(rules: by_hand, ledger: fresh(), now: at(T0), until) == 20,
     )
-    let after_cancel = cancel(rules: by_hand, now: T0 + 5)
+    let after_cancel = cancel(rules: by_hand, now: at(T0 + 5))
     assert!(
-        exposure(rules: after_cancel, ledger: fresh(), now: T0 + 5, until) == 480,
+        exposure(
+                rules: after_cancel,
+                ledger: fresh(),
+                now: at(T0 + 5),
+                until,
+            ) == 480,
     )
     // Whereas after any `amend`, the active policy is never looser than the queue.
-    let amended = amend(rules: rules(), proposed: higher(), now: T0)
+    let amended = amend(rules: rules(), proposed: higher(), now: at(T0))
     assert!(!loosens(amended.queued.policy, to: amended.active))
 }

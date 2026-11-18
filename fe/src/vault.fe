@@ -23,6 +23,7 @@ use ingot::kernel::{
     left_in_window,
     matures_at,
     Decision,
+    Instant,
     Ledger,
     Policy,
     Queued,
@@ -30,6 +31,7 @@ use ingot::kernel::{
     Request,
     Rules,
     Schedule,
+    Seconds,
 }
 
 pub msg VaultMsg {
@@ -148,8 +150,8 @@ fn only(_ allowed: Address, caller: Address) {
     }
 }
 
-fn seconds(_ at: Timestamp) -> u64 {
-    at.as_seconds().downcast_saturate()
+fn seconds(_ at: Timestamp) -> Instant {
+    Instant::at(at.as_seconds().downcast_saturate())
 }
 
 /// The shortest cooling period a vault may be created with. Anything
@@ -164,7 +166,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     mut active: Policy,
     mut queued: Queued,
     mut ledger: Ledger,
-    mut approved_from: StorageMap<Address, u64>,
+    mut approved_from: StorageMap<Address, Instant>,
 
     /// Recipients named here are approved from the first second. Everything
     /// added later waits out the cooling period.
@@ -205,8 +207,17 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         owner = owner_
         agent = agent_
         token = token_
-        schedule = Schedule { anchor: now, window_secs, cooling_secs }
-        active = Policy { per_payment, per_window, valid_until, paused: false }
+        schedule = Schedule {
+            anchor: now,
+            window_secs: Seconds::of(window_secs),
+            cooling_secs: Seconds::of(cooling_secs),
+        }
+        active = Policy {
+            per_payment,
+            per_window,
+            valid_until: Instant::at(valid_until),
+            paused: false,
+        }
         queued = Queued::none()
         ledger = Ledger { window: 0, spent: 0, next_nonce: 0 }
         if payee_a != Address::zero() {
@@ -292,7 +303,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 rules: Rules { schedule, active, queued },
                 ledger,
                 now: seconds(ctx.timestamp()),
-                until,
+                until: Instant::at(until),
             )
         }
 
@@ -300,7 +311,12 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         uses (ctx, owner, schedule, mut active, mut queued, mut log)
         {
             only(owner, caller: ctx.caller())
-            let proposed = Policy { per_payment, per_window, valid_until, paused }
+            let proposed = Policy {
+                per_payment,
+                per_window,
+                valid_until: Instant::at(valid_until),
+                paused,
+            }
             let next = amend(
                 rules: Rules { schedule, active, queued },
                 proposed,
@@ -314,7 +330,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                     per_window,
                     valid_until,
                     paused,
-                    effective_at: next.queued.effective_at,
+                    effective_at: next.queued.effective_at.secs(),
                 },
             )
         }
@@ -343,7 +359,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 PolicyProposed {
                     per_payment: stopped.per_payment,
                     per_window: stopped.per_window,
-                    valid_until: stopped.valid_until,
+                    valid_until: stopped.valid_until.secs(),
                     paused: true,
                     effective_at: 0,
                 },
@@ -352,16 +368,16 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
 
         SetRecipient { who, approved } uses (ctx, owner, schedule, mut approved_from, mut log) {
             only(owner, caller: ctx.caller())
-            let from: u64 = if !approved {
-                0
-            } else if approved_from.get(key: who) != 0 {
+            let from = if !approved {
+                Instant::at(0)
+            } else if approved_from.get(key: who) != Instant::at(0) {
                 // Already approved or already cooling: asking again does not restart the wait.
                 approved_from.get(key: who)
             } else {
                 matures_at(schedule, now: seconds(ctx.timestamp()))
             }
             approved_from.set(key: who, value: from)
-            log.emit(RecipientChanged { who, approved_from: from })
+            log.emit(RecipientChanged { who, approved_from: from.secs() })
         }
 
         Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
@@ -381,12 +397,12 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         ScheduleOf -> (u64, u64, u64) uses (schedule) {
-            (schedule.anchor, schedule.window_secs, schedule.cooling_secs)
+            (schedule.anchor.secs(), schedule.window_secs.secs(), schedule.cooling_secs.secs())
         }
 
         PolicyOf -> (u256, u256, u64, bool) uses (ctx, schedule, active, queued) {
             let policy = Rules { schedule, active, queued }.current(now: seconds(ctx.timestamp()))
-            (policy.per_payment, policy.per_window, policy.valid_until, policy.paused)
+            (policy.per_payment, policy.per_window, policy.valid_until.secs(), policy.paused)
         }
 
         QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, queued) {
@@ -397,9 +413,9 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 (
                     queued.policy.per_payment,
                     queued.policy.per_window,
-                    queued.policy.valid_until,
+                    queued.policy.valid_until.secs(),
                     queued.policy.paused,
-                    queued.effective_at,
+                    queued.effective_at.secs(),
                 )
             }
         }
@@ -409,7 +425,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         ApprovedFrom { who } -> u64 uses (approved_from) {
-            approved_from.get(key: who)
+            approved_from.get(key: who).secs()
         }
     }
 }

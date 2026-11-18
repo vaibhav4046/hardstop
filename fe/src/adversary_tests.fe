@@ -19,6 +19,7 @@ use ingot::kernel::{
     exposure,
     loosens,
     Decision,
+    Instant,
     Ledger,
     Policy,
     Queued,
@@ -26,6 +27,7 @@ use ingot::kernel::{
     Request,
     Rules,
     Schedule,
+    Seconds,
 }
 
 const SEED: u64 = 0x4841524453544f50
@@ -79,13 +81,27 @@ fn both_targets_reach_the_same_verdicts() {
 #[test]
 fn a_greedy_agent_gets_exactly_the_exposure_bound() {
     let rules = Rules {
-        schedule: Schedule { anchor: 1000, window_secs: 60, cooling_secs: 3600 },
-        active: Policy { per_payment: 7, per_window: 20, valid_until: 1000 + 400, paused: false },
+        schedule: Schedule {
+            anchor: Instant::at(1000),
+            window_secs: Seconds::of(60),
+            cooling_secs: Seconds::of(3600),
+        },
+        active: Policy {
+            per_payment: 7,
+            per_window: 20,
+            valid_until: Instant::at(1000 + 400),
+            paused: false,
+        },
         queued: Queued::none(),
     }
     let used = Ledger { window: 0, spent: 5, next_nonce: 3 }
     // Seven windows, the first already 5 into its 20.
-    let bound = exposure(rules, ledger: used, now: 1010, until: 1400)
+    let bound = exposure(
+        rules,
+        ledger: used,
+        now: Instant::at(1010),
+        until: Instant::at(1400),
+    )
     assert!(bound == 15 + 6 * 20)
     assert!(
         greedy_take(rules, ledger: used, now: 1010, until: 1400, stride: 1) == bound,
@@ -95,7 +111,12 @@ fn a_greedy_agent_gets_exactly_the_exposure_bound() {
         greedy_take(rules, ledger: used, now: 1010, until: 1059, stride: 1) == 15,
     )
     assert!(
-        exposure(rules, ledger: used, now: 1010, until: 1059) == 15,
+        exposure(
+                rules,
+                ledger: used,
+                now: Instant::at(1010),
+                until: Instant::at(1059),
+            ) == 15,
     )
 }
 
@@ -108,7 +129,7 @@ fn a_greedy_agent_gets_exactly_the_exposure_bound() {
 struct OneOverCap {}
 
 impl Engine for OneOverCap {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         var loose = rules
         loose.active.per_payment = loose.active.per_payment + 1
         loose.queued.policy.per_payment = loose.queued.policy.per_payment + 1
@@ -120,7 +141,7 @@ impl Engine for OneOverCap {
 struct ForgetsSpending {}
 
 impl Engine for ForgetsSpending {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         let blank = Ledger { window: ledger.window, spent: 0, next_nonce: ledger.next_nonce }
         decide(rules, ledger: blank, request, now)
     }
@@ -130,7 +151,7 @@ impl Engine for ForgetsSpending {
 struct AcceptsReplays {}
 
 impl Engine for AcceptsReplays {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         let forged = Request {
             amount: request.amount,
             nonce: ledger.next_nonce,
@@ -145,7 +166,7 @@ impl Engine for AcceptsReplays {
 struct IgnoresPause {}
 
 impl Engine for IgnoresPause {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         var running = rules
         running.active.paused = false
         running.queued.policy.paused = false
@@ -157,7 +178,7 @@ impl Engine for IgnoresPause {
 struct SkipsCooling {}
 
 impl Engine for SkipsCooling {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         var eager = rules
         if eager.queued.is_some() {
             eager.active = eager.queued.policy
@@ -170,10 +191,10 @@ impl Engine for SkipsCooling {
 struct OneSecondEarly {}
 
 impl Engine for OneSecondEarly {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         var early = rules
-        if early.queued.effective_at > 1 {
-            early.queued.effective_at = early.queued.effective_at - 1
+        if early.queued.effective_at > Instant::at(1) {
+            early.queued.effective_at = early.queued.effective_at - Seconds::of(1)
         }
         decide(rules: early, ledger, request, now)
     }
@@ -183,7 +204,7 @@ impl Engine for OneSecondEarly {
 struct PaysAnyone {}
 
 impl Engine for PaysAnyone {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         let forged = Request {
             amount: request.amount,
             nonce: request.nonce,
@@ -198,7 +219,7 @@ impl Engine for PaysAnyone {
 struct TooStrict {}
 
 impl Engine for TooStrict {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         if request.amount == rules.current(now).per_payment {
             Decision::Deny(Reason::OverPaymentLimit(request.amount))
         } else {
@@ -211,7 +232,7 @@ impl Engine for TooStrict {
 struct UnderCounts {}
 
 impl Engine for UnderCounts {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         match decide(rules, ledger, request, now) {
             Decision::Allow(next) => Decision::Allow(
                 Ledger {
@@ -229,11 +250,11 @@ impl Engine for UnderCounts {
 struct UnderstatesExposure {}
 
 impl Engine for UnderstatesExposure {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         decide(rules, ledger, request, now)
     }
 
-    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+    fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
         exposure(rules, ledger, now, until) / 2
     }
 }
@@ -242,11 +263,11 @@ impl Engine for UnderstatesExposure {
 struct ExposureForgetsQueue {}
 
 impl Engine for ExposureForgetsQueue {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         decide(rules, ledger, request, now)
     }
 
-    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+    fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
         let unqueued = Rules {
             schedule: rules.schedule,
             active: rules.active,
@@ -260,13 +281,13 @@ impl Engine for ExposureForgetsQueue {
 struct ExposureCountsStaleSpend {}
 
 impl Engine for ExposureCountsStaleSpend {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         decide(rules, ledger, request, now)
     }
 
-    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+    fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
         var stale = ledger
-        if now >= rules.schedule.anchor && rules.schedule.window_secs != 0 {
+        if now >= rules.schedule.anchor && rules.schedule.window_secs != Seconds::of(0) {
             stale.window = (now - rules.schedule.anchor) / rules.schedule.window_secs
         }
         exposure(rules, ledger: stale, now, until)
@@ -277,11 +298,11 @@ impl Engine for ExposureCountsStaleSpend {
 struct AmendSkipsCooling {}
 
 impl Engine for AmendSkipsCooling {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         decide(rules, ledger, request, now)
     }
 
-    fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+    fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
         if loosens(rules.current(now), to: proposed) {
             Rules { schedule: rules.schedule, active: proposed, queued: Queued::none() }
         } else {
@@ -295,11 +316,11 @@ impl Engine for AmendSkipsCooling {
 struct AmendKeepsOldMaturity {}
 
 impl Engine for AmendKeepsOldMaturity {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         decide(rules, ledger, request, now)
     }
 
-    fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+    fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
         var next = amend(rules, proposed, now)
         if rules.queued.is_some() && !rules.queued.matured(now) && next.queued.is_some() {
             next.queued.effective_at = rules.queued.effective_at

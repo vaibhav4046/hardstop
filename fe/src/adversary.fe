@@ -28,25 +28,27 @@ use ingot::kernel::{
     decide,
     exposure,
     Decision,
+    Instant,
     Ledger,
     Policy,
     Queued,
     Request,
     Rules,
     Schedule,
+    Seconds,
 }
 
 /// The three kernel functions a vault relies on. An implementation supplies
 /// `decide`; `amend` and `exposure` default to the real kernel's, so a broken
 /// copy overrides only the part it breaks.
 pub trait Engine {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision
 
-    fn amend(rules: Rules, proposed: Policy, now: u64) -> Rules {
+    fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
         amend(rules, proposed, now)
     }
 
-    fn exposure(rules: Rules, ledger: Ledger, now: u64, until: u64) -> u256 {
+    fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
         exposure(rules, ledger, now, until)
     }
 }
@@ -55,7 +57,7 @@ pub trait Engine {
 pub struct Kernel {}
 
 impl Engine for Kernel {
-    fn decide(rules: Rules, ledger: Ledger, request: Request, now: u64) -> Decision {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
         decide(rules, ledger, request, now)
     }
 }
@@ -131,20 +133,23 @@ const MAX_U64: u64 = 18446744073709551615
 /// maturity rule, the window arithmetic and the cap comparison are each
 /// written out again, in a different shape from `decide` (one conjunction
 /// instead of an ordered chain of early returns, and a subtraction where
-/// `decide` adds).
-pub fn spec_allows(rules: Rules, ledger: Ledger, request: Request, now: u64) -> bool {
-    let schedule = rules.schedule
-    if schedule.window_secs == 0 || now < schedule.anchor {
+/// `decide` adds). Times are taken back to plain seconds first, so not even
+/// the kernel's time arithmetic is shared.
+pub fn spec_allows(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> bool {
+    let now = now.secs()
+    let anchor = rules.schedule.anchor.secs()
+    let window_secs = rules.schedule.window_secs.secs()
+    if window_secs == 0 || now < anchor {
         return false
     }
-    let takes_over = rules.queued.effective_at
+    let takes_over = rules.queued.effective_at.secs()
     let raised = takes_over != 0 && takes_over != MAX_U64 && takes_over <= now
     let policy = if raised {
         rules.queued.policy
     } else {
         rules.active
     }
-    let window = (now - schedule.anchor) / schedule.window_secs
+    let window = (now - anchor) / window_secs
     let spent: u256 = if window == ledger.window {
         ledger.spent
     } else {
@@ -153,7 +158,7 @@ pub fn spec_allows(rules: Rules, ledger: Ledger, request: Request, now: u64) -> 
     !policy.paused
         && request.from_agent
         && request.to_approved
-        && now <= policy.valid_until
+        && now <= policy.valid_until.secs()
         && request.nonce == ledger.next_nonce
         && ledger.next_nonce != MAX_U64
         && request.amount != 0
@@ -183,7 +188,9 @@ fn pick_policy(_ rng: mut Rng, around: u64, window_secs: u64) -> Policy {
             (1 + rng.below(50)) as u256
         },
         per_window: rng.below(160) as u256,
-        valid_until: around + rng.below(40) * window_secs + rng.below(window_secs),
+        valid_until: Instant::at(
+            around + rng.below(40) * window_secs + rng.below(window_secs),
+        ),
         paused: rng.one_in(16),
     }
 }
@@ -262,7 +269,11 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
         } else if cooling_roll == 1 { 3600 } else { 86400 }
         let anchor = 1000000 + rng.below(1000)
         var rules = Rules {
-            schedule: Schedule { anchor, window_secs, cooling_secs },
+            schedule: Schedule {
+                anchor: Instant::at(anchor),
+                window_secs: Seconds::of(window_secs),
+                cooling_secs: Seconds::of(cooling_secs),
+            },
             active: pick_policy(mut rng, around: anchor, window_secs),
             queued: Queued::none(),
         }
@@ -288,8 +299,10 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                     window_secs,
                     now,
                     anchor,
-                    raise_at: rules.queued.effective_at,
+                    raise_at: rules.queued.effective_at.secs(),
                 )
+            // The clock runs in plain seconds; the kernel is handed `at`.
+            let at = Instant::at(now)
 
             // Take the promise afresh when the last one has run out, and now
             // and then before it has: "from this second until the cooling
@@ -297,11 +310,11 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
             // owner proposes from here on".
             if now > until || rng.one_in(5) {
                 until = now + cooling_secs - 1
-                bound = E::exposure(rules, ledger, now, until)
+                bound = E::exposure(rules, ledger, now: at, until: Instant::at(until))
                 paid = 0
                 reached = false
                 report.promises = report.promises + 1
-                if rules.queued.is_some() && !rules.queued.matured(now) {
+                if rules.queued.is_some() && !rules.queued.matured(now: at) {
                     report.promises_with_queue = report.promises_with_queue + 1
                 }
                 let counted = now >= anchor && (now - anchor) / window_secs == ledger.window
@@ -316,20 +329,20 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                 rules = E::amend(
                     rules,
                     proposed: pick_policy(mut rng, around: now, window_secs),
-                    now,
+                    now: at,
                 )
             } else if owner == 1 {
-                rules = cancel(rules, now)
-            } else if owner == 2 && rules.queued.is_some() && !rules.queued.matured(now) {
+                rules = cancel(rules, now: at)
+            } else if owner == 2 && rules.queued.is_some() && !rules.queued.matured(now: at) {
                 // Not content with the raise that is waiting, the owner asks
                 // for a bigger one.
                 var bigger = rules.queued.policy
                 bigger.per_payment = bigger.per_payment + (1 + rng.below(50)) as u256
                 bigger.per_window = bigger.per_window + (1 + rng.below(100)) as u256
-                rules = E::amend(rules, proposed: bigger, now)
+                rules = E::amend(rules, proposed: bigger, now: at)
             }
 
-            let policy = rules.current(now)
+            let policy = rules.current(now: at)
             let in_window = now >= anchor && (now - anchor) / window_secs == ledger.window
             let spent: u256 = if in_window { ledger.spent } else { 0 }
             let left: u256 = if spent >= policy.per_window {
@@ -353,8 +366,8 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                 to_approved: !rng.one_in(16),
             }
 
-            let expected = spec_allows(rules, ledger, request, now)
-            let decision = E::decide(rules, ledger, request, now)
+            let expected = spec_allows(rules, ledger, request, now: at)
+            let decision = E::decide(rules, ledger, request, now: at)
             report.requests = report.requests + 1
             report.digest = mix(mix(report.digest, decision.code() as u64), now)
 
@@ -413,10 +426,12 @@ pub fn greedy_take(rules: Rules, ledger: Ledger, now: u64, until: u64, stride: u
     while at <= until {
         var more = true
         while more {
-            let policy = rules.current(now: at)
-            let in_window = at >= rules.schedule.anchor
-                && rules.schedule.window_secs != 0
-                && (at - rules.schedule.anchor) / rules.schedule.window_secs == ledger.window
+            let policy = rules.current(now: Instant::at(at))
+            let anchor = rules.schedule.anchor.secs()
+            let window_secs = rules.schedule.window_secs.secs()
+            let in_window = at >= anchor
+                && window_secs != 0
+                && (at - anchor) / window_secs == ledger.window
             let spent: u256 = if in_window { ledger.spent } else { 0 }
             let left: u256 = if spent >= policy.per_window {
                 0
@@ -434,7 +449,7 @@ pub fn greedy_take(rules: Rules, ledger: Ledger, now: u64, until: u64, stride: u
                 from_agent: true,
                 to_approved: true,
             }
-            match decide(rules, ledger, request, now: at) {
+            match decide(rules, ledger, request, now: Instant::at(at)) {
                 Decision::Allow(next) => {
                     ledger = next
                     taken = taken + amount

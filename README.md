@@ -271,8 +271,11 @@ substitute for the second.
   to be requested from MetaMask. Until then a visitor has to click past it.
 - **One vault, one token, one agent, three recipients at creation.** No Safe
   integration, no calldata rules, no multi-token caps.
-- **Nothing tells the owner a change is pending.** The ratchet only helps an
-  owner who looks. Alerts are the missing piece between this and a product.
+- **The site warns about a pending change only while it is open.** Every
+  page shows a waiting loosening with a cancel button, and a vault on a
+  network links to its explorer page, where the owner can add the address to
+  a watch list for email alerts. HARDSTOP itself sends nothing: it has no
+  server. The ratchet still only helps an owner who looks.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
 - **A stolen owner key is out of scope**, as is a malicious token.
