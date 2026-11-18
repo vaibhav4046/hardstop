@@ -8,7 +8,7 @@
 import { createBlock } from '@ethereumjs/block'
 import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
 import { createEVM, type EVM } from '@ethereumjs/evm'
-import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util'
+import { bytesToHex, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util'
 import { keccak256, parseTransaction, recoverTransactionAddress, toHex, type Hex } from 'viem'
 
 export const FAKE_CHAIN_ID = 84532
@@ -45,10 +45,11 @@ export class FakeNetwork {
     this.now = now
   }
 
-  static async create(account: Hex, now: bigint, withProxy = true): Promise<FakeNetwork> {
+  static async create(account: Hex, now: bigint, withProxy = true, ether = 10n ** 18n): Promise<FakeNetwork> {
     const common = new Common({ chain: Mainnet, hardfork: Hardfork.Cancun })
     const evm = await createEVM({ common })
     if (withProxy) await evm.stateManager.putCode(createAddressFromString(PROXY), hexToBytes(PROXY_CODE))
+    if (ether > 0n) await evm.stateManager.putAccount(createAddressFromString(account), createAccount({ balance: ether }))
     return new FakeNetwork(evm, common, account.toLowerCase() as Hex, now)
   }
 

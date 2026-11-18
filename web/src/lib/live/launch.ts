@@ -53,6 +53,14 @@ export async function launchVault(
   onStep('network')
   await switchTo(wallet, network)
 
+  // Say so plainly before the wallet fails with its own error: the launch forwards gas money to the agent.
+  const balance = BigInt((await wallet.request({ method: 'eth_getBalance', params: [owner, 'latest'] })) as string)
+  if (balance < network.gasMoney) {
+    throw new Error(
+      `Your wallet has no test ETH on ${network.name} to pay for this. Get some free from a ${network.name} faucet, then try again.`,
+    )
+  }
+
   if (!(await hasCode(wallet, LAUNCHER))) {
     if (!(await hasCode(wallet, DEPLOYER))) throw new Error(`${network.name} does not have the deployment proxy this site relies on.`)
     onStep('installing')

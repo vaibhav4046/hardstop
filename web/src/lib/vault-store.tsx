@@ -155,7 +155,14 @@ function forget(): void {
   }
 }
 
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+// Wallets report failures as plain { code, message } objects, not Error instances.
+const messageOf = (error: unknown): string => {
+  const message = (error as { message?: unknown } | null)?.message
+  if (typeof message !== 'string') return String(error)
+  return /insufficient funds/i.test(message)
+    ? 'your wallet does not have enough test ETH on this network to pay the network fee.'
+    : message
+}
 
 /** Why something sent through the wallet did not happen, in words. */
 const walletProblem = (error: unknown): string =>
