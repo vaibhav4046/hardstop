@@ -72,10 +72,13 @@ export class LiveChain implements ChainLike {
 
     const receipt = await waitFor(this.wallet, hash, this.pollMs)
     await this.refresh(true)
+    const ok = receipt.status === '0x1'
     return {
-      ok: receipt.status === '0x1',
-      // A transaction does not report what the call returned; the rehearsal just before it did.
-      data: rehearsal.data,
+      ok,
+      // A transaction does not report what the call returned; the rehearsal just before it did,
+      // against state that may since have changed. Callers take the verdict from `logs`, which
+      // are what happened on chain. A failed transaction's revert payload is not known here.
+      data: ok ? rehearsal.data : '0x',
       logs: receipt.logs.map((log) => ({ address: log.address, topics: log.topics, data: log.data })),
       gasUsed: BigInt(receipt.gasUsed),
       hash,

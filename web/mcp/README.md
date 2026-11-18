@@ -29,7 +29,7 @@ You need Node 24 or later, and `npm ci` run once in `web/`. The server runs as T
 | `HARDSTOP_CHAIN_ID` | `84532` (Base Sepolia, default) or `11155111` (Sepolia). Any other chain is refused. |
 | `HARDSTOP_RPC` | Optional. Defaults to the network's public endpoint. The server checks that the RPC is on the chain you named. |
 | `HARDSTOP_RECIPIENTS` | Optional. `name=0x...,name2=0x...` lets the assistant say "pay Cloud hosting". |
-| `HARDSTOP_HTTP_TOKEN` | HTTP mode only. Required before the server is reachable from anywhere but localhost. |
+| `HARDSTOP_HTTP_TOKEN` | HTTP mode only. At least 32 characters. Required before the server is reachable from anywhere but localhost: without it, `--host` other than `127.0.0.1`, `::1` or `localhost` is refused at start. |
 | `HARDSTOP_FAKE=1` | Demo: an in-memory network and vault. No other settings are needed. |
 
 **Finding your agent key and vault.** A vault opened on the site keeps them in that browser. On your vault's page, open Connect your AI: it has this vault's setup for each client, filled in and ready to copy, and the agent key behind "Show agent key".
@@ -84,7 +84,7 @@ cloudflared tunnel --url http://localhost:8787
 # server URL in ChatGPT: https://<random>.trycloudflare.com/mcp/<HARDSTOP_HTTP_TOKEN>
 ```
 
-In HTTP mode, the agent key lives on whatever machine runs the server, and anyone with the full URL can spend inside the vault's limits. Without a token, the server answers only requests addressed to localhost, which also blocks DNS-rebinding pages. The HTTP mode is stateless and replies with plain JSON, not a stream.
+In HTTP mode, the agent key lives on whatever machine runs the server, and anyone with the full URL can spend inside the vault's limits. Without a token, the server answers only requests from this machine addressed to localhost, and refuses browser requests from other origins, which also blocks DNS-rebinding pages. The HTTP mode is stateless and replies with plain JSON, not a stream.
 
 **Try it with no setup:** `HARDSTOP_FAKE=1 node mcp/server.ts`. This starts an in-memory network with a launched vault ($10 per payment, $20 a day, one recipient called "Cloud hosting").
 

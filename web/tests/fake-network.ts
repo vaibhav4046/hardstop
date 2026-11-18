@@ -39,6 +39,11 @@ export class FakeNetwork {
    * and switched to another.
    */
   accountRefused = false
+  /**
+   * Runs once, after the next signed transaction arrives and before it is
+   * mined: the state can change between the site's rehearsal and inclusion.
+   */
+  beforeRelay?: () => Promise<void> | void
   private readonly evm: EVM
   private readonly common: Common
   private block = 1n
@@ -131,6 +136,9 @@ export class FakeNetwork {
         const from = (await recoverTransactionAddress({ serializedTransaction: raw as never })).toLowerCase() as Hex
         if (tx.nonce !== (this.nonces.get(from) ?? 0)) throw new Error('nonce too low or too high')
         this.relayed.push({ from, to: tx.to ?? null })
+        const hook = this.beforeRelay
+        this.beforeRelay = undefined
+        await hook?.()
         return this.mine(from, tx.to ?? null, tx.data ?? '0x', tx.value ?? 0n, tx.gas)
       }
       default:

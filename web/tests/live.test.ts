@@ -10,6 +10,7 @@ import { DEPLOYER, LAUNCHER, attach, launchVault, type Step } from '../src/lib/l
 import { NETWORKS } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
 import { AGENT_RAISE, apply, leftToday, snapshot, type Session } from '../src/lib/session.ts'
+import { verdict } from '../src/lib/describe.ts'
 import type { Setup } from '../src/lib/hardstop/sim.ts'
 import { FAKE_CHAIN_ID, FakeNetwork } from './fake-network.ts'
 
@@ -201,4 +202,39 @@ test('what is left today is still right when the network has moved on since the 
   network.now = state.now + 2n
   assert.equal(await sim.exposure(state.now), 0n, 'asking up to "now" answers 0 once the network is past it')
   assert.equal(await leftToday(sim, state), 16n * USD)
+})
+
+test('the verdict is what happened on chain, not the rehearsal: allowed when asked, blocked by a pause before inclusion', async () => {
+  const { network, sim } = await launched()
+  assert.equal((await sim.preview(PAYEE, 4n * USD, 0n)).code, 0, 'the rehearsal would pay')
+  network.beforeRelay = async () => {
+    await sim.pause()
+  }
+  const entry = await apply(sim, { type: 'pay', to: PAYEE, amount: (4n * USD).toString(), nonce: '0' }, 0)
+  if (entry.kind !== 'payment') return assert.fail('expected a payment')
+  const event = entry.outcome.events.find((e) => e.name === 'Blocked')
+  assert.equal(event?.name, 'Blocked', 'the vault recorded a refusal')
+  assert.equal(entry.outcome.code, 2, 'reported as paused, as on chain')
+  assert.equal(entry.outcome.detail, event.detail)
+  assert.equal(verdict(entry).tone, 'blocked')
+  assert.equal(await sim.balanceOf(PAYEE), 0n)
+})
+
+test('the verdict is what happened on chain, not the rehearsal: refused when asked, paid once the window rolled over', async () => {
+  const { network, sim } = await launched()
+  await apply(sim, { type: 'pay', to: PAYEE, amount: (10n * USD).toString(), nonce: '0' }, 0)
+  await apply(sim, { type: 'pay', to: PAYEE, amount: (10n * USD).toString(), nonce: '1' }, 1)
+  assert.equal((await sim.preview(PAYEE, 4n * USD, 2n)).code, 11, 'the rehearsal would refuse: over the day')
+  network.beforeRelay = () => {
+    network.now += DAY
+  }
+  const entry = await apply(sim, { type: 'pay', to: PAYEE, amount: (4n * USD).toString(), nonce: '2' }, 2)
+  if (entry.kind !== 'payment') return assert.fail('expected a payment')
+  const event = entry.outcome.events.find((e) => e.name === 'Paid')
+  assert.equal(event?.name, 'Paid', 'the vault paid')
+  assert.equal(entry.outcome.code, 0, 'reported as paid, as on chain')
+  assert.equal(entry.outcome.detail, event.leftInWindow)
+  assert.equal(entry.outcome.detail, 16n * USD)
+  assert.equal(verdict(entry).tone, 'paid')
+  assert.equal(await sim.balanceOf(PAYEE), 24n * USD)
 })

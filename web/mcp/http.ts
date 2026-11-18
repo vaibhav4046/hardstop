@@ -6,19 +6,24 @@
 // stream, so it passes through simple tunnels.
 //
 // Whoever can reach this endpoint can ask the vault to pay, inside the owner's
-// limits. Without HARDSTOP_HTTP_TOKEN it answers only requests addressed to
-// localhost (which also stops DNS-rebinding pages); with a token it answers
-// any host that presents it, as `Authorization: Bearer <token>` or in the
-// path, /mcp/<token>, for clients that cannot send headers.
+// limits. Without HARDSTOP_HTTP_TOKEN it binds only to loopback and answers
+// only connections from loopback addressed to localhost (which also stops
+// DNS-rebinding pages); with a token of at least 32 characters it answers any
+// host that presents it, as `Authorization: Bearer <token>` or in the path,
+// /mcp/<token>, for clients that cannot send headers.
 
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { hardstop, type Options } from './server.ts'
 import { plain } from './vault.ts'
 
 const MAX_BODY = 1_000_000
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+/** Values of --host that keep the server on this machine. */
+const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1', 'localhost'])
+export const MIN_TOKEN = 32
 
 export type HttpOptions = Options & { port: number; host?: string; token?: string }
 
@@ -30,8 +35,10 @@ function refuse(res: ServerResponse, status: number, message: string): void {
   res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message }, id: null }))
 }
 
-/** Null when allowed; otherwise why not. */
-function gate(req: IncomingMessage, path: string, token: string | undefined): string | null {
+const isLoopback = (address: string | undefined) => address === '::1' || /^(::ffff:)?127\./.test(address ?? '')
+
+/** Null when allowed; otherwise why not. Exported for tests. */
+export function gate(req: Pick<IncomingMessage, 'headers' | 'socket'>, path: string, token: string | undefined): string | null {
   if (token) {
     const header = req.headers.authorization ?? ''
     const given = path.startsWith('/mcp/') ? decodeURIComponent(path.slice(5)) : header.startsWith('Bearer ') ? header.slice(7) : ''
@@ -39,7 +46,20 @@ function gate(req: IncomingMessage, path: string, token: string | undefined): st
   }
   if (path !== '/mcp') return 'Not found.'
   const host = (req.headers.host ?? '').replace(/:\d+$/, '')
-  return LOCAL_HOSTS.has(host) ? null : 'This server only answers localhost. To serve it through a tunnel, set HARDSTOP_HTTP_TOKEN.'
+  if (!LOCAL_HOSTS.has(host) || !isLoopback(req.socket.remoteAddress)) {
+    return 'This server only answers localhost. To serve it through a tunnel, set HARDSTOP_HTTP_TOKEN.'
+  }
+  return null
+}
+
+/** Throws, in words a person can act on, when these settings would expose the vault. */
+export function checkExposure(host: string, token: string | undefined): void {
+  if (token !== undefined && token.length < MIN_TOKEN) {
+    throw new Error(`HARDSTOP_HTTP_TOKEN is too short (${token.length} characters; at least ${MIN_TOKEN}). Make one with: openssl rand -hex 32`)
+  }
+  if (!token && !LOOPBACK_BINDS.has(host)) {
+    throw new Error(`Refusing to listen on ${host} without HARDSTOP_HTTP_TOKEN: anyone who can reach it could spend from the vault. Set a token, or use --host 127.0.0.1.`)
+  }
 }
 
 async function readJson(req: IncomingMessage): Promise<unknown> {
@@ -54,6 +74,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 }
 
 export async function startHttp({ port, host = '127.0.0.1', token, ...options }: HttpOptions): Promise<Server> {
+  checkExposure(host, token)
   const make = hardstop(options)
   const server = createHttpServer(async (req, res) => {
     try {
@@ -70,7 +91,7 @@ export async function startHttp({ port, host = '127.0.0.1', token, ...options }:
         return refuse(res, 400, `The request body is not usable JSON: ${plain(error)}`)
       }
       const mcp = make()
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, ...rebinding() })
       res.on('close', () => {
         void transport.close()
         void mcp.close()
@@ -81,6 +102,14 @@ export async function startHttp({ port, host = '127.0.0.1', token, ...options }:
       if (!res.headersSent) refuse(res, 500, plain(error))
     }
   })
+  // The SDK's own Host and Origin checks, on top of `gate`. A token server sits
+  // behind a tunnel whose host name is not known here, so the token guards it.
+  const rebinding = () => {
+    if (token) return {}
+    const { port: bound } = server.address() as AddressInfo
+    const hosts = [...LOCAL_HOSTS].map((name) => `${name}:${bound}`)
+    return { enableDnsRebindingProtection: true, allowedHosts: hosts, allowedOrigins: hosts.map((h) => `http://${h}`) }
+  }
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(port, host, resolve)
