@@ -13,6 +13,21 @@ const ORDER: { category: Category; heading: string }[] = [
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 export function EvidenceSources() {
+  const count = SOURCES.length
+  return (
+    <>
+      <p className="section-lede">
+        Every figure above links to where it comes from. All {count} sources, with what each does not show, are here.
+      </p>
+      <details className="disclosure sources-all mt-8">
+        <summary>Show every source</summary>
+        <SourceList />
+      </details>
+    </>
+  )
+}
+
+function SourceList() {
   return (
     <div className="sources">
       {ORDER.map(({ category, heading }) => {

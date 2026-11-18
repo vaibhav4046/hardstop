@@ -1,0 +1,145 @@
+/* The finish: glass panels and gold plate, asked for by the owner.
+   Layered over the plain styles in ../globals.css and pieces.css, so taking
+   this file out gives the earlier, flat look back.
+
+   Everything here is painted once: gradients and shadows, no backdrop blur
+   (there is nothing behind a card on this page to blur) and no frame loop.
+   The only motion is a light sweeping across a gold button on hover, which
+   reduced motion switches off with every other transition. Text contrast is
+   checked in DESIGN.md. */
+
+/* Unlayered on purpose, like scroll.css, so it sits on top of the layered
+   styles it refines. */
+  /* --- glass panels ------------------------------------------------------ */
+
+  .card {
+    position: relative;
+    border-color: rgb(255 255 255 / 0.07);
+    background:
+      /* Light along the top edge, as on curved glass. */
+      radial-gradient(120% 40% at 30% 0%, rgb(255 255 255 / 0.07), transparent 70%),
+      /* A reflection: a soft band of light across the glass. */
+      linear-gradient(118deg, transparent 22%, rgb(255 255 255 / 0.065) 34%, transparent 46%),
+      /* The glass itself, lit from the top left, with a warm gold at the far corner. */
+      linear-gradient(160deg, rgb(255 255 255 / 0.075) 0%, rgb(255 255 255 / 0.02) 42%, rgb(227 176 75 / 0.035) 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      inset 0 -1px 0 rgb(0 0 0 / 0.35),
+      0 40px 80px -40px rgb(0 0 0 / 0.9);
+  }
+
+  /* The rim catching the light: a 1px gradient edge, gold at the lit corner.
+     Not on a card that scrolls sideways (a table), where it would scroll away. */
+  .card:not(.table-scroll)::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      140deg,
+      rgb(255 228 160 / 0.55),
+      rgb(255 255 255 / 0.1) 28%,
+      rgb(255 255 255 / 0.03) 64%,
+      rgb(227 176 75 / 0.3)
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    pointer-events: none;
+  }
+
+  .card-live {
+    background:
+      linear-gradient(118deg, transparent 22%, rgb(255 255 255 / 0.05) 34%, transparent 46%),
+      linear-gradient(160deg, rgb(255 255 255 / 0.09) 0%, rgb(255 255 255 / 0.03) 42%, rgb(227 176 75 / 0.045) 100%);
+  }
+
+  /* --- buttons: glass with a gold edge ----------------------------------- */
+
+  .btn:not(.btn-quiet, [disabled], [aria-disabled="true"]) {
+    border-color: rgb(227 176 75 / 0.42);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.035));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.16),
+      0 10px 24px -14px rgb(0 0 0 / 0.9);
+  }
+
+  .btn:not(.btn-quiet, [disabled], [aria-disabled="true"]):hover {
+    border-color: var(--color-gold);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.17), rgb(255 255 255 / 0.06));
+  }
+
+  /* Disabled, whatever kind: flat and dim, the same for every button
+     (50% white on its fill is 5.12:1, DESIGN.md). */
+  .btn[disabled],
+  .btn[aria-disabled="true"] {
+    border-color: rgb(255 255 255 / 0.1);
+    background: rgb(255 255 255 / 0.03);
+    color: rgb(255 255 255 / 0.5);
+    box-shadow: none;
+  }
+
+  /* --- the main button: gold plate --------------------------------------- */
+
+  .btn-primary:not([disabled]) {
+    position: relative;
+    overflow: hidden;
+    border-color: rgb(255 232 170 / 0.75);
+    background: linear-gradient(180deg, #ffe7a3 0%, #f0c35e 24%, #d9a441 52%, #b98528 80%, #e0b04f 100%);
+    color: var(--color-page);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.7),
+      inset 0 -2px 5px rgb(110 70 10 / 0.45),
+      0 12px 28px -12px rgb(227 176 75 / 0.55);
+  }
+
+  .btn-primary:not([disabled]):hover {
+    border-color: #fff1c6;
+    background: linear-gradient(180deg, #fff0bf 0%, #f6cd6c 24%, #e3b04b 52%, #c48f30 80%, #ebbd5c 100%);
+  }
+
+  /* A light sweeping across the gold on hover. */
+  .btn-primary:not([disabled])::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.55) 50%, transparent 65%);
+    transform: translateX(-120%);
+    transition: transform 700ms var(--ease-out-expo);
+    pointer-events: none;
+  }
+
+  .btn-primary:not([disabled]):hover::after {
+    transform: translateX(120%);
+  }
+
+  /* --- pause: still the refusal colour, as glass ------------------------- */
+
+  .btn-stop:not([disabled]) {
+    border-color: rgb(248 113 113 / 0.6);
+    background: linear-gradient(180deg, rgb(248 113 113 / 0.15), rgb(248 113 113 / 0.05));
+    color: var(--color-stop);
+  }
+
+  .btn-stop:not([disabled]):hover {
+    border-color: var(--color-stop);
+    background: var(--color-stop);
+    color: var(--color-page);
+  }
+
+  /* --- the headline's second line in polished gold ------------------------ */
+
+  .hero-title span:nth-child(2) {
+    background: linear-gradient(180deg, #fff3cf 0%, #f2c867 38%, #c8902f 62%, #f5d488 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* High-contrast modes drop backgrounds; the text must not vanish with them. */
+  @media (forced-colors: active) {
+    .hero-title span:nth-child(2) {
+      -webkit-text-fill-color: currentColor;
+    }
+  }

@@ -60,20 +60,26 @@ export function EvidenceModels() {
       </div>
 
       <p className="small soft models-note">
-        A controlled test by researchers at Cornell Tech and Yale, published in October 2026. Each model ran an agent
-        wallet holding {MODEL_TEST.walletUsdc} USDC (a digital dollar) with a daily limit of one cent, for{' '}
-        {MODEL_TEST.trialsPerScenario} runs per scenario. Raising the limit needed a one-time code sent by email, and the
-        agent could read that inbox. These were laboratory trials, not losses by customers, and HARDSTOP was not part of
-        the test. Sources:{' '}
+        Cornell Tech and Yale, October 2026. Laboratory trials, not customer losses.{' '}
         <a href={paper.url} rel="noopener noreferrer">
-          the researchers&rsquo; paper
+          Paper
         </a>{' '}
-        (a preprint, not yet peer reviewed) and{' '}
+        (preprint) and{' '}
         <a href={report.url} rel="noopener noreferrer">
-          the {report.publisher} report
+          {report.publisher} report
         </a>
         .
       </p>
+      <details className="disclosure models-note">
+        <summary>About this test</summary>
+        <p className="small soft">
+          A controlled test by researchers at Cornell Tech and Yale, published in October 2026. Each model ran an agent
+          wallet holding {MODEL_TEST.walletUsdc} USDC (a digital dollar) with a daily limit of one cent, for{' '}
+          {MODEL_TEST.trialsPerScenario} runs per scenario. Raising the limit needed a one-time code sent by email, and
+          the agent could read that inbox. These were laboratory trials, not losses by customers, and HARDSTOP was not
+          part of the test. The researchers&rsquo; paper is a preprint, not yet peer reviewed.
+        </p>
+      </details>
     </div>
   )
 }

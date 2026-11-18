@@ -42,9 +42,9 @@ export function OtherTests() {
           <span className="text-stop">{zscaler.paid}</span> of {zscaler.models}
         </p>
         <figcaption>
-          AI models made a payment after reading hidden instructions taken from
-          real scam websites. In a sandbox with no real money, and the agent had
-          no spending limit at all. <Cite id={zscaler.source} />.
+          AI models paid after reading hidden instructions from real scam
+          websites. A sandbox, no real money, no spending limit.{" "}
+          <Cite id={zscaler.source} />.
         </figcaption>
       </figure>
       <figure className="figure-block">
@@ -56,11 +56,10 @@ export function OtherTests() {
           <span className="text-paid">{aport.unpermittedChecked}</span>
         </p>
         <figcaption>
-          Payments to a forbidden recipient when agents policed themselves (
-          {COUNT.format(aport.runsAlone)} runs), and when a check outside the
-          model decided ({COUNT.format(aport.runsChecked)} runs). The author
-          sells that check, a declared conflict of interest.{" "}
-          <Cite id={aport.source} />.
+          Payments to a forbidden recipient: agents policing themselves (
+          {COUNT.format(aport.runsAlone)} runs) against a check outside the
+          model ({COUNT.format(aport.runsChecked)} runs). The author sells that
+          check. <Cite id={aport.source} />.
         </figcaption>
       </figure>
     </div>
@@ -154,10 +153,9 @@ export function Incidents() {
         </div>
       </details>
       <figcaption className="small soft mt-4">
-        Four separate events, each happening a different way, so they are not
-        added up. Values are as each report gives them; two are prices on thinly
-        traded tokens. A spending limit would not have stopped every one of
-        them: a leaked key, for example, is a different failure.
+        Four separate events, not added up. Values are as each report gives
+        them; two are prices on thinly traded tokens. A spending limit would not
+        have stopped all of them: a leaked key is a different failure.
       </figcaption>
     </figure>
   );
@@ -208,12 +206,11 @@ export function Adoption() {
         </div>
       </details>
       <figcaption className="small soft mt-4">
-        Payments a month over x402, a payment standard built for AI agents. The
-        source gives these four months; the late 2025 peak was a token craze.
-        Most of this traffic is scripts, not agents: only {AGENTIC_SHARE.low}%
-        to {AGENTIC_SHARE.high}% of it appears to come from AI agents (
-        <Cite id={AGENTIC_SHARE.source} />
-        ). Monthly figures: <Cite id="fireblocks-x402" />.
+        Payments a month over x402, a payment standard built for AI agents. Only{" "}
+        {AGENTIC_SHARE.low}% to {AGENTIC_SHARE.high}% of it appears to come from
+        AI agents; the rest is scripts (<Cite id={AGENTIC_SHARE.source} />). The
+        late 2025 peak was a token craze. Monthly figures, for the four months
+        the source gives: <Cite id="fireblocks-x402" />.
       </figcaption>
     </figure>
   );

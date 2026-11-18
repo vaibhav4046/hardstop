@@ -115,9 +115,10 @@ first. AA needs 4.5 for text and 3 for large text and control boundaries):
 | stop on the pause button's fill | #f87171 on #291e20 | 5.83 |
 | page on stop (pause button, hover) | #0c0c0e on #f87171 | 7.07 |
 | paid on its label fill (receipt) | #7cd6a6 on #232c29 | 8.19 |
-| page on ink (primary button) | #0c0c0e on #ffffff | 19.54 |
-| page on gold (primary button, hover) | #0c0c0e on #e3b04b | 9.84 |
-| page on 50% white (primary button, disabled) | #0c0c0e on #868687 | 5.34 |
+| page on gold plate (primary button), darkest stop | #0c0c0e on #b98528 | 6.00 |
+| page on gold plate (primary button, hover), darkest stop | #0c0c0e on #c48f30 | 6.81 |
+| 50% white on a disabled button (any kind) | #898989 on #131313 | 5.31 |
+| hero gold line, darkest stop, on page | #c8902f on #0c0c0e | 6.97 |
 | edge on page (non-text) | #727273 on #0c0c0e | 4.07 |
 | edge on a live card (non-text) | #78787a on #171719 | 4.09 |
 | focus ring on page (non-text) | #e3b04b on #0c0c0e | 9.84 |
@@ -125,6 +126,27 @@ first. AA needs 4.5 for text and 3 for large text and control boundaries):
 `--color-rule` on the page is 1.23. It only draws card edges and separators
 that carry no meaning on their own; anything a person has to find (an input,
 a radio row) uses `--color-edge`.
+
+## The finish: glass and gold plate
+
+Asked for by the owner, with Apple's metallic product pages as the reference
+for the feel (nothing taken from them). It is one file,
+`web/src/app/styles/finish.css`, unlayered so it sits on top of the plain
+styles; removing it gives the flat look back.
+
+- **Cards are glass.** A lit surface (lighter at the top left, warm gold at
+  the far corner), light along the top edge, a reflection band across the
+  panel, a 1px rim that is gold where the light catches it, and a deep
+  shadow. Painted once with gradients and shadows; no backdrop blur and no
+  frame loop.
+- **The main button is gold plate.** A polished gradient like the mark, an
+  inner highlight and a darker lower lip, a gold glow under it, and on hover a
+  light that sweeps across the metal once. Text is the page colour.
+- **Other buttons are glass with a gold edge.** Pause keeps the refusal red,
+  as glass. A disabled button of any kind is flat and dim.
+- **The headline's second line** ("It cannot raise the limit.") is set in
+  polished gold. In a forced-colours (high contrast) mode it falls back to
+  plain text.
 
 ## Surfaces and spacing
 

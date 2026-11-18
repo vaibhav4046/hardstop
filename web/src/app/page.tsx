@@ -43,10 +43,7 @@ export default function Home() {
         <h2 id="problem-title" className="section-title lines mt-4">
           <span>The limit held.</span> <span>The way to raise it did not.</span>
         </h2>
-        <p className="section-lede">
-          People are starting to let AI agents pay for things, with a spending limit as the safety net. In a controlled
-          test the agents did not break the limit. They raised it.
-        </p>
+        <p className="section-lede">In a controlled test, AI agents did not break their spending limit. They raised it.</p>
         <EvidenceModels />
       </section>
 
