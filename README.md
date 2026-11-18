@@ -211,6 +211,24 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
 | First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
 
+**Gas, measured on Base Sepolia** (total `gasUsed` from each receipt,
+2026-11-18; the same Fe bytecode costs the same on any EVM chain, the price
+per gas differs):
+
+| Call | Gas | Transaction |
+|---|---|---|
+| Install the launcher (once per network) | 2,245,239 | [tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099) |
+| Create a vault (launcher, token mint, agent gas) | 1,808,063 | [tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62) |
+| `pay`, allowed, first in the vault | 122,096 | [tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a) |
+| `pay`, allowed, later | 71,024 | [tx](https://sepolia.basescan.org/tx/0xe689db4dddc7a1f622e8edec6f4ab742dd9a5f664451c341d06a7567ddb7ede6) |
+| `pay`, refused (over the per-payment limit) | 49,740 | [tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967) |
+| `propose`, a raise that waits | 103,702 | [tx](https://sepolia.basescan.org/tx/0xf7307127bb443090f4d7be47b0981bb86da0e04f4563a9630c3f1c082daf11d4) |
+| `cancelQueued` | 39,725 | [tx](https://sepolia.basescan.org/tx/0xd80c97223c2cb41f5073df09c8bf39b82db6da2c332f47a739bb384855c5071e) |
+| `pause` | 43,588 | [tx](https://sepolia.basescan.org/tx/0x77d604c290868924c8fdeb443fd0779834bff0694a7982c402d933b464ab3d5e) |
+
+A refusal is recorded on chain as a transaction, so it costs gas; an agent's
+attempt to change the rules reverts in the rehearsal and is never sent.
+
 The personas are scripts, not people: no human participant, screen
 reader, Firefox, Safari or physical device was tested. Method, steps,
 screenshots and every issue found are in [`qa/`](qa/).

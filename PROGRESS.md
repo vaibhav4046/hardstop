@@ -39,6 +39,8 @@ listed under "Not started".
   a throwaway test key: launcher installed, vault created, agent paid $4,
   refused $80, refused a self-raise (transactions in the README). The same
   again by clicking through MetaMask on the live site, same day.
+- Gas for install, create, `pay` (allowed and refused), `propose`,
+  `cancelQueued` and `pause`, measured on Base Sepolia (table in the README).
 - Wallet errors read plainly (they showed `[object Object]`), the balance is
   checked before the wallet is asked, and the agent's gas money on Base
   Sepolia is 0.00003 ETH so one faucet claim covers a launch.
@@ -62,14 +64,14 @@ listed under "Not started".
 
 - Typed units in `kernel.fe` (seconds, amounts, nonces) instead of bare
   integers.
-- Gas figures for `pay` (allowed and refused) and `propose`.
 - Reject a zero owner or token address when a vault is created.
 - A CI step proving that a `Pay` handler which assigns to the rules does
   not compile.
 - Something that tells the owner a raise is waiting.
 
 - Optional: policy drafting from plain language (needs an LLM API key on the server).
-- `SUBMISSION.md` and the final submission through the owner's private link.
+- The final submission through the owner's private link. The text is ready
+  in `SUBMISSION.md`; the commit SHA is filled in at the moment of submitting.
 
 ## Commits
 
