@@ -4,6 +4,8 @@
 //
 //   - a looser rule waiting out its cooling period (the moment to cancel it if
 //     the owner did not ask for it), and when it takes effect or is cancelled;
+//     also one proposed and withdrawn, or already in force, between two checks
+//     (read from the vault's PolicyProposed and QueueCancelled events);
 //   - every payment and every refusal, from the vault's own events;
 //   - a pause or resume, other rule changes, recipients added or removed;
 //   - the end date approaching, and passing.
@@ -18,14 +20,15 @@ import { execFile } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import type { Hex } from 'viem'
-import { explain } from '../src/lib/hardstop/reasons.ts'
+import { explain, type Formatters } from '../src/lib/hardstop/reasons.ts'
 import type { Log } from '../src/lib/hardstop/chain.ts'
-import { decodeEvents, type Policy, type Queued, type State } from '../src/lib/hardstop/sim.ts'
+import { decodeEvents, type Policy, type Queued, type State, type VaultEvent } from '../src/lib/hardstop/sim.ts'
 import type { Wallet } from '../src/lib/live/wallet.ts'
-import { FORMAT, formatTime, formatUsd } from '../src/lib/money.ts'
+import { FORMAT, formatDuration, formatTime, formatUsd } from '../src/lib/money.ts'
 import {
   DAY,
   OWNER_PAGE,
+  Refused,
   connect,
   describePolicy,
   iso,
@@ -34,6 +37,7 @@ import {
   readConfig,
   txLink,
   usd,
+  windowWords,
   type Config,
   type Env,
   type Vault,
@@ -43,7 +47,7 @@ export type Alert = { kind: string; at: string; vault: Hex; message: string } & 
 
 /** Most blocks asked for in one eth_getLogs; public RPCs limit the range. A watcher that fell behind catches up over several checks. */
 const MAX_BLOCKS = 1_000n
-/** Longest wait between attempts while the network is failing. */
+/** Longest wait between attempts while the network is failing; never more than half the vault's cooling period either. */
 const MAX_BACKOFF_SECS = 600
 
 type RawLog = Log & { transactionHash?: Hex }
@@ -52,11 +56,15 @@ const sameRules = (a: Policy, b: Policy) =>
   a.perPayment === b.perPayment && a.perWindow === b.perWindow && a.validUntil === b.validUntil && a.paused === b.paused
 const sameQueued = (a: Queued | null, b: Queued | null) =>
   a === b || (a !== null && b !== null && sameRules(a, b) && a.effectiveAt === b.effectiveAt)
+/** One queued loosening, as the contract identifies it: the rules and the second they take effect. */
+const queuedKey = (q: Queued) => [q.perPayment, q.perWindow, q.validUntil, q.paused, q.effectiveAt].join()
 
 export class Watcher {
   private last: State | undefined
   private nextBlock: bigint | undefined
   private readonly warned = new Set<string>()
+  /** Every queued loosening already reported, from the vault's state or its events. */
+  private readonly seen = new Set<string>()
   private readonly vault: Vault
   private readonly warnSecs: bigint
 
@@ -78,25 +86,32 @@ export class Watcher {
     const latest = BigInt((await wallet.request({ method: 'eth_blockNumber' })) as Hex)
 
     const alerts: Alert[] = []
+    let logs: RawLog[] = []
     let next = latest + 1n
     if (this.nextBlock === undefined) {
-      alerts.push(this.alert('watching', `Watching vault ${sim.vault} on ${this.vault.config.network.name}. Rules in force: ${describePolicy(state.policy)}.`, { rules: policyJson(state.policy) }))
+      alerts.push(this.alert('watching', `Watching vault ${sim.vault} on ${this.vault.config.network.name}. Rules in force: ${this.describe(state.policy)}.`, { rules: policyJson(state.policy) }))
     } else if (this.nextBlock <= latest) {
       const to = latest < this.nextBlock + MAX_BLOCKS - 1n ? latest : this.nextBlock + MAX_BLOCKS - 1n
-      const logs = (await wallet.request({
+      logs = (await wallet.request({
         method: 'eth_getLogs',
         params: [{ address: sim.vault, fromBlock: `0x${this.nextBlock.toString(16)}`, toBlock: `0x${to.toString(16)}` }],
       })) as RawLog[]
-      for (const log of logs) alerts.push(...this.fromLog(log))
       next = to + 1n
     } else next = this.nextBlock
 
+    const events = logs.flatMap((log) => this.decode(log))
+    for (const { event, tx } of events) alerts.push(...this.fromEvent(event, tx))
+    const seen: string[] = []
+    const missed = this.fromProposals(events, state, seen)
+    alerts.push(...missed.alerts)
+
     const warned: string[] = []
-    alerts.push(...(await this.fromState(this.last, state, warned)))
+    alerts.push(...(await this.fromState(this.last, state, warned, seen, missed.inForce)))
 
     this.last = state
     this.nextBlock = next
     for (const key of warned) this.warned.add(key)
+    for (const key of seen) this.seen.add(key)
     return alerts
   }
 
@@ -108,76 +123,130 @@ export class Watcher {
     return this.vault.config.recipients.find((r) => r.address === address)?.name ?? address
   }
 
-  private fromLog(log: RawLog): Alert[] {
-    const { network } = this.vault.config
-    const tx = log.transactionHash ? { transaction: log.transactionHash, explorer: txLink(network, log.transactionHash) } : {}
-    return decodeEvents({ ok: true, data: '0x', logs: [log], gasUsed: 0n }, this.vault.sim.vault).flatMap((event): Alert[] => {
-      switch (event.name) {
-        case 'Paid':
-          return [
-            this.alert('paid', `Paid ${formatUsd(event.amount)} to ${this.name(event.to)} (request ${event.nonce}). ${formatUsd(event.leftInWindow)} left today.`, {
-              to: event.to,
-              amount_usd: usd(event.amount),
-              nonce: event.nonce.toString(),
-              left_today_usd: usd(event.leftInWindow),
-              ...tx,
-            }),
-          ]
-        case 'Blocked': {
-          const said = explain(event.code, event.detail, FORMAT)
-          return [
-            this.alert('refused', `Refused ${formatUsd(event.amount)} to ${this.name(event.to)} (request ${event.nonce}). ${said.sentence}`, {
-              to: event.to,
-              amount_usd: usd(event.amount),
-              nonce: event.nonce.toString(),
-              reason: said.name,
-              ...tx,
-            }),
-          ]
-        }
-        case 'RecipientChanged':
-          return event.approvedFrom === 0n
-            ? [this.alert('recipient_removed', `${this.name(event.who)} was removed from the approved recipients.`, { who: event.who, ...tx })]
-            : [
-                this.alert(
-                  'recipient_approved',
-                  `${this.name(event.who)} was approved as a recipient; it can be paid from ${formatTime(event.approvedFrom)}. If the owner did not do this, remove it at ${OWNER_PAGE} before then.`,
-                  { who: event.who, approved_from: iso(event.approvedFrom), ...tx },
-                ),
-              ]
-        case 'Withdrawn':
-          return [this.alert('withdrawn', `The owner withdrew ${formatUsd(event.amount)} from the vault.`, { amount_usd: usd(event.amount), ...tx })]
-        default:
-          // Rule changes are read from the vault's state below, which also sees a waiting change take effect.
-          return []
-      }
-    })
+  private get words() {
+    return windowWords(this.vault.schedule.windowSecs)
   }
 
-  private async fromState(prev: State | undefined, cur: State, warned: string[]): Promise<Alert[]> {
+  private describe(policy: Policy): string {
+    return describePolicy(policy, this.vault.schedule.windowSecs)
+  }
+
+  private decode(log: RawLog): { event: VaultEvent; tx: Record<string, unknown> }[] {
+    const { network } = this.vault.config
+    const tx = log.transactionHash ? { transaction: log.transactionHash, explorer: txLink(network, log.transactionHash) } : {}
+    return decodeEvents({ ok: true, data: '0x', logs: [log], gasUsed: 0n }, this.vault.sim.vault).map((event) => ({ event, tx }))
+  }
+
+  private fromEvent(event: VaultEvent, tx: Record<string, unknown>): Alert[] {
+    const format: Formatters = { ...FORMAT, window: this.words.left }
+    switch (event.name) {
+      case 'Paid':
+        return [
+          this.alert('paid', `Paid ${formatUsd(event.amount)} to ${this.name(event.to)} (request ${event.nonce}). ${formatUsd(event.leftInWindow)} left ${this.words.left}.`, {
+            to: event.to,
+            amount_usd: usd(event.amount),
+            nonce: event.nonce.toString(),
+            left_today_usd: usd(event.leftInWindow),
+            ...tx,
+          }),
+        ]
+      case 'Blocked': {
+        const said = explain(event.code, event.detail, format)
+        return [
+          this.alert('refused', `Refused ${formatUsd(event.amount)} to ${this.name(event.to)} (request ${event.nonce}). ${said.sentence}`, {
+            to: event.to,
+            amount_usd: usd(event.amount),
+            nonce: event.nonce.toString(),
+            reason: said.name,
+            ...tx,
+          }),
+        ]
+      }
+      case 'RecipientChanged':
+        return event.approvedFrom === 0n
+          ? [this.alert('recipient_removed', `${this.name(event.who)} was removed from the approved recipients.`, { who: event.who, ...tx })]
+          : [
+              this.alert(
+                'recipient_approved',
+                `${this.name(event.who)} was approved as a recipient; it can be paid from ${formatTime(event.approvedFrom)}. If the owner did not do this, remove it at ${OWNER_PAGE} before then.`,
+                { who: event.who, approved_from: iso(event.approvedFrom), ...tx },
+              ),
+            ]
+      case 'Withdrawn':
+        return [this.alert('withdrawn', `The owner withdrew ${formatUsd(event.amount)} from the vault.`, { amount_usd: usd(event.amount), ...tx })]
+      default:
+        // PolicyProposed and QueueCancelled: see fromProposals. Rule changes are also read from the state.
+        return []
+    }
+  }
+
+  /**
+   * Looser rules that were proposed since the last look and are no longer
+   * waiting: cancelled or replaced in between, or already in force. The state
+   * alone cannot show these (it only holds what is queued now), so they are
+   * read from the vault's PolicyProposed and QueueCancelled events. Any later
+   * proposal (a pause too) or a cancel ends a queued one.
+   */
+  private fromProposals(events: { event: VaultEvent; tx: Record<string, unknown> }[], cur: State, seen: string[]): { alerts: Alert[]; inForce: boolean } {
+    const steps = events.filter(({ event }) => event.name === 'PolicyProposed' || event.name === 'QueueCancelled')
+    const alerts: Alert[] = []
+    let inForce = false
+    steps.forEach(({ event, tx }, i) => {
+      if (event.name !== 'PolicyProposed' || event.effectiveAt === 0n) return
+      const proposed: Queued = { ...event.policy, effectiveAt: event.effectiveAt }
+      const key = queuedKey(proposed)
+      // Still waiting: reported from the state, with the worst case.
+      if (this.seen.has(key) || seen.includes(key) || sameQueued(cur.queued, proposed)) return
+      seen.push(key)
+      const endedBy = steps[i + 1]?.event.name
+      if (!endedBy && proposed.effectiveAt <= cur.now && sameRules(cur.policy, proposed)) {
+        inForce = true
+        alerts.push(
+          this.alert(
+            'loosening_in_force',
+            `Looser rules were proposed and took effect before this watcher saw them waiting: ${this.describe(proposed)}, in force since ${formatTime(proposed.effectiveAt)}. If the owner did not ask for this, the owner key is compromised.`,
+            { rules: policyJson(proposed), took_effect_at: iso(proposed.effectiveAt), unseen: true, ...tx },
+          ),
+        )
+        return
+      }
+      alerts.push(
+        this.alert(
+          'loosening_withdrawn',
+          `Looser rules were proposed and then ${endedBy === 'QueueCancelled' ? 'cancelled' : 'replaced'} between two checks: ${this.describe(proposed)}, to take effect ${formatTime(proposed.effectiveAt)}. Rules in force: ${this.describe(cur.policy)}. Only the owner's key can do this; if the owner did not, treat that key as compromised and move the funds out at ${OWNER_PAGE}.`,
+          { proposed: policyJson(proposed), takes_effect_at: iso(proposed.effectiveAt), ended_by: endedBy === 'QueueCancelled' ? 'cancelled' : 'replaced', current: policyJson(cur.policy), ...tx },
+        ),
+      )
+    })
+    return { alerts, inForce }
+  }
+
+  private async fromState(prev: State | undefined, cur: State, warned: string[], seen: string[], explainedByEvents: boolean): Promise<Alert[]> {
     const alerts: Alert[] = []
     const { queued, policy } = cur
     const before = prev?.queued ?? null
 
-    if (queued && !sameQueued(queued, before)) {
+    if (queued && !sameQueued(queued, before) && !this.seen.has(queuedKey(queued)) && !seen.includes(queuedKey(queued))) {
+      seen.push(queuedKey(queued))
       // The contract queues only changes that loosen something; anything stricter applies at once.
-      const worst = await this.vault.sim.exposure(queued.effectiveAt + DAY)
+      const worst = await this.vault.sim.exposure(queued.effectiveAt + this.vault.schedule.windowSecs)
       alerts.push(
         this.alert(
           'loosening_waiting',
-          `Looser rules are waiting: ${describePolicy(queued)} (now ${describePolicy(policy)}). They take effect ${formatTime(queued.effectiveAt)}. By a day after that the agent could have moved up to ${formatUsd(worst)}. If the owner did not ask for this, cancel it at ${OWNER_PAGE} before then.`,
+          `Looser rules are waiting: ${this.describe(queued)} (now ${this.describe(policy)}). They take effect ${formatTime(queued.effectiveAt)}. In the ${this.words.span} after that the agent could have moved up to ${formatUsd(worst)}. If the owner did not ask for this, cancel it at ${OWNER_PAGE} before then.`,
           { proposed: policyJson(queued), current: policyJson(policy), takes_effect_at: iso(queued.effectiveAt), worst_case_usd: usd(worst) },
         ),
       )
     }
 
-    let explained = false
+    let explained = explainedByEvents
     if (prev && before && !queued) {
-      explained = sameRules(policy, before)
+      const inForce = sameRules(policy, before)
+      explained ||= inForce
       alerts.push(
-        explained
-          ? this.alert('loosening_in_force', `The waiting change is now in force: ${describePolicy(policy)}.`, { rules: policyJson(policy) })
-          : this.alert('loosening_cancelled', `The waiting change was cancelled. Rules in force: ${describePolicy(policy)}.`, { rules: policyJson(policy) }),
+        inForce
+          ? this.alert('loosening_in_force', `The waiting change is now in force: ${this.describe(policy)}.`, { rules: policyJson(policy) })
+          : this.alert('loosening_cancelled', `The waiting change was cancelled. Rules in force: ${this.describe(policy)}.`, { rules: policyJson(policy) }),
       )
     }
 
@@ -186,12 +255,12 @@ export class Watcher {
         alerts.push(
           policy.paused
             ? this.alert('paused', 'The agent is paused. The vault refuses every payment until the owner resumes it.')
-            : this.alert('resumed', `The agent is no longer paused. Rules in force: ${describePolicy(policy)}.`),
+            : this.alert('resumed', `The agent is no longer paused. Rules in force: ${this.describe(policy)}.`),
         )
       }
       const limits = (p: Policy) => [p.perPayment, p.perWindow, p.validUntil].join()
       if (limits(prev.policy) !== limits(policy)) {
-        alerts.push(this.alert('rules_changed', `The rules changed: ${describePolicy(policy)} (was ${describePolicy(prev.policy)}).`, { rules: policyJson(policy), was: policyJson(prev.policy) }))
+        alerts.push(this.alert('rules_changed', `The rules changed: ${this.describe(policy)} (was ${this.describe(prev.policy)}).`, { rules: policyJson(policy), was: policyJson(prev.policy) }))
       }
     }
 
@@ -273,16 +342,42 @@ export type WatchOptions = {
   /** Tests pass the stand-in network; otherwise a JSON-RPC connection is made from the config. */
   wallet?: Wallet
   warnSecs?: bigint
+  /** Run even when checks are further apart than half the cooling period. Unsafe: see intervalProblem. */
+  unsafeInterval?: boolean
 }
 
-/** Checks the vault until `signal` is aborted. Network failures are reported once, then retried with growing waits. */
-export async function watch(config: Config, { everySecs, signal, deliver, wallet, warnSecs }: WatchOptions): Promise<void> {
+/**
+ * A looser rule takes effect one cooling period after it is proposed. Checking
+ * at least twice in that time is what lets the watcher warn while it can still
+ * be cancelled. Returns why `everySecs` is too slow for this vault, if it is.
+ */
+export function intervalProblem(coolingSecs: bigint, everySecs: number): string | undefined {
+  const most = Math.floor(Number(coolingSecs) / 2)
+  if (everySecs <= most) return undefined
+  return `This vault's cooling period is ${formatDuration(coolingSecs)}: a looser rule takes effect that long after it is proposed. Checking every ${everySecs} seconds could miss it while it can still be cancelled. Set HARDSTOP_WATCH_SECS to ${most} or less (half the cooling period). HARDSTOP_WATCH_UNSAFE=1 runs anyway, but then a loosening can take effect before you are warned.`
+}
+
+/**
+ * Checks the vault until `signal` is aborted. Network failures are reported
+ * once, then retried with growing waits, never longer than half the cooling
+ * period. A vault the watcher must not trust, or a check interval too slow for
+ * it, stops it with an error instead.
+ */
+export async function watch(config: Config, { everySecs, signal, deliver, wallet, warnSecs, unsafeInterval = false }: WatchOptions): Promise<void> {
   const sleep = (secs: number) => delay(secs * 1000, undefined, { signal }).catch(() => undefined)
   let watcher: Watcher | undefined
+  let maxBackoff = MAX_BACKOFF_SECS
   let failures = 0
   while (!signal.aborted) {
     try {
-      watcher ??= new Watcher(await connect(config, wallet), warnSecs)
+      if (!watcher) {
+        const vault = await connect(config, wallet)
+        const problem = intervalProblem(vault.schedule.coolingSecs, everySecs)
+        if (problem && !unsafeInterval) throw new Refused(problem)
+        if (problem) warn(`UNSAFE (HARDSTOP_WATCH_UNSAFE=1): ${problem}`)
+        maxBackoff = Math.min(MAX_BACKOFF_SECS, Math.floor(Number(vault.schedule.coolingSecs) / 2))
+        watcher = new Watcher(vault, warnSecs)
+      }
       const alerts = await watcher.check()
       for (const alert of alerts) await deliver(alert)
       if (failures > 0) {
@@ -292,8 +387,9 @@ export async function watch(config: Config, { everySecs, signal, deliver, wallet
       await sleep(everySecs)
     } catch (error) {
       if (signal.aborted) break
+      if (error instanceof Refused) throw error
       failures += 1
-      const wait = Math.min(everySecs * 2 ** failures, MAX_BACKOFF_SECS)
+      const wait = Math.min(everySecs * 2 ** failures, maxBackoff)
       if (failures === 1) {
         await deliver({
           kind: 'watch_error',
@@ -330,7 +426,12 @@ async function main(): Promise<void> {
   }
   process.once('SIGINT', stop)
   process.once('SIGTERM', stop)
-  await watch(config, { everySecs, signal: controller.signal, deliver: deliverer(process.env) })
+  await watch(config, {
+    everySecs,
+    signal: controller.signal,
+    deliver: deliverer(process.env),
+    unsafeInterval: process.env.HARDSTOP_WATCH_UNSAFE === '1',
+  })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

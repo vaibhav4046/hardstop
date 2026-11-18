@@ -6,8 +6,8 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { test } from 'node:test'
 import type { Hex } from 'viem'
-import { readConfig, connect } from '../mcp/vault.ts'
-import { Watcher, deliverer, watch, type Alert } from '../mcp/watch.ts'
+import { Refused, readConfig, connect } from '../mcp/vault.ts'
+import { Watcher, deliverer, intervalProblem, watch, type Alert } from '../mcp/watch.ts'
 import { attach, launchVault } from '../src/lib/live/launch.ts'
 import { NETWORKS, type Wallet } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
@@ -144,4 +144,92 @@ test('alerts go to stdout as one JSON line each and to the webhook', async () =>
   server.close()
   assert.deepEqual(lines, [`${JSON.stringify(alert)}\n`])
   assert.deepEqual(received, [alert])
+})
+
+const PROPOSAL = { perPayment: 10n * USD, perWindow: 50n * USD, validUntil: SETUP.validUntil, paused: false }
+
+test('a raise proposed and cancelled between two checks is still reported, as a sign of a stolen owner key', async () => {
+  const { sim, watcher } = await setUp()
+  await watcher.check()
+  await sim.propose(PROPOSAL)
+  await sim.cancelQueued()
+  const alerts = await watcher.check()
+  assert.deepEqual(kinds(alerts), ['loosening_withdrawn'])
+  assert.equal(alerts[0].ended_by, 'cancelled')
+  assert.equal(alerts[0].takes_effect_at, new Date(Number(NOW + DAY) * 1000).toISOString())
+  assert.match(alerts[0].message, /^Looser rules were proposed and then cancelled between two checks: .*\$50\.00 per day.*treat that key as compromised/)
+  assert.match(String(alerts[0].explorer), /^https:\/\/sepolia\.basescan\.org\/tx\/0x/)
+  assert.deepEqual(await watcher.check(), [], 'reported once')
+
+  // Replaced by a pause, and a recipient approved and removed again, all between two checks.
+  await sim.propose({ ...PROPOSAL, perWindow: 60n * USD })
+  await sim.pause()
+  await sim.setRecipient(STRANGER, true)
+  await sim.setRecipient(STRANGER, false)
+  const more = await watcher.check()
+  assert.deepEqual(kinds(more), ['recipient_approved', 'recipient_removed', 'loosening_withdrawn', 'paused'])
+  assert.equal(more[2].ended_by, 'replaced')
+})
+
+test('a raise that took effect between two checks is reported once, as in force', async () => {
+  const { sim, network, watcher } = await setUp()
+  await watcher.check()
+  await sim.propose(PROPOSAL)
+  network.now = NOW + DAY + 1n
+  const alerts = await watcher.check()
+  assert.deepEqual(kinds(alerts), ['loosening_in_force'], 'and not a second "rules changed"')
+  assert.equal(alerts[0].unseen, true)
+  assert.match(alerts[0].message, /took effect before this watcher saw them waiting: .*\$50\.00 per day/)
+  assert.deepEqual(await watcher.check(), [])
+})
+
+test('a raise still waiting is reported once, from the state, even though its event is read too', async () => {
+  const { sim, watcher } = await setUp()
+  await watcher.check()
+  await sim.propose(PROPOSAL)
+  const alerts = await watcher.check()
+  assert.deepEqual(kinds(alerts), ['loosening_waiting'])
+  assert.match(String(alerts[0].message), /In the 24 hours after that the agent could have moved up to/)
+})
+
+test('checks must come at least twice per cooling period, unless explicitly run unsafe', async () => {
+  assert.equal(intervalProblem(60n, 30), undefined)
+  assert.match(intervalProblem(60n, 31)!, /cooling period is 1 minute.*Set HARDSTOP_WATCH_SECS to 30 or less.*HARDSTOP_WATCH_UNSAFE=1/)
+
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, { ...SETUP, coolingSecs: 60n }, () => {}, 1)
+  const config = readConfig({ HARDSTOP_VAULT: live.vault })
+  const seen: Alert[] = []
+  const deliver = async (alert: Alert) => void seen.push(alert)
+  await assert.rejects(watch(config, { everySecs: 31, signal: new AbortController().signal, wallet: network, deliver }), (error: unknown) => {
+    assert.ok(error instanceof Refused)
+    assert.match(error.message, /Set HARDSTOP_WATCH_SECS to 30 or less/)
+    return true
+  })
+  assert.deepEqual(seen, [], 'nothing was watched')
+
+  const running: Alert[] = []
+  const controller = new AbortController()
+  await watch(config, {
+    everySecs: 31,
+    unsafeInterval: true,
+    signal: controller.signal,
+    wallet: network,
+    deliver: async (alert) => {
+      running.push(alert)
+      controller.abort()
+    },
+  })
+  assert.deepEqual(kinds(running), ['watching'])
+})
+
+test('the watcher stops, instead of retrying, at an address that is not a HARDSTOP vault', async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, 1)
+  const seen: Alert[] = []
+  await assert.rejects(
+    watch(readConfig({ HARDSTOP_VAULT: live.token }), { everySecs: 1, signal: new AbortController().signal, wallet: network, deliver: async (a) => void seen.push(a) }),
+    /is not a HARDSTOP vault/,
+  )
+  assert.deepEqual(seen, [])
 })

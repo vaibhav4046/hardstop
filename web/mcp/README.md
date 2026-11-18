@@ -25,7 +25,7 @@ You need Node 24 or later, and `npm ci` run once in `web/`. The server runs as T
 | Variable | |
 |---|---|
 | `HARDSTOP_AGENT_KEY` | The agent's private key, hex. **Never the owner's key.** The server needs it; the watcher does not. |
-| `HARDSTOP_VAULT` | The vault address. |
+| `HARDSTOP_VAULT` | The vault address. The server and the watcher check its code before trusting anything it answers: the runtime code, minus the 128 bytes the constructor fills in (owner, agent, token, schedule), must hash to a vault build a HARDSTOP launcher deployed. Those are listed in `KNOWN_VAULT_CODE` in `vault.ts`: the current build (launchers `0x811e…` and `0x9fa4…`, and the demo) and two earlier ones (`0xe7d4…`; `0x956f…` and `0x3b83…`), which answer the same functions and events. Anything else is refused with a plain message. |
 | `HARDSTOP_CHAIN_ID` | `84532` (Base Sepolia, default) or `11155111` (Sepolia). Any other chain is refused. |
 | `HARDSTOP_RPC` | Optional. Defaults to the network's public endpoint. The server checks that the RPC is on the chain you named. |
 | `HARDSTOP_RECIPIENTS` | Optional. `name=0x...,name2=0x...` lets the assistant say "pay Cloud hosting". |
@@ -94,25 +94,30 @@ Each tool returns a plain-language answer first, then the same facts as JSON (`s
 
 | Tool | What it does |
 |---|---|
-| `hardstop_status` | Shows the limits in force (per payment, per day, end date, paused), what has been spent and what is left today, when the day resets, the vault's balance, the agent's ETH for network fees, any waiting change and when it takes effect, and the worst case over the next 24 hours, from the contract's `exposure`. Changes nothing. |
+| `hardstop_status` | Shows the limits in force (per payment, per window, end date, paused), what has been spent and what is left in the current window, when it resets, the vault's balance, the agent's ETH for network fees, any waiting change and when it takes effect, and the worst case over the next window, from the contract's `exposure`. Changes nothing. |
 | `hardstop_preview_payment { to, amount_usd }` | Shows what the vault would answer right now. Sends nothing and costs nothing. |
-| `hardstop_pay { to, amount_usd, nonce? }` | Sends `pay` signed with the agent's key. The nonce defaults to the ledger's next number. Returns paid or refused, the reason in plain words, what is left today, and an explorer link. A refusal is recorded on chain too, so the owner sees it, and it costs a small fee. Payments are sent one at a time. |
+| `hardstop_pay { to, amount_usd, nonce? }` | Sends `pay` signed with the agent's key. The nonce defaults to the ledger's next number. Returns `result` `paid` or `refused` with the reason in plain words, what is left in the window, and an explorer link. A refusal is recorded on chain too, so the owner sees it, and it costs a small fee. `reverted` means the payment was sent and mined but undone (the vault changed between the check and inclusion, for example the owner withdrew): nothing was paid, and the link shows it. `not_sent` means no transaction left the server. Payments are sent one at a time. |
 | `hardstop_recipients` | Lists the recipients named in `HARDSTOP_RECIPIENTS`, each checked with `approvedFrom` on chain: approved, approved from a later time, or not approved. |
 | `hardstop_request_more { reason, per_payment_usd?, per_day_usd? }` | Drafts a request to the owner, with the current limits, the ask, the reason and the link to the Activity page. Sends nothing and changes nothing. |
 | resource `hardstop://status` | The same text as `hardstop_status`. |
 
 `to` takes an address, or the name of a recipient from `HARDSTOP_RECIPIENTS`. Amounts are dollars with at most two decimals, such as `4` or `"12.50"`.
 
+**The spending window.** A vault can be launched with any window length, given in the status as `window_secs`. The words follow it: "per day" and "today" only when it is 86,400 seconds, otherwise "per 1 hour", "per window of 90 seconds", "in this window". The JSON names are kept from when every window was a day, and mean the window: `per_day_usd` is the limit per window, `spent_today_usd` and `left_today_usd` are for the current window, `day_resets_at` is when it ends, and `worst_case_24h_usd` is the worst case over the next `window_secs` seconds.
+
 ## The watcher
 
 `watch.ts` is for the owner. It only reads, so it needs the vault address and a network but no key at all. If `HARDSTOP_AGENT_KEY` is set in its environment, it ignores it. It checks the vault every `HARDSTOP_WATCH_SECS` seconds (default 30) and reports:
 
-- **a loosening waiting out its cooling period** (`loosening_waiting`): what it would allow, when it takes effect, and the worst case a day after that. If the owner did not ask for it, this is the moment to cancel. Later it reports `loosening_in_force` or `loosening_cancelled`.
+- **a loosening waiting out its cooling period** (`loosening_waiting`): what it would allow, when it takes effect, and the worst case one window after that. If the owner did not ask for it, this is the moment to cancel. Later it reports `loosening_in_force` or `loosening_cancelled`.
+- **a loosening proposed and withdrawn between two checks** (`loosening_withdrawn`, with `ended_by` `cancelled` or `replaced`), read from the vault's `PolicyProposed` and `QueueCancelled` events. Nothing changed, but only the owner's key can do this; if the owner did not, treat that key as compromised. A loosening that took effect before any check saw it waiting is reported as `loosening_in_force` with `unseen: true` (this needs an outage longer than the cooling period; see below).
 - **every payment and refusal** (`paid`, `refused`), read from the vault's own `Paid` and `Blocked` events with `eth_getLogs`, with the transaction link and the reason in plain words.
 - **a pause, a resume or a stricter rule** (`paused`, `resumed`, `rules_changed`), **recipients added or removed** (`recipient_approved`, `recipient_removed`), and **withdrawals** (`withdrawn`).
 - **the end date** coming (`ending_soon`, three days before) and passing (`expired`). Each is reported once.
 
-Each alert is one line of JSON on stdout. It also goes as a POST to `HARDSTOP_ALERT_WEBHOOK` if that is set, and to a desktop notification if `HARDSTOP_DESKTOP_NOTIFY=1` (Windows toast, macOS `osascript`, Linux `notify-send`). If the network fails, the watcher says so once (`watch_error`), retries with doubling waits up to 10 minutes, and says when it recovers (`watch_recovered`). SIGINT and SIGTERM stop it cleanly.
+Each alert is one line of JSON on stdout. It also goes as a POST to `HARDSTOP_ALERT_WEBHOOK` if that is set, and to a desktop notification if `HARDSTOP_DESKTOP_NOTIFY=1` (Windows toast, macOS `osascript`, Linux `notify-send`). If the network fails, the watcher says so once (`watch_error`), retries with doubling waits up to 10 minutes or half the cooling period, whichever is shorter, and says when it recovers (`watch_recovered`). SIGINT and SIGTERM stop it cleanly.
+
+**The check interval must fit the vault.** A looser rule takes effect one cooling period after it is proposed, and a vault may have a cooling period as short as 60 seconds. At start the watcher reads the vault's cooling period and refuses to run if `HARDSTOP_WATCH_SECS` is more than half of it, saying what to set. `HARDSTOP_WATCH_UNSAFE=1` runs anyway; this is **unsafe**: a loosening can then take effect before you are warned. The watcher also refuses, and stops instead of retrying, at an address that is not a known vault build.
 
 ```bash
 cd web
@@ -144,6 +149,6 @@ Then run `systemctl enable --now hardstop-watch`. pm2 works too: `pm2 start "nod
 - **The agent key is a real key.** Whoever holds it can spend inside the vault's limits, which is all HARDSTOP promises. Keep it out of repositories and shared configs. Use `${VAR}` expansion (Claude Code, Cursor) or a secret prompt (VS Code `inputs`).
 - **Refusals cost gas.** A refused `hardstop_pay` is still a transaction, so the owner can see it. Use `hardstop_preview_payment` when unsure. The agent's ETH for fees comes from the launch, about 34 payments on Base Sepolia.
 - **Recipients by name** are only the ones you list in `HARDSTOP_RECIPIENTS`. The server does not scan the chain for every approved address.
-- **The watcher polls.** It sees a waiting change within one interval, not instantly. It reads at most 1,000 blocks of events per check, and catches up over several checks after an outage. It starts from the current block, so it does not replay history.
+- **The watcher polls.** It sees a waiting change within one interval, not instantly. A change made and undone between two checks is still reported, from the events. It reads at most 1,000 blocks of events per check, and catches up over several checks after an outage. It starts from the current block, so it does not replay history.
 - **Desktop notifications are best effort.** They were not tested on macOS or Linux.
 - **HTTP mode has one shared secret**, not per-user OAuth. Use it behind a tunnel you control.
