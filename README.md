@@ -237,7 +237,7 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
 | Current contracts on Base Sepolia (zero-address check, typed time units, `OwnerProof`) | launcher `0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1` installed, vault `0x7f7876dfb9c57fa9a367682f6ff680959a206c8e` created; paid twice, refused $80 (code 10), self-raise reverted `NotOwner`, owner proposed, cancelled, paused; vault left with $92. Transactions in the gas table below |
 | Vault runtime size | 7,941 bytes, read from Base Sepolia with `eth_getCode` |
-| Browser suite (`npm run e2e`, Chromium, production build) | 55 passed, 0 failed: seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
+| Browser suite (`npm run e2e`, Chromium, production build) | 57 tests, all passing: 55 in one full run on 2026-11-18; on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
 | First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |

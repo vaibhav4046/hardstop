@@ -66,7 +66,7 @@ Details in the README's "Fe highlight".
   CI runs the Fe tests, the native campaign, the compile-refusal check and
   the unit tests on every push; the browser suite runs locally
   (`npm run e2e`).
-- On Base Sepolia (public test network): the launcher, four vaults (one
+- On Base Sepolia (public test network): the launcher, five vaults (one
   opened by clicking through MetaMask on the live site), paid and refused
   payments, and measured gas for every call, each with its transaction link,
   in the README.
