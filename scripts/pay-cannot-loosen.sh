@@ -12,6 +12,7 @@
 #    has no `OwnerProof` to hand to the kernel (or to `pay_owner`). Nor can
 #    it write its own: `OwnerProof { granted: true }` in place of the check
 #    must fail too, because the field is private to the kernel.
+# 3. The verdict codes stay distinct: see the end of this script.
 set -euo pipefail
 
 FE=${FE:-fe}
@@ -116,3 +117,24 @@ if ! grep -q '`granted` is not visible' <<<"$LOG"; then
   exit 1
 fi
 echo "ok   refused: Propose with a hand-made OwnerProof"
+
+# 3. The verdict codes are checked at compile time: making one refusal code a
+#    duplicate of another must fail with "static assertion failed" (8-0081).
+dir=$(mktemp -d)
+cp -r "$ROOT/fe" "$dir/"
+rm -rf "$dir/fe/out"
+sed -i 's/^pub const CODE_PAUSED: u8 = 2$/pub const CODE_PAUSED: u8 = 1/' "$dir/fe/src/kernel.fe"
+grep -q '^pub const CODE_PAUSED: u8 = 1$' "$dir/fe/src/kernel.fe" || { echo "could not edit CODE_PAUSED"; rm -rf "$dir"; exit 2; }
+if (cd "$dir/fe" && "$FE" build > "$dir/build.log" 2>&1); then
+  echo "FAIL a duplicate verdict code compiled"
+  rm -rf "$dir"
+  exit 1
+fi
+if ! grep -q 'static assertion failed' "$dir/build.log"; then
+  echo "FAIL a duplicate verdict code was refused for another reason"
+  cat "$dir/build.log"
+  rm -rf "$dir"
+  exit 1
+fi
+rm -rf "$dir"
+echo "ok   refused: a duplicate verdict code"

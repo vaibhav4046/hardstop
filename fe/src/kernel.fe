@@ -222,21 +222,52 @@ const NOT_SET: Instant = Instant { secs: 0 }
 /// The last representable second: a change scheduled for it never happens.
 const NEVER: Instant = Instant { secs: MAX_U64 }
 
+/// Wire codes for a verdict. The vault returns them from `pay` and logs them,
+/// the native tool prints them and the web app names them, so they must never
+/// shift. The compiler checks that: 0 is "allowed" and each refusal is the one
+/// before it plus one, so no two codes collide and none is skipped. Editing a
+/// code into a duplicate fails to build (`scripts/pay-cannot-loosen.sh`).
+pub const CODE_ALLOWED: u8 = 0
+pub const CODE_INVALID_POLICY: u8 = 1
+pub const CODE_PAUSED: u8 = 2
+pub const CODE_NOT_AGENT: u8 = 3
+pub const CODE_NOT_YET_ACTIVE: u8 = 4
+pub const CODE_EXPIRED: u8 = 5
+pub const CODE_WRONG_NONCE: u8 = 6
+pub const CODE_NONCE_EXHAUSTED: u8 = 7
+pub const CODE_ZERO_AMOUNT: u8 = 8
+pub const CODE_RECIPIENT_NOT_APPROVED: u8 = 9
+pub const CODE_OVER_PAYMENT_LIMIT: u8 = 10
+pub const CODE_OVER_WINDOW_LIMIT: u8 = 11
+
+static_assert(CODE_ALLOWED == 0)
+static_assert(CODE_INVALID_POLICY == CODE_ALLOWED + 1)
+static_assert(CODE_PAUSED == CODE_INVALID_POLICY + 1)
+static_assert(CODE_NOT_AGENT == CODE_PAUSED + 1)
+static_assert(CODE_NOT_YET_ACTIVE == CODE_NOT_AGENT + 1)
+static_assert(CODE_EXPIRED == CODE_NOT_YET_ACTIVE + 1)
+static_assert(CODE_WRONG_NONCE == CODE_EXPIRED + 1)
+static_assert(CODE_NONCE_EXHAUSTED == CODE_WRONG_NONCE + 1)
+static_assert(CODE_ZERO_AMOUNT == CODE_NONCE_EXHAUSTED + 1)
+static_assert(CODE_RECIPIENT_NOT_APPROVED == CODE_ZERO_AMOUNT + 1)
+static_assert(CODE_OVER_PAYMENT_LIMIT == CODE_RECIPIENT_NOT_APPROVED + 1)
+static_assert(CODE_OVER_WINDOW_LIMIT == CODE_OVER_PAYMENT_LIMIT + 1)
+
 impl Reason {
     /// Stable wire code. `0` is reserved for "allowed".
     pub fn code(self) -> u8 {
         match self {
-            Reason::InvalidPolicy => 1,
-            Reason::Paused => 2,
-            Reason::NotAgent => 3,
-            Reason::NotYetActive(_) => 4,
-            Reason::Expired(_) => 5,
-            Reason::WrongNonce(_) => 6,
-            Reason::NonceExhausted => 7,
-            Reason::ZeroAmount => 8,
-            Reason::RecipientNotApproved => 9,
-            Reason::OverPaymentLimit(_) => 10,
-            Reason::OverWindowLimit(_) => 11,
+            Reason::InvalidPolicy => CODE_INVALID_POLICY,
+            Reason::Paused => CODE_PAUSED,
+            Reason::NotAgent => CODE_NOT_AGENT,
+            Reason::NotYetActive(_) => CODE_NOT_YET_ACTIVE,
+            Reason::Expired(_) => CODE_EXPIRED,
+            Reason::WrongNonce(_) => CODE_WRONG_NONCE,
+            Reason::NonceExhausted => CODE_NONCE_EXHAUSTED,
+            Reason::ZeroAmount => CODE_ZERO_AMOUNT,
+            Reason::RecipientNotApproved => CODE_RECIPIENT_NOT_APPROVED,
+            Reason::OverPaymentLimit(_) => CODE_OVER_PAYMENT_LIMIT,
+            Reason::OverWindowLimit(_) => CODE_OVER_WINDOW_LIMIT,
         }
     }
 
@@ -257,7 +288,7 @@ impl Decision {
     /// `0` when allowed, otherwise the reason code.
     pub fn code(self) -> u8 {
         match self {
-            Decision::Allow(_) => 0,
+            Decision::Allow(_) => CODE_ALLOWED,
             Decision::Deny(reason) => reason.code(),
         }
     }

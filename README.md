@@ -124,6 +124,16 @@ would compile; `only` is the one place that binds it to `ctx.caller()`), or
 that a handler which lists `mut active` goes through `amend` at all. Such a
 handler can still assign a hand-built `Policy` directly.
 
+The verdict codes are checked at compile time too. `Reason::code` returns
+named constants (`CODE_PAUSED`, `CODE_OVER_PAYMENT_LIMIT`, ...), and a chain
+of `static_assert`s in `kernel.fe` makes 0 "allowed" and every refusal code
+the previous one plus one. The vault returns these codes, the native tool
+prints them and the web app names them, so a code that drifted would
+mislabel every receipt; instead the build fails ("static assertion failed",
+8-0081), and the same CI script proves it by turning one code into a
+duplicate. These checks add no bytecode: the compiled contracts are
+byte-identical with or without them.
+
 The other half is that the same `decide` is the body of a native program:
 
 ```fe

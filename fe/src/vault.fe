@@ -175,6 +175,9 @@ fn seconds(_ at: Timestamp) -> Instant {
 /// The shortest cooling period a vault may be created with. Anything
 /// shorter is a ratchet in name only.
 const MIN_COOLING_SECS: u64 = 60
+// A ratchet that waits less than a minute is no ratchet; the compiler holds the
+// floor so a later edit cannot quietly lower it.
+static_assert(MIN_COOLING_SECS >= 60)
 
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     owner: Address,
