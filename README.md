@@ -256,7 +256,7 @@ npm ci
 npm test                          # 58 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
-npm run e2e                       # 55 browser tests against the production build
+npm run e2e                       # 58 browser tests against the production build
 ```
 
 Every command above except the browser suite runs in
