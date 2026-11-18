@@ -15,6 +15,9 @@ import { isRevert, revertData, sendAsOwner, toHex, waitFor, type Wallet } from '
 
 /** How stale the clock may be before the latest block is asked for again. */
 const CLOCK_MS = 4000
+/** Gas limit floor for the agent's requests: enough for a payment that pays. */
+const AGENT_GAS_FLOOR = 200_000n
+const bigMax = (a: bigint, b: bigint): bigint => (a > b ? a : b)
 
 export class LiveChain implements ChainLike {
   now = 0n
@@ -106,7 +109,10 @@ export class LiveChain implements ChainLike {
       to,
       data,
       // Room to spare on both: a request that runs out of gas would look like a refusal.
-      gas: (BigInt(estimate) * 13n) / 10n,
+      // The floor covers a payment the rehearsal refused but the chain pays (the paid
+      // path measured 122,149 gas on Base Sepolia, a refusal about 50,000). Only gas
+      // used is charged.
+      gas: bigMax((BigInt(estimate) * 13n) / 10n, AGENT_GAS_FLOOR),
       gasPrice: (BigInt(gasPrice) * 12n) / 10n,
     })
     return ask('eth_sendRawTransaction', [signed])
