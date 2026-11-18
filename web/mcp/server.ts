@@ -83,7 +83,8 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
   let configError: unknown
   try {
     config = readConfig(env)
-    if (networkName) config = { ...config, network: { ...config.network, name: networkName } }
+    // The demo network lives in memory: no explorer has its transactions, so it gets no links.
+    if (networkName) config = { ...config, network: { ...config.network, name: networkName, explorer: '' } }
   } catch (error) {
     configError = error
   }
@@ -201,11 +202,15 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
             if (entry.kind !== 'payment') throw new Error('The vault answered something other than a payment.')
             const said = verdict(entry)
             const paid = said.tone === 'paid'
-            const link = entry.outcome.tx ? txLink(v.config.network, entry.outcome.tx) : undefined
+            const link = entry.outcome.tx && v.config.network.explorer ? txLink(v.config.network, entry.outcome.tx) : undefined
             const lines = [
               `${paid ? 'Paid' : said.tone === 'blocked' ? 'Refused' : 'Not sent'}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence}`,
               `Left today: ${formatUsd(entry.leftToday)}.`,
-              link ? `Transaction: ${link}` : 'No transaction was sent.',
+              link
+                ? `Transaction: ${link}`
+                : entry.outcome.tx
+                  ? 'Recorded on the in-memory demo network, which no explorer can show.'
+                  : 'No transaction was sent.',
             ]
             return {
               text: lines.join('\n'),

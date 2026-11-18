@@ -220,7 +220,7 @@ export async function status(vault: Vault): Promise<Status> {
     queued
       ? `A change is waiting: ${describePolicy(queued)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.`
       : 'No change to the rules is waiting.',
-    `Worst case over the next 24 hours, by the contract's own arithmetic: ${formatUsd(worstCase)}.`,
+    `Worst case over the next 24 hours, by the contract's own arithmetic: ${formatUsd(worstCase)}. This span can cross the daily reset, so it can include part of tomorrow's allowance.`,
     `Next request number: ${state.ledger.nextNonce}.`,
   ]
   return {
