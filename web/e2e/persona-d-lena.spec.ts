@@ -188,7 +188,8 @@ test.describe('Persona D: Lena, Node-side source check', () => {
     // And nothing outside lib/hardstop words a verdict by itself: the only
     // source of "Paid"/"Blocked" is describe.ts reading the contract's code.
     const describe = readFileSync(path.join(SRC, 'lib', 'describe.ts'), 'utf8')
-    expect(describe).toContain("explain(code, detail ?? 0n, FORMAT)")
+    expect(describe).toContain("explain(code, detail ?? 0n, f)")
+    expect(describe).toContain("f: Formatters = FORMAT")
     for (const file of sourceFiles(SRC)) {
       const relative = path.relative(SRC, file).replaceAll('\\', '/')
       if (relative === 'lib/describe.ts') continue
