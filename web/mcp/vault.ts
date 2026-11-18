@@ -14,7 +14,7 @@ import type { LiveChain } from '../src/lib/live/chain.ts'
 import { attach } from '../src/lib/live/launch.ts'
 import { NETWORKS, networkOf, type Network, type Wallet } from '../src/lib/live/wallet.ts'
 import { formatTime, formatUsd, inputValue } from '../src/lib/money.ts'
-import { today, type Recipient } from '../src/lib/session.ts'
+import { leftToday as leftInDay, today, type Recipient } from '../src/lib/session.ts'
 
 /** Where the owner changes the rules. Every "ask the owner" points here. */
 export const OWNER_PAGE = 'https://hardstop-omega.vercel.app/activity'
@@ -209,7 +209,7 @@ export async function status(vault: Vault): Promise<Status> {
   const state: State = await sim.state()
   const { spent, resetsAt } = today(state)
   const until = state.now + DAY
-  const [leftToday, worstCase, gas] = await Promise.all([sim.exposure(state.now), sim.exposure(until), agentGas(vault)])
+  const [leftToday, worstCase, gas] = await Promise.all([leftInDay(sim, state), sim.exposure(until), agentGas(vault)])
   const { policy, queued } = state
 
   const lines = [

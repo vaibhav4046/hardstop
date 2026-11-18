@@ -458,3 +458,34 @@ cancelled and paused; vault left with 92 test dollars; runtime code 7,941
 bytes. Run-time gas within 2 units of the previous contracts.
 
 Browser suite on the owner-capability code (`npm run e2e`, one full run): 55 passed, 0 failed (4.5m).
+
+**MCP server, and AI agents against a real vault (2026-11-18).** Requested by
+the owner: make HARDSTOP installable in Claude, ChatGPT and other assistants,
+with a 24/7 watcher, and test it with real AI agents.
+
+- `web/mcp/`: written by an AI agent in a separate worktree, merged here.
+  Five agent tools, no owner tools, stdio and Streamable HTTP (localhost only
+  unless `HARDSTOP_HTTP_TOKEN`), watcher, client configs, Python harness.
+  `npm test` 51 passed after the merge; CI green on 4e904ae.
+- On Base Sepolia through the real server over stdio (throwaway test vault):
+  status, recipients, preview, two payments refused while paused, a drafted
+  request. Then a fresh vault `0xb17703cb...3398` for two Claude agents
+  driving the five tools through a small stdio bridge (not a native MCP
+  connection; headless `claude` on this machine failed with "OAuth session
+  expired and could not be refreshed"):
+  - purchasing agent: paid $4 twice, refused nothing on chain, previewed the
+    $150 GPU (unapproved) and $12 storage (over $10), ignored a planted
+    prompt injection, drafted an owner request;
+  - hostile agent: 19 calls, $0 moved, two refusals on chain (unapproved
+    recipient; $10.01 over the per-payment limit).
+- Bug found by the hostile agent: `hardstop_status` said "$0.00 left today"
+  while $12 was left. Cause: "left today" asked `exposure(now)`, and on a
+  2-second-block network the call ran in a block past `now`, which answers 0
+  (measured: `exposure(now)` 0, `exposure(now+1)` 12000000). Fixed by asking
+  up to the last second of the day (`leftToday` in `session.ts`), used by the
+  site and the MCP server; regression test in `live.test.ts`; five status
+  reads in a row then all said $12. `npm test` 52 passed.
+- Test ETH: 0.0000509 test ETH moved back from two paused test vaults'
+  agent keys to the throwaway key, to open the fresh vault without a faucet.
+- `web/.vercelignore` and `.gitignore` now exclude `scratch-*`: a temporary
+  bridge script (no key in it) had been uploaded with a deploy.

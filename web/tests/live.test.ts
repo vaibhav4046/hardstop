@@ -9,7 +9,7 @@ import type { Hex } from 'viem'
 import { DEPLOYER, LAUNCHER, attach, launchVault, type Step } from '../src/lib/live/launch.ts'
 import { NETWORKS } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
-import { AGENT_RAISE, apply, snapshot, type Session } from '../src/lib/session.ts'
+import { AGENT_RAISE, apply, leftToday, snapshot, type Session } from '../src/lib/session.ts'
 import type { Setup } from '../src/lib/hardstop/sim.ts'
 import { FAKE_CHAIN_ID, FakeNetwork } from './fake-network.ts'
 
@@ -191,4 +191,14 @@ test('a wallet with no test ETH is told so plainly before anything is signed', a
   const network = await FakeNetwork.create(OWNER, NOW, true, 0n)
   await assert.rejects(launchVault(network, NETWORK, SETUP, () => {}, FAST), /no test ETH on .*faucet/)
   assert.equal(network.approved.length, 0)
+})
+
+test('what is left today is still right when the network has moved on since the clock was read', async () => {
+  const { network, sim } = await launched()
+  await apply(sim, { type: 'pay', to: PAYEE, amount: (4n * USD).toString(), nonce: '0' }, 0)
+  const state = await sim.state()
+  // The next call runs a block later than the clock the page last read, as on Base Sepolia.
+  network.now = state.now + 2n
+  assert.equal(await sim.exposure(state.now), 0n, 'asking up to "now" answers 0 once the network is past it')
+  assert.equal(await leftToday(sim, state), 16n * USD)
 })
