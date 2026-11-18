@@ -291,7 +291,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
           </dl>
 
           {queued !== null && (
-            <div className="scheduled mt-5">
+            <div id="scheduled" className="scheduled mt-5">
               <p className="tag tag-cool">Scheduled</p>
               <p className="mt-1 font-medium">Takes effect {formatTime(queued.effectiveAt)}</p>
               <p className="small mt-1">Until then the rules above stay in force. From then:</p>

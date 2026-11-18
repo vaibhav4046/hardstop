@@ -93,9 +93,18 @@ test.describe('Persona B: Arjun, SaaS founder', () => {
     await expect(slip).toContainText('One payment may be at most $15.00.')
     await shot(page, 'B-03-raise-scheduled')
 
+    // The waiting raise is announced on every page, not only here.
+    const waiting = page.getByRole('status', { name: /loosens your vault.s rules is waiting/ })
+    await expect(waiting).toContainText('$40.00 at a time')
+    await page.goto('/how-it-works')
+    await expect(waiting).toBeVisible()
+    await expect(waiting.getByRole('link', { name: 'See it on your vault' })).toBeVisible()
+    await page.goto('/activity')
+
     // Cancel it: the panel disappears and the rules are unchanged.
     line = await press(page, 'Cancel scheduled change')
     await expect(line).toHaveText('You cancelled the scheduled change. The rules stay as they are.')
+    await expect(waiting).toHaveCount(0)
     await expect(scheduled(page)).toHaveCount(0)
     await expect(rulesInForce(page)).toContainText('Most per payment$15.00')
 

@@ -737,3 +737,73 @@ fn cooling_period_under_a_minute_is_rejected() uses (evm: mut Evm) {
             salt: 4,
         )
 }
+
+//   0xd92e233d ZeroAddress()
+
+#[test(should_revert, selector = 0xd92e233d)]
+fn zero_owner_is_rejected() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let _ = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                Address::zero(),
+                Address::new(0xa),
+                token,
+                1,
+                1,
+                FAR_FUTURE,
+                DAY,
+                DAY,
+                Address::zero(),
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 5,
+        )
+}
+
+#[test(should_revert, selector = 0xd92e233d)]
+fn zero_agent_is_rejected() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let _ = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                evm.address(),
+                Address::zero(),
+                token,
+                1,
+                1,
+                FAR_FUTURE,
+                DAY,
+                DAY,
+                Address::zero(),
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 6,
+        )
+}
+
+#[test(should_revert, selector = 0xd92e233d)]
+fn zero_token_is_rejected() uses (evm: mut Evm) {
+    let _ = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                evm.address(),
+                Address::new(0xa),
+                Address::zero(),
+                1,
+                1,
+                FAR_FUTURE,
+                DAY,
+                DAY,
+                Address::zero(),
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt: 7,
+        )
+}

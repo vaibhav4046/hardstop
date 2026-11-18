@@ -132,6 +132,17 @@
     padding: 0.25rem 0 0.25rem 1.125rem;
   }
 
+  /* A loosening is waiting: shown on every page, in the colour for waiting. */
+  .waiting-change {
+    border-left-color: var(--color-cool);
+  }
+
+  .waiting-change a {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+  }
+
   /* --- the slip: one answer from the vault ------------------------------- */
 
   /* A receipt is an entry in a ledger: a rule above it, nothing round it. */

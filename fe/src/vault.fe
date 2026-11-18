@@ -137,6 +137,11 @@ pub struct NotAgent {}
 #[error]
 pub struct InvalidPolicy {}
 
+/// The owner, the agent or the token was the zero address: a vault nobody
+/// can control, an agent nobody holds, or a token that does not exist.
+#[error]
+pub struct ZeroAddress {}
+
 fn only(_ allowed: Address, caller: Address) {
     if caller != allowed {
         revert_error(NotOwner {})
@@ -188,6 +193,9 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         mut approved_from,
     )
     {
+        if owner_ == Address::zero() || agent_ == Address::zero() || token_ == Address::zero() {
+            revert_error(ZeroAddress {})
+        }
         // A vault whose owner is also its agent has no owner-only controls,
         // and one with next to no cooling period has no ratchet.
         if window_secs == 0 || cooling_secs < MIN_COOLING_SECS || owner_ == agent_ {

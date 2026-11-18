@@ -6,6 +6,7 @@ import { Nav } from '@/components/nav'
 import { ScrollReveal } from '@/components/scroll-reveal'
 import { GITHUB } from '@/lib/links'
 import { VaultProvider } from '@/lib/vault-store'
+import { WaitingChange } from '@/components/waiting-change'
 import './globals.css'
 
 const instrument = Instrument_Serif({ variable: '--font-instrument', subsets: ['latin'], weight: '400', display: 'swap' })
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         </header>
         <VaultProvider>
           <main id="main" tabIndex={-1} className="flex-1">
+            <WaitingChange />
             {children}
           </main>
         </VaultProvider>
