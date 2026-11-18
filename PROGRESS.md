@@ -48,8 +48,10 @@ listed under "Not started".
 
 ## Needs the owner
 
-- Ask MetaMask to review `hardstop-omega.vercel.app`: its scanner warns
-  "Continue at your own risk" on connect. Draft in `qa/metamask-review-request.md`.
+- MetaMask's scanner warns "Continue at your own risk" on connect. A review
+  ticket was filed with MetaMask support on 2026-11-18 ("False positive:
+  hardstop-omega.vercel.app flagged as phishing"); waiting for its reply,
+  which goes to the owner's email.
 
 ## On hold
 
