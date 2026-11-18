@@ -120,6 +120,8 @@ const JUDGED: Record<string, string> = {
   'components/exposure-chart.tsx|.map((amount, h) => (h === 0 ? `M${x(0)},${y(amount)}` : `H${x(h)}V${y(amount)}`))':
     'Display: the first point of the drawn line starts the path. Compares an hour index, not an amount.',
   "components/exposure-chart.tsx|{h === 0 ? 'Now' : `${h / 24} day${h === 24 ? '' : 's'}`}": 'Display: axis label wording. Compares an hour index.',
+  'lib/live/launch.ts|if (balance < network.gasMoney) {':
+    "Plumbing: before launching, checks the owner's wallet holds enough test ETH to forward the agent's gas money. Compares ETH for network fees, not an amount against a vault limit.",
   'lib/live/wallet.ts|if (depth > 4 || value === null || seen.has(value)) return null':
     'Plumbing: how deep to look for revert bytes in a wallet error. Compares a search depth, not an amount.',
   'components/activity-board.tsx|const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)':
