@@ -38,6 +38,8 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 - `fe/src/vault.fe`: the contract. The agent's whole authority is the `Pay`
   handler, which takes the rules without `mut`, so a `Pay` that loosened a
   rule would not compile.
+- `fe/src/kernel/sealed.fe`: what the vault stores (`Terms`, `Owner`) and
+  the proof it needs (`OwnerCall`), with fields only the kernel can see.
 - `fe/src/adversary.fe`: a seeded attacker written in Fe; it catches 14 of
   14 deliberately broken kernels on both targets.
 - `fe/src/launcher.fe`: creates a vault in one transaction. It is installed
@@ -47,32 +49,37 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 
 ## Fe highlight
 
-`Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, schedule, active,
-queued, approved_from, mut ledger, mut call, mut log)`: the rules appear
-without `mut`, so the agent's only handler cannot change them. Owner
-authority is a type: `amend`, `cancel`, recipient approval and withdrawal
-each need an `OwnerProof`, which only `authorize(owner, caller)` can make
-(its field is private to the kernel). A proof is spent by its first use,
-and leaving one unused is a compile error unless it is discarded on purpose
-with `let _ =`. CI proves these on every push: a `Pay` that writes the
-rules, an owner handler with its owner check deleted, a hand-made
-`OwnerProof`, a proof used twice and a proof left unused all fail to
-compile. The cooling period itself is not a compiler guarantee: an owner
-handler could still assign raised limits directly instead of going through
-`amend`.
-The limits: `authorize` is public, so the compiler would accept a handler
-that passes the caller as both arguments and proves anyone is the owner.
-Proofs are bound to the stored owner and the real caller only by the vault's
-`only` function, and a CI source check (not the compiler) requires that
-`only` is the one place the vault calls `authorize`. And a proof guards only
-the kernel calls: a handler that lists `mut active` can still assign a
-`Policy` directly. The same pure `decide` also runs as a native
-command-line program.
+`Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms,
+approved_from, mut ledger, mut call, mut log)`: the rules appear without
+`mut`, so the agent's only handler cannot change them.
+
+The cooling period is a compiler guarantee for the rules. The vault stores
+them as `Terms`, whose field only `fe/src/kernel/sealed.fe` can see, so no
+handler can build terms, store a hand-built `Rules` or write a field. New
+terms come only from `open` and from `Terms::amend`, `cancel` and `pause`,
+which apply the kernel's cooling period. Two runtime checks complete it:
+`open` works only while the contract is being deployed, and zeroed storage
+cannot be amended. Recipient approvals are not sealed: a handler that lists
+`mut approved_from` could still write a date into the map directly.
+
+The owner proof is bound to the real caller by the compiler. Changing the
+terms, approving a recipient and withdrawing each need an `OwnerCall`, which
+only `prove(owner, ctx)` makes: `owner` must be an `Owner`, which only
+`open` makes, and `ctx` must be the concrete `Evm`, so a stand-in context
+that implements `Ctx` does not type-check. The kernel's public
+`authorize(owner, caller)` still makes an `OwnerProof` for the tests and
+the native tool; nothing the vault calls accepts one. A proof is spent by
+its first use, and one thrown away as a bare statement is a compile error
+(`let _ =` still discards it). CI proves each of these on every push. What
+the compiler does not decide: which address `init` makes the owner (a CI
+source check pins it to the constructor's `owner_` argument), and whether a
+handler passes on what the owner asked for. The same pure `decide` also
+runs as a native command-line program.
 Details in the README's "Fe highlight".
 
 ## Evidence it works
 
-- `fe test`: 88 passed on the EVM; 49 passed natively.
+- `fe test`: 90 passed on the EVM; 49 passed natively.
 - Web: 58 unit tests (including the MCP server and watcher) and 58 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check and

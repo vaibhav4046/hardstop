@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
 # Proves README claims by editing a copy of `vault.fe` and requiring the
-# compiler to refuse each edit, plus one source check the compiler cannot do.
+# compiler to refuse each edit with one exact error, next to a control edit
+# that must still compile, so a refusal cannot come from a broken edit.
 #
-# 1. The agent's `Pay` handler cannot change the rules: an edit that writes to
-#    `active`, `queued` or `approved_from` inside `Pay` must fail. A control
-#    edit that writes to `ledger` (which `Pay` declares `mut`) must still
-#    compile, so a refusal cannot come from a broken edit.
-# 2. No owner handler can change the rules or withdraw without checking its
-#    caller: deleting the `only(...)` line from `Propose`, `CancelQueued`,
-#    `Pause`, `SetRecipient` or `Withdraw` must fail, because the handler then
-#    has no `OwnerProof` to hand to the kernel (or to `pay_owner`). Nor can
-#    it write its own: `OwnerProof { granted: true }` in place of the check
-#    must fail too, because the field is private to the kernel.
-# 3. A proof is spent by its first use: using one twice must fail with a
+# 1. The agent's `Pay` handler cannot change the rules or the recipients:
+#    writing `terms` or `approved_from` inside `Pay` must fail.
+# 2. No handler can loosen the rules except through the kernel. The vault
+#    stores its rules as `Terms` (fe/src/kernel/sealed.fe), whose field is
+#    private to the kernel. In `Propose`, storing hand-built terms, storing a
+#    hand-built `Rules`, or writing a field of `terms` must fail. A `Policy`
+#    or `Rules` literal on its own still compiles: the vault needs one to
+#    make a proposal, and neither can be stored as its rules.
+# 3. No owner handler can change the rules or withdraw without a proof bound
+#    to the real caller: deleting the `only(...)` line from `Propose`,
+#    `CancelQueued`, `Pause`, `SetRecipient` or `Withdraw` must fail. So must
+#    every other way of getting an `OwnerCall`: writing one, writing an
+#    `Owner` for the caller, using the kernel's `authorize` (its proof is an
+#    `OwnerProof`, which nothing here accepts), or handing `prove` a stand-in
+#    context. The control shows the stand-in itself compiles: it is the
+#    `Evm` parameter of `prove` that keeps it out.
+# 4. A proof is spent by its first use: using one twice must fail with a
 #    move error, and making one and dropping it must fail (`#[must_use]`).
-# 4. A source check, NOT a compiler guarantee: `authorize` is public, so
-#    `authorize(owner: ctx.caller(), caller: ctx.caller()).unwrap()` in a
-#    handler compiles and proves anyone is the owner. `check_proofs` reads
-#    vault.fe and requires that `authorize` is called exactly once, inside
-#    `fn only`, and that every `only(...)` call is in a handler and passes
-#    the stored `owner` and `ctx.caller()`, with neither name rebound. It is
-#    a text check of one file: it does not see a helper in another module
-#    that hands out proofs. The script also shows that the forgeries it
-#    rejects do compile, so this check is the only thing catching them.
-# 5. The verdict codes stay distinct: see the end of this script.
+# 5. What the compiler does not check, kept visible so the README cannot
+#    drift: which address `init` gives `open` (a source check below), and a
+#    handler that lists `mut approved_from` writing the map directly (shown
+#    to compile). `open` after deployment and zeroed `Terms` are runtime
+#    checks, tested in fe/src/vault_tests.fe.
+# 6. The verdict codes stay distinct: see the end of this script.
 set -euo pipefail
 
 FE=${FE:-fe}
@@ -43,26 +46,10 @@ build_vault() {
   return $status
 }
 
-# Insert one line into the body of `Pay`, right after its `let now = ...`.
-build_with() {
-  local line=$1 edited
-  edited=$(mktemp)
-  awk -v add="            $line" '
-    /Pay \{ to, amount, nonce \} -> u8 uses/ { inpay = 1 }
-    { print }
-    inpay && /let now = seconds\(ctx.timestamp\(\)\)/ { print add; inpay = 0; done = 1 }
-    END { if (!done) exit 3 }
-  ' "$ROOT/fe/src/vault.fe" > "$edited" || { echo "could not find the body of Pay in vault.fe"; exit 2; }
-  local status=0
-  build_vault "$edited" || status=$?
-  rm -f "$edited"
-  return $status
-}
-
 # Print vault.fe with one line of the handler whose header starts with $1
 # edited: the first line containing $2 is replaced by $4 (deleted if $4 is
 # empty) when $3 is "replace", or gets $4 after or before it when $3 is
-# "after" or "before".
+# "after" or "before". Anything in $APPEND goes at the end of the file.
 edit_handler() {
   local handler=$1 target=$2 mode=$3 text=${4:-}
   awk -v head="$handler" -v target="$target" -v mode="$mode" -v text="$text" '
@@ -76,6 +63,7 @@ edit_handler() {
     { print }
     END { if (!done) exit 3 }
   ' "$ROOT/fe/src/vault.fe" || { echo "could not find '$target' in $handler" >&2; exit 2; }
+  printf '%s' "${APPEND:-}"
 }
 
 # Build vault.fe edited as by `edit_handler`.
@@ -88,187 +76,150 @@ build_edited() {
   return $status
 }
 
-ONLY_LINE='let proof = only(owner, caller: ctx.caller())'
-
-# Delete the `only(...)` line from the handler whose header starts with $1,
-# or put $2 in its place.
-build_without_check() {
-  build_edited "$1" "$ONLY_LINE" replace "${2:-}"
-}
-
-# The source check described in point 4 above. Prints why and fails if the
-# given vault.fe breaks the rule. Comments are stripped first.
-check_proofs() {
-  awk '
-    function bad(why) { print "line " NR ": " why ": " $0; failed = 1 }
-    function word(w, s) { return s ~ ("(^|[^A-Za-z0-9_])" w "([^A-Za-z0-9_]|$)") }
-    {
-      code = $0
-      sub(/\/\/.*/, "", code)
-      sub(/[ \t]+$/, "", code)
-    }
-    code == "    recv VaultMsg {" { inrecv = 1 }
-    inrecv && code == "    }" { inrecv = 0 }
-    code ~ /^fn only[^A-Za-z0-9_]/ {
-      onlydefs++
-      if (code != "fn only(_ allowed: Address, caller: Address) -> OwnerProof {")
-        bad("`fn only` has a different signature")
-      inonly = 1
-    }
-    inonly && code == "}" { inonly = 0 }
-    word("authorize", code) {
-      if (code == "    authorize,") imports++
-      else if (inonly && code == "    match authorize(owner: allowed, caller) {") calls++
-      else bad("`authorize` used outside `only`, or with other arguments")
-    }
-    code ~ /(^|[^A-Za-z0-9_])only[ \t]*[(<]/ && code !~ /^fn only/ {
-      if (!inrecv || code != "            let proof = only(owner, caller: ctx.caller())")
-        bad("`only` called outside a handler, or with other arguments")
-      else onlycalls++
-    }
-    # `owner` and `ctx` must mean the stored owner and the real context.
-    code ~ /(^|[^A-Za-z0-9_])(let|var)[ \t]/ {
-      lhs = code
-      sub(/=.*/, "", lhs)
-      if (word("owner", lhs) || word("ctx", lhs)) bad("`owner` or `ctx` rebound")
-    }
-    code ~ /=>/ {
-      lhs = code
-      sub(/=>.*/, "", lhs)
-      if (word("owner", lhs) || word("ctx", lhs)) bad("`owner` or `ctx` bound by a pattern")
-    }
-    inrecv && code ~ /^        [A-Z][A-Za-z]* *[{]/ {
-      lhs = code
-      sub(/(uses|->).*/, "", lhs)
-      if (word("owner", lhs) || word("ctx", lhs)) bad("a message field named `owner` or `ctx`")
-    }
-    code ~ /(^|[^A-Za-z0-9_])with[ \t]*[(]/ { bad("`with` could swap the context `ctx.caller()` reads") }
-    END {
-      if (onlydefs != 1) { print "expected exactly one `fn only`, found " onlydefs + 0; failed = 1 }
-      if (imports != 1 || calls != 1) {
-        print "expected `authorize` imported once and called once in `only`, found " \
-          imports + 0 " import(s) and " calls + 0 " call(s)"
-        failed = 1
-      }
-      if (onlycalls < 1) { print "no handler calls `only`"; failed = 1 }
-      exit failed
-    }
-  ' "$1"
-}
-
-if ! build_with 'ledger = ledger'; then
-  echo "control failed: writing to ledger inside Pay should compile"
-  echo "$LOG"
-  exit 1
-fi
-echo "ok   control: Pay may write its own ledger"
-
-for line in 'active = active' 'queued = queued' 'approved_from.set(key: to, value: now)'; do
-  if build_with "$line"; then
-    echo "FAIL Pay compiled with: $line"
-    exit 1
-  fi
-  # 8-0018 "left-hand side of assignment is immutable" for a field,
-  # 8-0066 "does not provide mutable access" for a map.
-  if ! grep -qE 'is immutable|does not provide mutable access' <<<"$LOG"; then
-    echo "FAIL Pay was refused for another reason with: $line"
-    echo "$LOG"
-    exit 1
-  fi
-  echo "ok   refused: $line"
-done
-
-for handler in 'Propose {' 'CancelQueued uses' 'Pause uses' 'SetRecipient {' 'Withdraw {'; do
-  name=${handler%% *}
-  if build_without_check "$handler"; then
-    echo "FAIL $name compiled without its owner check"
-    exit 1
-  fi
-  # 8-0012 "undefined variable `proof`", and nothing else: the handler has no
-  # proof to pass on.
-  if ! grep -q 'undefined variable `proof`' <<<"$LOG" \
-    || grep -E '^error\[' <<<"$LOG" | grep -qv 'error\[8-0012\]: undefined variable'; then
-    echo "FAIL $name was refused for another reason without its owner check"
-    echo "$LOG"
-    exit 1
-  fi
-  echo "ok   refused: $name without its owner check"
-done
-
-if build_without_check 'Propose {' 'let proof = OwnerProof { granted: true }'; then
-  echo "FAIL Propose compiled with a hand-made OwnerProof"
-  exit 1
-fi
-if ! grep -q '`granted` is not visible' <<<"$LOG"; then
-  echo "FAIL a hand-made OwnerProof was refused for another reason"
-  echo "$LOG"
-  exit 1
-fi
-echo "ok   refused: Propose with a hand-made OwnerProof"
-
-# 3. Proofs are spent on use and cannot be dropped.
-PAY_OWNER='pay_owner(proof, token, owner, amount)'
-if build_edited 'Withdraw {' "$PAY_OWNER" after "$PAY_OWNER"; then
-  echo "FAIL Withdraw compiled using one proof twice"
-  exit 1
-fi
-# 16-0002 "cannot use a value after it was moved", and nothing else.
-if ! grep -q 'cannot use a value after it was moved' <<<"$LOG" \
-  || grep -E '^error\[' <<<"$LOG" | grep -qv 'error\[16-0002\]: move conflict'; then
-  echo "FAIL using one proof twice was refused for another reason"
-  echo "$LOG"
-  exit 1
-fi
-echo "ok   refused: Withdraw using one proof twice"
-
-if build_edited 'Withdraw {' "$ONLY_LINE" after 'only(owner, caller: ctx.caller())'; then
-  echo "FAIL Withdraw compiled dropping a proof"
-  exit 1
-fi
-# 8-0082 "unused value of type `OwnerProof`", and nothing else.
-if ! grep -q 'unused value of type `OwnerProof`' <<<"$LOG" \
-  || grep -E '^error\[' <<<"$LOG" | grep -qv 'error\[8-0082\]: unused value'; then
-  echo "FAIL dropping a proof was refused for another reason"
-  echo "$LOG"
-  exit 1
-fi
-echo "ok   refused: Withdraw dropping a proof"
-
-# 4. The source check passes on the real vault, and rejects forgeries that
-#    the compiler accepts.
-if ! why=$(check_proofs "$ROOT/fe/src/vault.fe"); then
-  echo "FAIL vault.fe: proofs must come only from only(owner, caller: ctx.caller()) in a handler"
-  echo "$why"
-  exit 1
-fi
-echo "ok   source check: authorize is called once, in only, with the stored owner and ctx.caller()"
-
-forge() {
-  local name=$1 edited why status=0
+# The edit must compile.
+control() {
+  local name=$1
   shift
-  edited=$(mktemp)
-  edit_handler "$@" > "$edited"
-  if why=$(check_proofs "$edited"); then
-    echo "FAIL the source check accepted: $name"
-    rm -f "$edited"
-    exit 1
-  fi
-  build_vault "$edited" || status=$?
-  rm -f "$edited"
-  if [ $status -ne 0 ]; then
-    echo "FAIL this forgery no longer compiles, so it no longer shows why the source check exists: $name"
+  if ! build_edited "$@"; then
+    echo "control failed: $name should compile"
     echo "$LOG"
     exit 1
   fi
-  echo "ok   source check rejects, though the compiler accepts: $name"
-  echo "       $why"
+  echo "ok   control: $name"
 }
-forge 'a proof for whoever calls' 'Withdraw {' "$ONLY_LINE" replace \
-  'let proof = authorize(owner: ctx.caller(), caller: ctx.caller()).unwrap()'
-forge 'owner rebound to the caller' 'Withdraw {' "$ONLY_LINE" before \
-  'let owner = ctx.caller()'
 
-# 5. The verdict codes are checked at compile time: making one refusal code a
+# The edit must fail, with $2 in the log and no error other than code $3.
+refused() {
+  local name=$1 message=$2 code=$3
+  shift 3
+  if build_edited "$@"; then
+    echo "FAIL compiled: $name"
+    exit 1
+  fi
+  if ! grep -qF -- "$message" <<<"$LOG" \
+    || grep -E '^error\[' <<<"$LOG" | grep -qvF "error[$code]"; then
+    echo "FAIL refused for another reason: $name"
+    echo "$LOG"
+    exit 1
+  fi
+  echo "ok   refused: $name"
+}
+
+PAY='Pay { to, amount, nonce }'
+NOW='let now = seconds(ctx.timestamp())'
+ONLY_LINE='let proof = only(owner, ctx)'
+STORE='terms = next'
+
+# 1. The agent's code path cannot write the rules or the recipients.
+control 'Pay may write its own ledger' "$PAY" "$NOW" after 'ledger = ledger'
+# 8-0018 "left-hand side of assignment is immutable" for a field,
+# 8-0066 "does not provide mutable access" for a map.
+refused 'Pay writing terms' 'is immutable' 8-0018 "$PAY" "$NOW" after 'terms = terms'
+refused 'Pay approving a recipient' 'does not provide mutable access' 8-0066 \
+  "$PAY" "$NOW" after 'approved_from.set(key: to, value: now)'
+
+# 2. Only the kernel makes new terms.
+HAND_RULES='ingot::kernel::Rules { schedule: terms.rules().schedule, active: proposed, queued: ingot::kernel::Queued::none() }'
+control 'Propose may build a Policy and a Rules' 'Propose {' "$STORE" after "let built = $HAND_RULES"
+refused 'Propose storing hand-built terms (an instant raise)' '`rules` is not visible' 2-0003 \
+  'Propose {' "$STORE" replace "terms = Terms { rules: $HAND_RULES }"
+refused 'Propose storing a hand-built Rules' 'expected `Terms`, but `Rules` is given' 8-0000 \
+  'Propose {' "$STORE" replace "terms = $HAND_RULES"
+refused 'Propose writing a field of terms' '`rules` is not visible' 2-0003 \
+  'Propose {' "$STORE" replace 'terms.rules = next.rules()'
+
+# 3. A proof comes only from `prove`, with the stored owner and the real caller.
+for handler in 'Propose {' 'CancelQueued uses' 'Pause uses' 'SetRecipient {' 'Withdraw {'; do
+  # 8-0012 "undefined variable `proof`": the handler has no proof to pass on.
+  refused "${handler%% *} without its owner check" 'undefined variable `proof`' 8-0012 \
+    "$handler" "$ONLY_LINE" replace ''
+done
+refused 'Withdraw with a hand-made OwnerCall' '`granted` is not visible' 2-0003 \
+  'Withdraw {' "$ONLY_LINE" replace 'let proof = OwnerCall { granted: true }'
+refused 'Withdraw with an Owner made for the caller' '`address` is not visible' 2-0003 \
+  'Withdraw {' "$ONLY_LINE" replace 'let proof = only(Owner { address: ctx.caller() }, ctx)'
+refused "Withdraw with the kernel's authorize" 'expected `OwnerCall`, but `OwnerProof` is given' 8-0000 \
+  'Withdraw {' "$ONLY_LINE" replace \
+  'let proof = ingot::kernel::authorize(owner: ctx.caller(), caller: ctx.caller()).unwrap()'
+
+# A stand-in context that says the owner is calling. It implements `Ctx`,
+# because the trait's seal is reachable as `std::evm::effects::EvmCapabilitySeal`.
+FAKE_CTX='
+pub struct Liar { says: Address, ts: Timestamp }
+impl std::evm::effects::EvmCapabilitySeal for Liar {}
+impl Ctx for Liar {
+    fn caller(self) -> Address { self.says }
+    fn address(self) -> Address { self.says }
+    fn origin(self) -> Address { self.says }
+    fn coinbase(self) -> Address { self.says }
+    fn balance(self, _ a: Address) -> Wei { Wei::zero() }
+    fn value(self) -> Wei { Wei::zero() }
+    fn gasprice(self) -> u256 { 0 }
+    fn timestamp(self) -> Timestamp { self.ts }
+    fn block_number(self) -> u256 { 0 }
+    fn prevrandao(self) -> u256 { 0 }
+    fn gaslimit(self) -> u256 { 0 }
+    fn chainid(self) -> u256 { 0 }
+    fn basefee(self) -> u256 { 0 }
+    fn selfbalance(self) -> Wei { Wei::zero() }
+    fn blockhash(self, _ n: u256) -> u256 { 0 }
+    fn blobhash(self, _ n: u256) -> u256 { 0 }
+    fn blobbasefee(self) -> u256 { 0 }
+    fn extcodesize(self, _ a: Address) -> u256 { 0 }
+    fn extcodecopy(mut self, _ a: Address, dest: mut core::MemBuffer, dest_offset: u256, src_offset: u256, len: u256) {}
+    fn extcodehash(self, _ a: Address) -> u256 { 0 }
+    fn gas(self) -> u256 { 0 }
+}
+'
+APPEND=$FAKE_CTX control 'a stand-in Ctx that claims the owner is calling' \
+  'Withdraw {' "$ONLY_LINE" before 'let liar = Liar { says: owner.address(), ts: ctx.timestamp() }'
+APPEND=$FAKE_CTX refused 'Withdraw proving against a stand-in Ctx' 'expected `Evm`, but `Liar` is given' 8-0000 \
+  'Withdraw {' "$ONLY_LINE" replace \
+  'let proof = only(owner, ctx: Liar { says: owner.address(), ts: ctx.timestamp() })'
+
+# 4. Proofs are spent on use and cannot be dropped.
+PAY_OWNER='pay_owner(proof, token, owner, amount)'
+# 16-0002 "cannot use a value after it was moved".
+refused 'Withdraw using one proof twice' 'cannot use a value after it was moved' 16-0002 \
+  'Withdraw {' "$PAY_OWNER" after "$PAY_OWNER"
+# 8-0082 "unused value of type `OwnerCall`".
+refused 'Withdraw dropping a proof' 'unused value of type `OwnerCall`' 8-0082 \
+  'Withdraw {' "$ONLY_LINE" after 'only(owner, ctx)'
+
+# 5. Not the compiler's: which address `init` hands to `open`. A source check
+#    of vault.fe (comments stripped): `open` is called exactly once, in
+#    `init`, with `owner: owner_`, and the `Owner` it returns is the one
+#    stored. `open` itself refuses to run after deployment.
+check_open() {
+  awk '
+    { code = $0; sub(/\/\/.*/, "", code); sub(/[ \t]+$/, "", code) }
+    code ~ /^    init\(/ { ininit = 1 }
+    ininit && code == "    }" { ininit = 0 }
+    code ~ /(^|[^A-Za-z0-9_.])open\(/ {
+      opens++
+      if (!ininit || code != "        let (owner_of, terms_of) = match open(") bad = "`open` called outside init, or differently: " $0
+      want = 1; next
+    }
+    want && code ~ /^ +ctx,$/ { next }
+    want { if (code != "            owner: owner_,") bad = "`open` not given `owner: owner_`: " $0; want = 0 }
+    code == "        owner = owner_of" { stores++ }
+    END {
+      if (bad != "") { print bad; exit 1 }
+      if (opens != 1 || stores != 1) { print "expected one `open` and one `owner = owner_of`, found " opens + 0 " and " stores + 0; exit 1 }
+    }
+  ' "$ROOT/fe/src/vault.fe"
+}
+if ! why=$(check_open); then
+  echo "FAIL vault.fe: $why"
+  exit 1
+fi
+echo "ok   source check: init opens once, with owner_, and stores that Owner"
+
+control 'NOT covered by the compiler: SetRecipient writing approved_from directly' \
+  'SetRecipient {' 'approved_from.set(key: who, value: from)' replace \
+  'approved_from.set(key: who, value: Instant::at(1))'
+
+# 6. The verdict codes are checked at compile time: making one refusal code a
 #    duplicate of another must fail with "static assertion failed" (8-0081).
 dir=$(mktemp -d)
 cp -r "$ROOT/fe" "$dir/"
