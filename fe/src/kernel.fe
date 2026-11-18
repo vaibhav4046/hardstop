@@ -17,7 +17,8 @@
 //!    moments, whatever the agent does.
 //!
 //! Every function that changes the rules takes an `OwnerProof`, and
-//! `authorize` is the only way to get one.
+//! `authorize` is the only way to get one. See `OwnerProof` for what that
+//! does and does not prove.
 
 /// A moment, in Unix seconds.
 pub struct Instant { secs: u64 }
@@ -110,18 +111,28 @@ impl core::ops::Eq for Seconds {
     }
 }
 
-/// Evidence that the caller was checked against the owner.
+/// Evidence that `authorize` was called and its two arguments were equal.
 ///
-/// `granted` is not `pub`, so no code outside this module can write
-/// `OwnerProof { .. }`: the compiler refuses it as "not visible". The only
-/// way to hold one is `authorize`, which hands it out only when the caller
-/// is the owner. A rule-changing function that asks for a proof therefore
-/// cannot be reached from a path that skipped the owner check.
+/// What the compiler guarantees:
+/// - `granted` is not `pub`, so no code outside this module can write
+///   `OwnerProof { .. }` (refused as "not visible"); `authorize` is the only
+///   way to get one.
+/// - It is not `Copy`, and every function that takes one takes it `own`, so
+///   a proof is spent by its first use (a second use is refused as "use
+///   after move").
+/// - `#[must_use]`: a proof that is made and dropped is refused.
+///
+/// What it does not guarantee: that the arguments to `authorize` were the
+/// real owner and the real caller. `authorize` is public, so code that can
+/// call it can pass the same value twice and get a proof for anyone. The
+/// vault binds proofs to its stored owner and `ctx.caller()` in one place,
+/// its `only` function, and `scripts/pay-cannot-loosen.sh` checks the
+/// vault's source for that. That is a source check, not a compiler one.
+#[must_use]
 pub struct OwnerProof { granted: bool }
 
-impl Copy for OwnerProof {}
-
 /// An `OwnerProof` when `caller` is `owner`, nothing otherwise.
+#[must_use]
 pub fn authorize<T: core::ops::Eq>(owner: T, caller: T) -> Option<OwnerProof> {
     if caller == owner {
         Option::Some(OwnerProof { granted: true })
@@ -452,7 +463,7 @@ pub fn meet(_ a: Policy, _ b: Policy) -> Policy {
 /// takes effect `cooling_secs` later; a proposal with nothing looser clears
 /// the queue. So a limit can drop in one step but can only rise after the
 /// cooling period, and any later tightening cancels a pending rise.
-pub fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
+pub fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
     let in_force = rules.current(now)
     let active = meet(in_force, proposed)
     let queued = if loosens(active, to: proposed) {
@@ -465,7 +476,7 @@ pub fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) 
 
 /// Drop a queued loosening that has not taken effect yet. One that already
 /// has is the policy in force and stays.
-pub fn cancel(_ proof: OwnerProof, rules: Rules, now: Instant) -> Rules {
+pub fn cancel(_ proof: own OwnerProof, rules: Rules, now: Instant) -> Rules {
     Rules { schedule: rules.schedule, active: rules.current(now), queued: Queued::none() }
 }
 
@@ -476,7 +487,7 @@ pub fn cancel(_ proof: OwnerProof, rules: Rules, now: Instant) -> Rules {
 /// already approved or already cooling keeps its moment, so asking again
 /// does not restart the wait. Anything else waits out the cooling period.
 pub fn approve_from(
-    _ proof: OwnerProof,
+    _ proof: own OwnerProof,
     _ schedule: Schedule,
     current: Instant,
     approved: bool,
