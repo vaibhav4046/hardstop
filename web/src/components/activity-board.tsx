@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { formatDuration, formatTime, formatUsd } from '@/lib/money'
 import { exampleSetup, namedRecipients, today, UNAPPROVED, type Action, type Entry, type Session, type View } from '@/lib/session'
-import { useVault } from '@/lib/vault-store'
+import { useVault, type Live } from '@/lib/vault-store'
 import { AgentPanel } from './agent-panel'
 import { Amount } from './amount'
 import { OwnerControls } from './owner-controls'
@@ -16,7 +16,7 @@ export function ActivityBoard() {
   if (vault.status === 'starting') {
     return (
       <p role="status" className="lede">
-        Starting your practice vault…
+        Opening your vault…
       </p>
     )
   }
@@ -24,10 +24,10 @@ export function ActivityBoard() {
   if (vault.status === 'error') {
     return (
       <div className="notice max-w-[36rem]" role="alert">
-        <h2 className="sub-title">The practice vault could not start</h2>
+        <h2 className="sub-title">The vault could not be opened</h2>
         <p className="mt-2">
-          The part of this site that runs the contract did not load, or the saved vault could not be rebuilt. Check
-          your connection and try again.
+          The part of this site that runs the contract did not load, or the saved vault could not be reached. Check
+          your connection, and your wallet if the vault is on a test network, then try again.
         </p>
         <details className="tech">
           <summary>Technical details</summary>
@@ -69,12 +69,34 @@ export function ActivityBoard() {
     )
   }
 
-  return <Board view={vault.view} session={vault.session} entries={vault.entries} isBusy={vault.busy} isSaved={vault.saved} />
+  return (
+    <Board
+      view={vault.view}
+      session={vault.session}
+      entries={vault.entries}
+      isBusy={vault.busy}
+      isSaved={vault.saved}
+      live={vault.live}
+      problem={vault.problem}
+    />
+  )
 }
 
-type BoardProps = { view: View; session: Session; entries: Entry[]; isBusy: boolean; isSaved: boolean }
+type BoardProps = {
+  view: View
+  session: Session
+  entries: Entry[]
+  isBusy: boolean
+  isSaved: boolean
+  live: Live | null
+  problem: string | null
+}
 
-function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
+/** ETH to five places: enough to see gas money going down. */
+const formatEth = (wei: bigint): string => (Number(wei / 10_000_000_000_000n) / 100_000).toFixed(5)
+const short = (address: string): string => `${address.slice(0, 6)}…${address.slice(-4)}`
+
+function Board({ view, session, entries, isBusy, isSaved, live, problem }: BoardProps) {
   const vault = useVault()
   const [fresh, setFresh] = useState<{ id: number; said: string } | null>(null)
 
@@ -100,12 +122,35 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
   const cooling = formatDuration(schedule.coolingSecs)
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_auto_1fr]">
       <p className="sr-only" role="status" aria-live="polite">
         {fresh?.said ?? ''}
       </p>
 
-      <section aria-labelledby="vault-title" className="card card-live lg:col-start-1 lg:row-start-1">
+      <div className="where lg:col-span-2">
+        {live ? (
+          <p>
+            On <strong>{live.network.name}</strong>, a public test network. Vault{' '}
+            <a href={`${live.network.explorer}/address/${live.vault.vault}`} rel="noopener noreferrer">
+              {short(live.vault.vault)}
+            </a>
+            . The agent here is a trial key kept in this browser, with {formatEth(live.agentGas)} test ETH left to pay network fees
+            for its requests. Your wallet is the owner.
+          </p>
+        ) : (
+          <p>
+            In this browser only: the same contract, on a private chain inside this page.{' '}
+            <Link href="/protect">Open a vault on a test network</Link>
+          </p>
+        )}
+        {problem !== null && (
+          <p className="notice mt-4" role="alert">
+            {problem}
+          </p>
+        )}
+      </div>
+
+      <section aria-labelledby="vault-title" className="card card-live lg:col-start-1 lg:row-start-2">
         <h2 id="vault-title" className="label">
           In the vault
         </h2>
@@ -151,12 +196,13 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
 
         {!isSaved && (
           <p className="notice small mt-5">
-            This browser is not letting the site save your practice vault, so it will be lost if you reload or leave.
+            This browser is not letting the site save your vault, so this page will not find it again after you
+            reload or leave.
           </p>
         )}
       </section>
 
-      <div className="grid content-start gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <div className="grid content-start gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-2">
         <AgentPanel view={view} entries={entries} isBusy={isBusy} run={run} />
 
         <section aria-labelledby="receipts-title" className="card">
@@ -172,7 +218,13 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
             <ol className="mt-5 grid gap-4" reversed>
               {entries.toReversed().map((entry) => (
                 <li key={entry.id}>
-                  <Slip entry={entry} nameOf={nameOf} vault={view.vault} isNew={entry.id === fresh?.id} />
+                  <Slip
+                    entry={entry}
+                    nameOf={nameOf}
+                    vault={view.vault}
+                    isNew={entry.id === fresh?.id}
+                    explorer={live?.network.explorer}
+                  />
                 </li>
               ))}
             </ol>
@@ -180,7 +232,7 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
         </section>
       </div>
 
-      <div className="grid content-start gap-6 lg:col-start-1 lg:row-start-2">
+      <div className="grid content-start gap-6 lg:col-start-1 lg:row-start-3">
         <section aria-labelledby="worst-title" className="card">
           <h2 id="worst-title" className="label">
             Worst case if your agent goes rogue
@@ -270,9 +322,28 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
 
         <section aria-labelledby="clock-title" className="card">
           <h2 id="clock-title" className="label">
-            Practice clock
+            {live ? 'Network clock' : 'Practice clock'}
           </h2>
           <p className="mt-1 font-display text-2xl">{formatTime(now)}</p>
+          {live ? (
+            <p className="hint mt-2">
+              The time of the network&rsquo;s latest block. A cooling period ends when this clock reaches it; nobody can
+              move it forward.
+            </p>
+          ) : (
+            <PracticeClock isBusy={isBusy} run={run} />
+          )}
+        </section>
+
+        <OwnerControls view={view} isBusy={isBusy} run={run} onReset={vault.reset} />
+      </div>
+    </div>
+  )
+}
+
+function PracticeClock({ isBusy, run }: { isBusy: boolean; run: (action: Action) => Promise<Entry | null> }) {
+  return (
+    <>
           <div className="mt-3 grid gap-3 min-[26rem]:grid-cols-2">
             <button type="button" className="btn" disabled={isBusy} onClick={() => run({ type: 'skip', seconds: '3600' })}>
               Skip ahead 1 hour
@@ -285,10 +356,6 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
             The clock started at the real time and only moves when you skip it. It exists so you can watch a cooling
             period end or a new day start.
           </p>
-        </section>
-
-        <OwnerControls view={view} isBusy={isBusy} run={run} onReset={vault.reset} />
-      </div>
-    </div>
+    </>
   )
 }

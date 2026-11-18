@@ -42,7 +42,7 @@ test.describe('Persona G: mobile on a constrained network', () => {
     timings.reviewVisibleMs = since()
     await expect(page.getByText('up to $5.00 at a time, and up to $15.00 in a day')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Create vault' }).tap()
+    await page.getByRole('button', { name: 'Create it in this browser' }).tap()
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible(slow)
     timings.vaultReadyMs = since()
 
@@ -75,7 +75,7 @@ test.describe('Persona G: mobile on a constrained network', () => {
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
     const started = Date.now()
     await page.reload({ timeout: 120_000 })
-    await expect(page.getByRole('status').filter({ hasText: 'Starting your practice vault…' })).toBeVisible({ timeout: 120_000 })
+    await expect(page.getByRole('status').filter({ hasText: 'Opening your vault…' })).toBeVisible({ timeout: 120_000 })
     const indicatorMs = Date.now() - started
     await expect(page.locator('section[aria-labelledby="vault-title"] .figure')).toHaveText('$96.00', { timeout: 120_000 })
     record('persona-g-reload', { conditions: SLOW, loadingIndicatorVisibleMs: indicatorMs, vaultRestoredMs: Date.now() - started })

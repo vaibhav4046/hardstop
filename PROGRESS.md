@@ -32,6 +32,19 @@ are no gas figures, and the app is practice mode only. Its scores for other
 entries rest on their READMEs and were not run. The work it recommends is
 listed under "Not started".
 
+## Done since the review
+
+- Real vaults on Base Sepolia and Sepolia through the visitor's wallet, with
+  a new Fe contract, `launcher.fe`. Tested against a stand-in wallet only.
+- The landing page shows the evidence: the ten-model test, two other lab
+  tests, four recorded losses and agent payment traffic, each with its
+  source and what it does not show.
+
+## Needs the owner
+
+- Open one vault on Base Sepolia with a wallet that holds test ETH, to
+  confirm the path on a public network.
+
 ## On hold
 
 - Launch film. Stopped by the owner; working files are in `film/work/`
@@ -48,7 +61,6 @@ listed under "Not started".
 - Something that tells the owner a raise is waiting.
 
 - Optional: policy drafting from plain language (needs an LLM API key on the server).
-- Optional: wallet mode against a public test network (needs a funded test key).
 - `SUBMISSION.md` and the final submission through the owner's private link.
 
 ## Commits

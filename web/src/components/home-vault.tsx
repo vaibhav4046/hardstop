@@ -21,6 +21,8 @@ type HomeVault = {
   send: (make: (state: State) => Action) => Promise<void>
   /** Throws the vault away and deploys a new one. */
   restart: () => void
+  /** The contract's own `exposure(until)` for each moment asked about. Null when the vault is not running. */
+  exposureAt: (untils: bigint[]) => Promise<bigint[] | null>
 }
 
 const HomeVaultContext = createContext<HomeVault | null>(null)
@@ -34,6 +36,14 @@ export function HomeVaultProvider({ children }: { children: ReactNode }) {
   // clicks can arrive before the buttons are redrawn as disabled.
   const isSending = useRef(false)
   const nextId = useRef(0)
+  // The simulated chain does one thing at a time: a read that ran in the
+  // middle of a payment could see it half applied.
+  const turn = useRef<Promise<unknown>>(Promise.resolve())
+  function inTurn<T>(work: () => Promise<T>): Promise<T> {
+    const result = turn.current.then(work, work)
+    turn.current = result.catch(() => undefined)
+    return result
+  }
 
   /** Deploys the example vault once; later calls reuse it. */
   function start(): Promise<Demo> {
@@ -64,9 +74,12 @@ export function HomeVaultProvider({ children }: { children: ReactNode }) {
     setStatus('working')
     try {
       const { sim, session } = await start()
-      const entry = await apply(sim, make(await sim.state()), nextId.current++)
+      const [entry, after] = await inTurn(async () => {
+        const made = await apply(sim, make(await sim.state()), nextId.current++)
+        return [made, await snapshot(sim, session)] as const
+      })
       setEntries((earlier) => [entry, ...earlier])
-      setView(await snapshot(sim, session))
+      setView(after)
       setStatus('idle')
     } catch {
       demoRef.current = null
@@ -84,7 +97,24 @@ export function HomeVaultProvider({ children }: { children: ReactNode }) {
     boot()
   }
 
-  return <HomeVaultContext.Provider value={{ view, entries, status, send, restart }}>{children}</HomeVaultContext.Provider>
+  async function exposureAt(untils: bigint[]): Promise<bigint[] | null> {
+    const running = demoRef.current
+    if (running === null) return null
+    try {
+      const { sim } = await running
+      return await inTurn(async () => {
+        const answers: bigint[] = []
+        for (const until of untils) answers.push(await sim.exposure(until))
+        return answers
+      })
+    } catch {
+      return null
+    }
+  }
+
+  return (
+    <HomeVaultContext.Provider value={{ view, entries, status, send, restart, exposureAt }}>{children}</HomeVaultContext.Provider>
+  )
 }
 
 export function useHomeVault(): HomeVault {

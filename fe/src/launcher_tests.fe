@@ -1,0 +1,287 @@
+//! Launcher tests on the EVM. The test contract calls `launch`, so it is the
+//! owner of every vault created here. A `Payer` contract plays the agent.
+//!
+//! Two things `fe test` cannot do, both checked against the compiled contract
+//! in `web/tests/launcher.test.ts` instead:
+//!
+//! - Send ETH. The test contract has none and there is no way to give it
+//!   any, so passing ETH on to the agent is not tested here.
+//! - Send a message as the launcher. Here "the launcher cannot use an owner
+//!   control" is checked only as far as "the launcher is not the owner".
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Call, Evm}
+use ingot::launcher::{Launcher, LauncherMsg}
+use ingot::token::{TestDollar, TokenMsg}
+use ingot::vault::VaultMsg
+
+const USD: u256 = 1000000
+const GAS: u256 = 5000000
+const DAY: u64 = 86400
+const FAR_FUTURE: u64 = 4000000000
+
+msg PayerMsg {
+    #[selector = sol("pay(address,address,uint256,uint64)")]
+    Pay { vault: Address, to: Address, amount: u256, nonce: u64 } -> u8,
+}
+
+/// Forwards `pay` to a vault, so the vault sees this contract as the caller.
+/// It has no way to receive ETH.
+contract Payer uses (call: mut Call) {
+    recv PayerMsg {
+        Pay { vault, to, amount, nonce } -> u8 uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1500000,
+                value: Wei::zero(),
+                message: VaultMsg::Pay { to, amount, nonce },
+            )
+        }
+    }
+}
+
+fn shop() -> Address {
+    Address::new(0x5109)
+}
+
+/// An agent that is a plain key: an address with no code.
+fn key() -> Address {
+    Address::new(0xa6e170)
+}
+
+fn launcher() -> Address uses (evm: mut Evm) {
+    evm.create2<Launcher>(value: Wei::zero(), args: (), salt: 1)
+}
+
+/// The message for a vault with $10 per payment, $20 per day, a one-day
+/// cooling period and one approved recipient (`shop`).
+fn order(agent: Address, token: Address, deposit: u256, salt: u256) -> LauncherMsg::Launch {
+    LauncherMsg::Launch {
+        agent,
+        per_payment: 10 * USD,
+        per_window: 20 * USD,
+        valid_until: FAR_FUTURE,
+        window_secs: DAY,
+        cooling_secs: DAY,
+        payee_a: shop(),
+        payee_b: Address::zero(),
+        payee_c: Address::zero(),
+        token,
+        deposit,
+        salt,
+    }
+}
+
+/// A vault on the launcher's test dollars, holding $100.
+fn launch(_ launcher: Address, agent: Address, salt: u256) -> Address
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: launcher,
+        gas: GAS,
+        value: Wei::zero(),
+        message: order(agent, token: Address::zero(), deposit: 100 * USD, salt),
+    )
+}
+
+fn test_dollar(_ launcher: Address) -> Address uses (evm: mut Evm) {
+    evm.call(
+        addr: launcher,
+        gas: GAS,
+        value: Wei::zero(),
+        message: LauncherMsg::Token {},
+    )
+}
+
+fn balance(token: Address, of: Address) -> u256 uses (evm: mut Evm) {
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::BalanceOf { who: of },
+    )
+}
+
+fn pays(agent: Address, vault: Address, amount: u256, nonce: u64) -> u8
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: PayerMsg::Pay { vault, to: shop(), amount, nonce },
+    )
+}
+
+// --- what launch creates ----------------------------------------------------
+
+#[test]
+fn the_caller_owns_the_vault_and_the_launcher_does_not() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let vault = launch(launcher, agent: key(), salt: 7)
+    let owner: Address = evm
+        .call(
+            addr: vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Owner {},
+        )
+    let agent: Address = evm
+        .call(
+            addr: vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Agent {},
+        )
+    let token: Address = evm
+        .call(
+            addr: vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Token {},
+        )
+    assert!(owner == evm.address())
+    assert!(owner != launcher)
+    assert!(agent == key())
+    assert!(token == test_dollar(launcher))
+}
+
+#[test]
+fn the_vault_holds_exactly_the_deposit() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let token = test_dollar(launcher)
+    let vault = launch(launcher, agent: key(), salt: 7)
+    assert!(balance(token, of: vault) == 100 * USD)
+    assert!(balance(token, of: launcher) == 0)
+    assert!(balance(token, of: evm.address()) == 0)
+    let supply: u256 = evm
+        .call(
+            addr: token,
+            gas: GAS,
+            value: Wei::zero(),
+            message: TokenMsg::TotalSupply {},
+        )
+    assert!(supply == 100 * USD)
+}
+
+#[test]
+fn the_agent_pays_within_the_limits_and_is_blocked_over_them()
+uses (evm: mut Evm)
+{
+    let launcher = launcher()
+    let token = test_dollar(launcher)
+    let agent = evm.create2<Payer>(value: Wei::zero(), args: (), salt: 2)
+    let vault = launch(launcher, agent, salt: 7)
+    assert!(pays(agent, vault, amount: 4 * USD, nonce: 0) == 0)
+    assert!(balance(token, of: shop()) == 4 * USD)
+    // Over the $10 per-payment cap: refused, and nothing moves.
+    assert!(pays(agent, vault, amount: 80 * USD, nonce: 1) == 10)
+    assert!(balance(token, of: shop()) == 4 * USD)
+    assert!(balance(token, of: vault) == 96 * USD)
+}
+
+#[test]
+fn the_owner_can_withdraw_from_a_launched_vault() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let token = test_dollar(launcher)
+    let vault = launch(launcher, agent: key(), salt: 7)
+    evm.call(
+        addr: vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Withdraw { amount: 100 * USD },
+    )
+    assert!(balance(token, of: evm.address()) == 100 * USD)
+    assert!(balance(token, of: vault) == 0)
+}
+
+// --- salts ------------------------------------------------------------------
+
+#[test]
+fn the_same_salt_twice_reverts_and_a_new_salt_works() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let first = launch(launcher, agent: key(), salt: 7)
+    let again = evm
+        .try_call(
+            addr: launcher,
+            gas: GAS,
+            value: Wei::zero(),
+            message: order(
+                agent: key(),
+                token: Address::zero(),
+                deposit: 100 * USD,
+                salt: 7,
+            ),
+        )
+    assert!(!again.success())
+    // The failed launch minted nothing.
+    assert!(
+        balance(token: test_dollar(launcher), of: first) == 100 * USD,
+    )
+    let second = launch(launcher, agent: key(), salt: 8)
+    assert!(second != first)
+    assert!(
+        balance(token: test_dollar(launcher), of: second) == 100 * USD,
+    )
+}
+
+// --- a token that is not the test dollar --------------------------------------
+
+#[test]
+fn a_custom_token_is_used_and_nothing_is_minted() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let custom = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 3)
+    let vault: Address = evm
+        .call(
+            addr: launcher,
+            gas: GAS,
+            value: Wei::zero(),
+            message: order(agent: key(), token: custom, deposit: 0, salt: 7),
+        )
+    let token: Address = evm
+        .call(
+            addr: vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Token {},
+        )
+    assert!(token == custom)
+    assert!(balance(token: custom, of: vault) == 0)
+    assert!(balance(token: test_dollar(launcher), of: vault) == 0)
+}
+
+// 0x34e79795 DepositNeedsTestDollar()
+#[test(should_revert, selector = 0x34e79795)]
+fn a_custom_token_with_a_deposit_is_rejected() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let custom = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 3)
+    let _: Address = evm
+        .call(
+            addr: launcher,
+            gas: GAS,
+            value: Wei::zero(),
+            message: order(agent: key(), token: custom, deposit: 1, salt: 7),
+        )
+}
+
+// --- the vault's own checks still apply ---------------------------------------
+// 0xd06b96b1 InvalidPolicy()
+
+#[test(should_revert, selector = 0xd06b96b1)]
+fn the_caller_cannot_be_its_own_agent() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let _ = launch(launcher, agent: evm.address(), salt: 7)
+}
+
+#[test(should_revert, selector = 0xd06b96b1)]
+fn a_cooling_period_under_a_minute_is_rejected() uses (evm: mut Evm) {
+    let launcher = launcher()
+    var message = order(
+        agent: key(),
+        token: Address::zero(),
+        deposit: 100 * USD,
+        salt: 7,
+    )
+    message.cooling_secs = 59
+    let _: Address = evm.call(addr: launcher, gas: GAS, value: Wei::zero(), message)
+}

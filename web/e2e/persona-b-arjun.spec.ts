@@ -38,7 +38,7 @@ test.describe('Persona B: Arjun, SaaS founder', () => {
     await expect(review).toContainText('It may pay only Render hosting and Design contractor.')
     await expect(review).toContainText('The vault starts with $100.00 in test dollars.')
     await shot(page, 'B-01-review')
-    await page.getByRole('button', { name: 'Create vault' }).click()
+    await page.getByRole('button', { name: 'Create it in this browser' }).click()
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
     await expect(rulesInForce(page)).toContainText('Most per payment$25.00')
     await expect(rulesInForce(page)).toContainText('Most per day$60.00')

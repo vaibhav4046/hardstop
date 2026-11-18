@@ -1,11 +1,19 @@
 {
   "/": {
     "scrollsSideways": [],
-    "targets": 21,
+    "targets": 53,
     "inlineLinksExempt": [
-      "a \"Open a practice vault\" 211.9x49.3",
-      "a \"the CoinDesk report\" 267.4x57",
-      "a \"I-HITL: Inalienable Human-in-the-Loop\" 282.1x57"
+      "a \"the researchers’ paper\" 176.1x23",
+      "a \"the Cornell Tech and Yale (arXiv) report\" 306.7x49.3",
+      "a \"Zscaler ThreatLabz\" 172.2x25",
+      "a \"arXiv\" 47.5x25",
+      "a \"Cointelegraph\" 126.6x25",
+      "a \"Cointelegraph\" 126.6x25",
+      "a \"Cryptopolitan\" 122.9x25",
+      "a \"Cointelegraph\" 126.6x25",
+      "a \"TRM Labs\" 77.2x23",
+      "a \"Fireblocks (compiling agenteconomy.to)\" 306.7x23",
+      "a \"Open a practice vault\" 211.9x49.3"
     ],
     "smallest": 55
   },
@@ -27,12 +35,13 @@
     "scrollsSideways": [
       "card: content 730px in a 318px box"
     ],
-    "targets": 18,
+    "targets": 19,
     "inlineLinksExempt": [
       "a \"activity page\" 115.2x25",
       "a \"Fe\" 21.7x25",
       "a \"fe/src/kernel.fe\" 136.4x25",
       "a \"fe/src/vault.fe\" 124.5x25",
+      "a \"fe/src/launcher.fe\" 157.8x25",
       "a \"fe/src/adversary.fe\" 169.7x25",
       "a \"fe/src/cli.fe\" 99.8x25",
       "a \"web/src/lib/hardstop/sim.ts\" 244.5x25",
@@ -65,14 +74,16 @@
   },
   "/protect review": {
     "scrollsSideways": [],
-    "targets": 12,
+    "targets": 14,
     "inlineLinksExempt": [],
     "smallest": 55
   },
   "/activity with vault, receipts and a scheduled change": {
     "scrollsSideways": [],
-    "targets": 39,
-    "inlineLinksExempt": [],
+    "targets": 40,
+    "inlineLinksExempt": [
+      "a \"Open a vault on a test network\" 312.4x51"
+    ],
     "smallest": 55
   }
 }

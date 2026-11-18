@@ -1,6 +1,6 @@
 'use client'
 
-// The agent in practice mode: buttons that send requests to the vault from
+// The agent: buttons that send requests to the vault from
 // the agent's address. The vault decides; this panel never does.
 
 import { useState, type FormEvent } from 'react'

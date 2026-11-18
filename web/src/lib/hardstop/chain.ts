@@ -18,6 +18,21 @@ export type Receipt = {
   gasUsed: bigint
   /** Set when the call created a contract. */
   created?: Hex
+  /** On a real network: the transaction that carried the call. Absent when nothing was sent. */
+  hash?: Hex
+}
+
+/**
+ * What a vault needs from a chain. The in-memory `Chain` below is one; a
+ * real network reached through a wallet (../live/chain.ts) is another.
+ */
+export type ChainLike = {
+  /** Current block timestamp, Unix seconds. */
+  now: bigint
+  send(from: Hex, to: Hex | null, data: Hex, value?: bigint): Promise<Receipt>
+  read(from: Hex, to: Hex, data: Hex): Promise<Receipt>
+  /** Move the clock forward. Only a simulated chain can. */
+  advance(seconds: bigint): void
 }
 
 const GAS_LIMIT = 10_000_000n
@@ -48,9 +63,9 @@ export class Chain {
   }
 
   /** Run a state-changing call. A revert undoes everything the call did. */
-  send(from: Hex, to: Hex | null, data: Hex): Promise<Receipt> {
+  send(from: Hex, to: Hex | null, data: Hex, value = 0n): Promise<Receipt> {
     this.blockNumber += 1n
-    return this.run(from, to, data, false)
+    return this.run(from, to, data, false, value)
   }
 
   /** Run a call that may not change state. */
@@ -58,7 +73,7 @@ export class Chain {
     return this.run(from, to, data, true)
   }
 
-  private async run(from: Hex, to: Hex | null, data: Hex, isStatic: boolean): Promise<Receipt> {
+  private async run(from: Hex, to: Hex | null, data: Hex, isStatic: boolean, value = 0n): Promise<Receipt> {
     const caller = createAddressFromString(from)
     const block = createBlock(
       { header: { timestamp: this.now, number: this.blockNumber } },
@@ -69,6 +84,7 @@ export class Chain {
       origin: caller,
       to: to === null ? undefined : createAddressFromString(to),
       data: hexToBytes(data),
+      value,
       gasLimit: GAS_LIMIT,
       block,
       isStatic,

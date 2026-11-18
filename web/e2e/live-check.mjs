@@ -64,7 +64,7 @@ await page.screenshot({ path: join(shots, 'live-01-home.png') })
 await page.goto(`${base}/protect`)
 await page.getByRole('button', { name: 'Review the rules' }).click()
 await check('protect: worst case shown before creating', page.getByText('Worst case in the next 24 hours'))
-await page.getByRole('button', { name: 'Create vault' }).click()
+await page.getByRole('button', { name: 'Create it in this browser' }).click()
 await page.waitForURL(`${base}/activity`)
 await check('activity: vault holds $100.00', page.getByText('$100.00').first())
 

@@ -1,31 +1,31 @@
 [
   {
     "file": "components/activity-board.tsx",
-    "line": 98,
+    "line": 120,
     "text": "const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)",
     "judgement": "Display: how full to draw the gauge. Decides nothing."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 99,
+    "line": 121,
     "text": "const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance",
     "judgement": "Display: caps the worst-case figure at the balance, and the page says so. Both numbers are read from the contract."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 195,
+    "line": 247,
     "text": "{worstShown < view.worstCase && (",
     "judgement": "Display: whether to show the \"capped at what the vault holds\" note."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 200,
+    "line": 252,
     "text": "{view.worstCaseUntil >= day.resetsAt && !policy.paused && (",
     "judgement": "Display: whether to show the \"more than one day\" note."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 206,
+    "line": 258,
     "text": "{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (",
     "judgement": "Display: whether to show the \"upper limit\" note."
   },
@@ -34,6 +34,18 @@
     "line": 31,
     "text": ".findLast((entry) => entry.outcome.code === 0)",
     "judgement": "Reads a verdict the contract already gave (code 0 = paid) to pick which request the replay button resends. Does not produce one."
+  },
+  {
+    "file": "components/exposure-chart.tsx",
+    "line": 75,
+    "text": ".map((amount, h) => (h === 0 ? `M${x(0)},${y(amount)}` : `H${x(h)}V${y(amount)}`))",
+    "judgement": "Display: the first point of the drawn line starts the path. Compares an hour index, not an amount."
+  },
+  {
+    "file": "components/exposure-chart.tsx",
+    "line": 96,
+    "text": "{h === 0 ? 'Now' : `${h / 24} day${h === 24 ? '' : 's'}`}",
+    "judgement": "Display: axis label wording. Compares an hour index."
   },
   {
     "file": "components/owner-controls.tsx",
@@ -55,19 +67,19 @@
   },
   {
     "file": "components/protect-form.tsx",
-    "line": 71,
+    "line": 84,
     "text": "if (!found.perPayment && !found.perDay && payment !== null && day !== null && payment > day) {",
     "judgement": "Form validation of the owner's own input before a vault exists."
   },
   {
     "file": "components/protect-form.tsx",
-    "line": 140,
+    "line": 163,
     "text": "const shown = view.worstCase < view.state.vaultBalance ? view.worstCase : view.state.vaultBalance",
     "judgement": "Display: caps the worst-case figure at the balance, and the page says so."
   },
   {
     "file": "components/protect-form.tsx",
-    "line": 205,
+    "line": 268,
     "text": "{shown < view.worstCase && (",
     "judgement": "Display: whether to show the \"capped\" note."
   },
@@ -76,6 +88,12 @@
     "line": 65,
     "text": "return proposed && proposed.effectiveAt !== 0n",
     "judgement": "Wording: reads the PolicyProposed event the contract emitted to say \"Scheduled\" or \"in force at once\". The contract decided which."
+  },
+  {
+    "file": "lib/live/wallet.ts",
+    "line": 52,
+    "text": "if (depth > 4 || value === null || seen.has(value)) return null",
+    "judgement": "Plumbing: how deep to look for revert bytes in a wallet error. Compares a search depth, not an amount."
   },
   {
     "file": "lib/money.ts",
@@ -97,13 +115,13 @@
   },
   {
     "file": "lib/session.ts",
-    "line": 183,
+    "line": 184,
     "text": "if (approvedFrom !== 0n) recipients.push({ ...recipient, approvedFrom })",
     "judgement": "Display: lists a recipient only if the contract still has it (it answers 0 for a removed one)."
   },
   {
     "file": "lib/session.ts",
-    "line": 214,
+    "line": 215,
     "text": "const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 40",
     "judgement": "Validation of a saved recipient name (1 to 40 characters). Not an amount or a limit."
   }

@@ -73,22 +73,12 @@
 
   /* --- status tags ------------------------------------------------------ */
 
+  /* A status is a few words in its colour. No pill, no mark in front. */
   .tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
+    display: inline-block;
     font-size: var(--text-sm);
     font-weight: 600;
     line-height: 1.3;
-  }
-
-  .tag::before {
-    content: "";
-    width: 0.625rem;
-    height: 0.625rem;
-    flex: none;
-    border-radius: 2px;
-    background: currentColor;
   }
 
   .tag-stop {
@@ -99,46 +89,56 @@
     color: var(--color-cool);
   }
 
-  /* A clock face with a quarter of its hour gone: waiting. */
-  .tag-cool::before {
-    width: 0.875rem;
-    height: 0.875rem;
-    border: 1.5px solid currentColor;
-    border-radius: 50%;
-    background: conic-gradient(currentColor 0 25%, transparent 0);
+  /* Where a vault is: one line above everything else on its page. */
+  .where {
+    color: var(--color-ink-soft);
+    font-size: var(--text-sm);
+    line-height: 1.6;
   }
 
+  .where strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  /* Two ways to go on, side by side, a rule above each. */
+  .choices {
+    display: grid;
+    gap: 2rem;
+    margin-top: 0.5rem;
+  }
+
+  .choices > div {
+    border-top: 1px solid rgb(255 255 255 / 0.22);
+    padding-top: 1.25rem;
+  }
+
+  @media (min-width: 48rem) {
+    .choices {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 2.5rem;
+    }
+  }
+
+  /* Something waiting, or something the visitor should know: a rule down the
+     left edge in the matching colour, not a box inside a box. */
   .scheduled {
-    border: 1px solid rgb(227 176 75 / 0.4);
-    border-radius: var(--radius-tile);
-    background: rgb(227 176 75 / 0.08);
-    padding: 1rem 1.125rem;
+    border-left: 2px solid var(--color-gold);
+    padding: 0.25rem 0 0.25rem 1.125rem;
   }
 
   .notice {
-    border: 1px solid var(--color-edge);
-    border-radius: var(--radius-tile);
-    background: var(--color-raised);
-    padding: 1rem 1.125rem;
+    border-left: 2px solid var(--color-edge);
+    padding: 0.25rem 0 0.25rem 1.125rem;
   }
 
   /* --- the slip: one answer from the vault ------------------------------- */
 
+  /* A receipt is an entry in a ledger: a rule above it, nothing round it. */
   .slip {
     position: relative;
-    border: 1px solid var(--color-rule);
-    border-radius: 1.25rem;
-    background: var(--color-raised);
-    padding: 1.125rem 1.25rem 0.5rem;
-  }
-
-  /* The edge takes the verdict's colour; the word is on the label. */
-  .slip:has(.stamp-paid) {
-    border-color: rgb(124 214 166 / 0.35);
-  }
-
-  .slip:has(.stamp-blocked) {
-    border-color: rgb(248 113 113 / 0.4);
+    border-top: 1px solid rgb(255 255 255 / 0.22);
+    padding: 1.125rem 0 0.25rem;
   }
 
   .slip-head {
@@ -174,43 +174,23 @@
     border-bottom: 1px solid var(--color-rule);
   }
 
-  /* PAID, BLOCKED, REJECTED: the label on a receipt. */
+  /* PAID, BLOCKED, REJECTED: the verdict, as a word in its colour. */
   .stamp {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.3125rem 0.75rem;
-    border: 1px solid currentColor;
-    border-radius: 999px;
-    font-size: var(--text-xs);
+    display: inline-block;
+    font-size: var(--text-sm);
     font-weight: 600;
     line-height: 1.2;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-  }
-
-  .stamp::before {
-    content: "";
-    width: 0.5rem;
-    height: 0.5rem;
-    flex: none;
-    border-radius: 50%;
-    background: currentColor;
+    transform-origin: left center;
   }
 
   .stamp-paid {
     color: var(--color-paid);
-    background: rgb(124 214 166 / 0.1);
   }
 
   .stamp-blocked {
     color: var(--color-stop);
-    background: rgb(248 113 113 / 0.1);
-  }
-
-  /* Refused is a square, like the stop in the wordmark. */
-  .stamp-blocked::before {
-    border-radius: 1px;
   }
 
   .stamp-plain {
@@ -262,9 +242,8 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.25rem 0.75rem;
-    padding: 0.75rem 1.125rem;
-    border: 1px dashed rgb(255 255 255 / 0.16);
-    border-radius: var(--radius-tile);
+    padding: 0.875rem 0;
+    border-top: 1px solid var(--color-rule);
     font-size: var(--text-sm);
     color: var(--color-ink-soft);
   }

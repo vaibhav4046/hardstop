@@ -1,17 +1,20 @@
 import Link from 'next/link'
+import { Adoption, Incidents, OtherTests } from '@/components/evidence-field'
+import { EvidenceModels } from '@/components/evidence-models'
+import { EvidencePath } from '@/components/evidence-path'
+import { EvidenceSources } from '@/components/evidence-sources'
+import { ExposureChart } from '@/components/exposure-chart'
 import { HeroBackdrop } from '@/components/hero-backdrop'
 import { HomeDemo } from '@/components/home-demo'
 import { AskPanel, OwnerPanel, RulesPanel } from '@/components/home-steps'
 import { HomeVaultProvider } from '@/components/home-vault'
-import { COINDESK_TEST, IHITL_PAPER } from '@/lib/links'
 
 export default function Home() {
   return (
     <HomeVaultProvider>
       <div className="hero">
         <div className="wrap hero-copy">
-          <p className="chip">Try it below. No sign-up, nothing to install.</p>
-          <h1 className="hero-title lines mt-7">
+          <h1 className="hero-title lines">
             <span>Your agent can spend.</span> <span>It cannot raise the limit.</span>
           </h1>
           <p className="lede mt-7">
@@ -32,9 +35,61 @@ export default function Home() {
         <div className="hero-scrim" aria-hidden="true" />
       </div>
 
+      <section className="wrap band" aria-labelledby="problem-title">
+        <p className="eyebrow">The problem</p>
+        <h2 id="problem-title" className="section-title lines mt-4">
+          <span>The limit held.</span> <span>The way to raise it did not.</span>
+        </h2>
+        <p className="section-lede">
+          People are starting to let AI agents pay for things, with a spending limit as the safety net. In a controlled
+          test the agents did not break the limit. They raised it.
+        </p>
+        <EvidenceModels />
+      </section>
+
+      <section className="wrap band" aria-labelledby="field-title">
+        <p className="eyebrow">Not just one lab</p>
+        <h2 id="field-title" className="section-title mt-4 max-w-[40rem]">
+          Other tests, and money that has already moved
+        </h2>
+        <OtherTests />
+        <h3 className="column-title mt-16">Recorded losses involving AI agents</h3>
+        <Incidents />
+        <h3 className="column-title mt-16">Agents are being handed money, in small amounts so far</h3>
+        <Adoption />
+      </section>
+
+      <section className="wrap band" aria-labelledby="path-title">
+        <p className="eyebrow">How it happened</p>
+        <h2 id="path-title" className="section-title mt-4 max-w-[40rem]">
+          A limit that can be raised at once is only as strong as whoever can raise it
+        </h2>
+        <EvidencePath />
+      </section>
+
       <HomeDemo />
 
-      <section className="wrap section" aria-labelledby="home-steps-title">
+      <section className="wrap band" aria-labelledby="worst-case-title">
+        <div className="split">
+          <div>
+            <p className="eyebrow">A number you can check</p>
+            <h2 id="worst-case-title" className="section-title mt-4">
+              The worst case, before anything goes wrong
+            </h2>
+            <p className="section-lede">
+              Because a raise has to wait, there is always an answer to &ldquo;what is the most this agent could
+              take?&rdquo; The vault works it out itself. This chart is that answer for the practice vault above, hour
+              by hour.
+            </p>
+            <p className="section-lede">
+              Where a limit can be raised at once, the honest answer is the red line: everything.
+            </p>
+          </div>
+          <ExposureChart />
+        </div>
+      </section>
+
+      <section className="wrap band" aria-labelledby="home-steps-title">
         <h2 id="home-steps-title" className="section-title lines">
           <span>Three steps.</span> <span>The vault holds the line.</span>
         </h2>
@@ -83,17 +138,17 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="wrap section" aria-labelledby="boundary-title">
+      <section className="wrap band" aria-labelledby="boundary-title">
         <h2 id="boundary-title" className="section-title max-w-[36rem]">
           What this protects, and what it does not
         </h2>
 
-        <div className="card card-live reveal mt-10">
+        <div className="reveal mt-10">
           <p className="panel-title">What the agent&rsquo;s key can do</p>
           <dl className="perms mt-2">
             <div>
               <dt>Ask the vault to pay an approved recipient</dt>
-              <dd className="perm-yes">Allowed, inside your limits</dd>
+              <dd>Allowed, inside your limits</dd>
             </div>
             <div>
               <dt>Raise its own limit</dt>
@@ -113,10 +168,10 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="reveal mt-6 grid gap-6 md:grid-cols-2">
-          <div className="card">
-            <h3 className="sub-title">It protects the money in the vault</h3>
-            <ul className="bullets mt-5">
+        <div className="reveal mt-14 grid gap-x-16 gap-y-12 md:grid-cols-2">
+          <div>
+            <h3 className="column-title">It protects the money in the vault</h3>
+            <ul className="bullets">
               <li>The agent can only ask the vault to pay. It has no other way to move the money.</li>
               <li>
                 Every payment is checked against a cap per payment, a cap per day, your list of approved recipients,
@@ -129,9 +184,9 @@ export default function Home() {
               </li>
             </ul>
           </div>
-          <div className="card">
-            <h3 className="sub-title">It does not protect anything else</h3>
-            <ul className="bullets mt-5">
+          <div>
+            <h3 className="column-title">It does not protect anything else</h3>
+            <ul className="bullets">
               <li>Money outside the vault, in the agent&rsquo;s own wallet or your other accounts, is not covered.</li>
               <li>
                 A bad purchase inside the limits is still allowed. The vault checks amounts and recipients, not
@@ -145,41 +200,18 @@ export default function Home() {
                 A day here is a fixed 24 hours, not a rolling one. An agent can spend one day&rsquo;s allowance just
                 before the reset and the next day&rsquo;s just after.
               </li>
-              <li>
-                This is an unaudited prototype, and this site is practice mode only. Do not use it to hold real money.
-              </li>
+              <li>This is an unaudited prototype. Do not use it to hold real money.</li>
             </ul>
           </div>
         </div>
       </section>
 
-      <section className="wrap section" aria-labelledby="evidence-title">
-        <div className="split reveal">
-          <h2 id="evidence-title" className="section-title">
-            Why the way a limit gets raised matters
-          </h2>
-          <div className="prose">
-            <p className="text-lg leading-relaxed">
-              In a controlled test reported by CoinDesk on 1 November 2026, researchers from Cornell Tech and Yale gave
-              ten AI models an agent wallet holding 10 USDC (a digital dollar) with a daily spending limit of one cent. Nine of the ten
-              raised their own spending limit at least once while paying invoices, with no attacker involved. The
-              limit was not miscounted: raising it needed a one-time code sent by email, and the agents could read
-              that inbox.
-            </p>
-            <p className="soft">
-              This was a laboratory test with 20 trials per scenario, not a record of losses by customers. HARDSTOP
-              was not part of it. Sources:{' '}
-              <a href={COINDESK_TEST} rel="noopener noreferrer">
-                the CoinDesk report
-              </a>{' '}
-              and the researchers&rsquo; paper,{' '}
-              <a href={IHITL_PAPER} rel="noopener noreferrer">
-                I-HITL: Inalienable Human-in-the-Loop
-              </a>{' '}
-              (a preprint, not yet peer reviewed).
-            </p>
-          </div>
-        </div>
+      <section className="wrap band" aria-labelledby="sources-title">
+        <p className="eyebrow">Evidence</p>
+        <h2 id="sources-title" className="section-title mt-4">
+          Where these figures come from
+        </h2>
+        <EvidenceSources />
       </section>
     </HomeVaultProvider>
   )

@@ -1,5 +1,5 @@
 // Copies the Fe build output (fe/out) into the web app as one typed module.
-// Run after `fe build --emit bytecode,abi` in fe/.
+// Run after `fe build --emit bytecode,runtime-bytecode,abi` in fe/.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
@@ -28,6 +28,12 @@ export const vaultBytecode = '0x${read('Vault.bin')}' as const
 export const tokenAbi = ${read('TestDollar.abi.json')} as const
 
 export const tokenBytecode = '0x${read('TestDollar.bin')}' as const
+
+export const launcherAbi = ${read('Launcher.abi.json')} as const
+
+export const launcherBytecode = '0x${read('Launcher.bin')}' as const
+
+export const launcherRuntimeBytecode = '0x${read('Launcher.runtime.bin')}' as const
 `
 
 const target = join(root, 'web', 'src', 'lib', 'hardstop', 'artifacts.ts')

@@ -65,13 +65,15 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
     expect(await page.evaluate(() => 'ethereum' in window)).toBe(false)
   })
 
+  // A wallet is offered on the review step, as one of two choices; nothing on the way there asks for one.
+  // Links are not checked for the word "wallet": the sources on the home page are articles about wallets.
   test('no route asks for a wallet or an address', async ({ page }) => {
     await largerText(page)
     for (const route of ROUTES) {
       await page.goto(route)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
       await expect(page.getByRole('button', { name: /connect|wallet|sign in|log in/i })).toHaveCount(0)
-      await expect(page.getByRole('link', { name: /connect|wallet|sign in|log in/i })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: /connect|sign in|log in/i })).toHaveCount(0)
       const fields = await page.locator('input, textarea, select').evaluateAll((inputs) =>
         inputs.map((input) => `${(input as HTMLInputElement).labels?.[0]?.textContent ?? ''} ${input.getAttribute('placeholder') ?? ''} ${input.id}`),
       )
@@ -133,7 +135,7 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
       await page.getByRole('button', { name: 'Review the rules' }).tap()
       await expect(page.getByRole('heading', { name: 'Check the rules before you create the vault' })).toBeVisible()
       await check('/protect review')
-      await page.getByRole('button', { name: 'Create vault' }).tap()
+      await page.getByRole('button', { name: 'Create it in this browser' }).tap()
       await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
 
       // /activity with a vault, receipts, a scheduled change and everything open.

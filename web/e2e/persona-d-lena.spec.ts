@@ -55,7 +55,7 @@ test.describe('Persona D: Lena, security engineer', () => {
       }
     }
     expect([...paths].sort()).toEqual(
-      ['LICENSE', 'fe/src/adversary.fe', 'fe/src/cli.fe', 'fe/src/kernel.fe', 'fe/src/vault.fe', 'web/src/lib/hardstop/sim.ts'].sort(),
+      ['LICENSE', 'fe/src/adversary.fe', 'fe/src/cli.fe', 'fe/src/kernel.fe', 'fe/src/launcher.fe', 'fe/src/vault.fe', 'web/src/lib/hardstop/sim.ts'].sort(),
     )
     for (const file of paths) expect(existsSync(path.join(REPO, file)), `${file} exists on disk`).toBe(true)
   })
@@ -117,6 +117,11 @@ const COMPARES = /\s(<=|>=|<|>)\s|(===|!==)\s*(0n?|1)\b/
 // Not caught by the pattern, read by hand: `today()` in lib/session.ts compares the ledger's window with the
 // current one (`===`) to show "spent today". Display only; the file says so and "left today" comes from the contract.
 const JUDGED: Record<string, string> = {
+  'components/exposure-chart.tsx|.map((amount, h) => (h === 0 ? `M${x(0)},${y(amount)}` : `H${x(h)}V${y(amount)}`))':
+    'Display: the first point of the drawn line starts the path. Compares an hour index, not an amount.',
+  "components/exposure-chart.tsx|{h === 0 ? 'Now' : `${h / 24} day${h === 24 ? '' : 's'}`}": 'Display: axis label wording. Compares an hour index.',
+  'lib/live/wallet.ts|if (depth > 4 || value === null || seen.has(value)) return null':
+    'Plumbing: how deep to look for revert bytes in a wallet error. Compares a search depth, not an amount.',
   'components/activity-board.tsx|const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)':
     'Display: how full to draw the gauge. Decides nothing.',
   'components/activity-board.tsx|const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance':

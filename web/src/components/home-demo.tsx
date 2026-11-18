@@ -27,7 +27,7 @@ export function HomeDemo() {
   const latest = entries[0]
 
   return (
-    <section id="live-example" className="wrap section" aria-labelledby="demo-title">
+    <section id="live-example" className="wrap band" aria-labelledby="demo-title">
       <div className="split">
         <div>
           <h2 id="demo-title" className="section-title">

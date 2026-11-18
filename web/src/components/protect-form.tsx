@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import type { Step } from '@/lib/live/launch'
+import { NETWORKS } from '@/lib/live/wallet'
 import { loadSim } from '@/lib/load-sim'
 import { amountError, formatDuration, formatTime, formatUsd, parseUsd } from '@/lib/money'
 import { build, DAY, practiceAddress, snapshot, type SessionSetup, type View } from '@/lib/session'
@@ -19,6 +21,15 @@ const COOLING = [
   },
 ]
 const MAX_RECIPIENTS = 3
+
+/** What the main button says while a vault is being created on a network. */
+const STEPS: Record<Step, string> = {
+  wallet: 'Waiting for your wallet…',
+  network: 'Switching network in your wallet…',
+  installing: 'Approve the one-time install in your wallet…',
+  launching: 'Approve the vault in your wallet…',
+  confirming: 'Waiting for the network to confirm…',
+}
 
 type Row = { id: number; name: string }
 type Errors = Partial<Record<'perPayment' | 'perDay' | 'funding' | 'recipients', string>>
@@ -40,6 +51,8 @@ export function ProtectForm() {
   const [errors, setErrors] = useState<Errors>({})
   const [draft, setDraft] = useState<Draft | null>(null)
   const [phase, setPhase] = useState<'edit' | 'checking' | 'review' | 'creating' | 'failed'>('edit')
+  const [chainId, setChainId] = useState(NETWORKS[0].chainId)
+  const network = NETWORKS.find((candidate) => candidate.chainId === chainId) ?? NETWORKS[0]
 
   // Moving to the review replaces the form, so focus goes to its heading.
   useEffect(() => {
@@ -119,6 +132,16 @@ export function ProtectForm() {
     } else setPhase('failed')
   }
 
+  /** Creates the vault on the chosen test network, through the visitor's wallet. */
+  async function confirmLive() {
+    if (draft === null) return
+    setPhase('creating')
+    if (await vault.createLive(draft.setup, network)) {
+      isCreated.current = true
+      router.push('/activity')
+    } else setPhase('review')
+  }
+
   if (phase === 'failed') {
     return (
       <div className="notice max-w-[36rem]" role="alert">
@@ -180,16 +203,56 @@ export function ProtectForm() {
               {coolingText}.
             </p>
           )}
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button type="button" className="btn btn-primary btn-large" disabled={phase === 'creating'} onClick={confirm}>
-              {phase === 'creating' ? 'Creating the vault…' : 'Create vault'}
-            </button>
-            <button type="button" className="btn btn-large" disabled={phase === 'creating'} onClick={() => setPhase('edit')}>
+          <h3 className="column-title mt-10">Where should it live?</h3>
+          <div className="choices">
+            <div>
+              <button type="button" className="btn btn-primary btn-large" disabled={phase === 'creating'} onClick={confirmLive}>
+                {phase === 'creating' && vault.step !== null ? STEPS[vault.step] : `Open it on ${network.name}`}
+              </button>
+              <p className="small soft mt-3 max-w-[34rem]">
+                A public test network. Your wallet is the owner and asks you to approve one transaction, or two if
+                nobody has used this site on that network before. It costs a little test ETH in network fees. Test ETH and
+                test dollars have no value.
+              </p>
+              <div className="field mt-3 max-w-[16rem]">
+                <label htmlFor="network">Network</label>
+                <select
+                  id="network"
+                  className="input"
+                  value={chainId}
+                  disabled={phase === 'creating'}
+                  onChange={(event) => setChainId(Number(event.target.value))}
+                >
+                  {NETWORKS.map((option) => (
+                    <option key={option.chainId} value={option.chainId}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {vault.problem !== null && (
+                <p className="notice mt-4 max-w-[34rem]" role="alert">
+                  {vault.problem}
+                </p>
+              )}
+            </div>
+            <div>
+              <button type="button" className="btn btn-large" disabled={phase === 'creating'} onClick={confirm}>
+                {phase === 'creating' && vault.step === null ? 'Creating the vault…' : 'Create it in this browser'}
+              </button>
+              <p className="small soft mt-3 max-w-[34rem]">
+                No wallet needed. The same contract runs on a private chain inside this page, and the vault is gone
+                when you close the tab.
+              </p>
+            </div>
+          </div>
+          <p className="mt-8">
+            <button type="button" className="btn btn-quiet" disabled={phase === 'creating'} onClick={() => setPhase('edit')}>
               Change something
             </button>
-          </div>
+          </p>
           {vault.status === 'ready' && (
-            <p className="small soft mt-4">Creating this vault replaces the practice vault you already have.</p>
+            <p className="small soft mt-4">Creating this vault replaces the one this browser is showing now.</p>
           )}
         </div>
 
@@ -213,7 +276,7 @@ export function ProtectForm() {
             <dl>
               {setup.recipients.map((recipient) => (
                 <div key={recipient.address}>
-                  <dt>Practice address for {recipient.name}</dt>
+                  <dt>Address made for {recipient.name}</dt>
                   <dd>{recipient.address}</dd>
                 </div>
               ))}

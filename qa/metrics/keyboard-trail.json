@@ -1,5 +1,5 @@
 {
-  "stops": 34,
+  "stops": 72,
   "trail": [
     {
       "what": "a \"Skip to content\"",
@@ -42,6 +42,96 @@
       "ring": true
     },
     {
+      "what": "button \"Raised its own limit\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"With an attack email\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Paid an attacker\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"the researchers’ paper\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"the Cornell Tech and Yale (arXiv) report\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Zscaler ThreatLabz\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"arXiv\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cointelegraph\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cointelegraph\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cryptopolitan\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cointelegraph\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Show as a table\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Show as a table\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"TRM Labs\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Fireblocks (compiling agenteconomy.to)\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Back\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Next\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Play from the start\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
       "what": "button \"Agent pays $4\"",
       "outline": "solid 3px rgb(227, 176, 75)",
       "ring": true
@@ -53,6 +143,91 @@
     },
     {
       "what": "button \"Agent pays $4\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Play from the start\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Next\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Fireblocks (compiling agenteconomy.to)\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"TRM Labs\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Show as a table\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "summary \"Show as a table\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cointelegraph\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cryptopolitan\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cointelegraph\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Cointelegraph\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"arXiv\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Zscaler ThreatLabz\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"the Cornell Tech and Yale (arXiv) report\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"the researchers’ paper\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Paid an attacker\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"With an attack email\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Raised its own limit\"",
       "outline": "solid 3px rgb(227, 176, 75)",
       "ring": true
     },
@@ -112,7 +287,22 @@
       "ring": true
     },
     {
-      "what": "button \"Create vault\"",
+      "what": "button \"Open it on Base Sepolia\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "select#network \"Base SepoliaSepolia\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Create it in this browser\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "a \"Open a vault on a test network\"",
       "outline": "solid 3px rgb(227, 176, 75)",
       "ring": true
     },

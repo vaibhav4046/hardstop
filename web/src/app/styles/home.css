@@ -105,29 +105,6 @@
     }
   }
 
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.625rem;
-    max-width: 100%;
-    padding: 0.4375rem 1rem 0.4375rem 0.875rem;
-    border: 1px solid rgb(255 255 255 / 0.14);
-    border-radius: 999px;
-    background: rgb(12 12 14 / 0.7);
-    color: rgb(255 255 255 / 0.82);
-    font-size: var(--text-sm);
-    line-height: 1.35;
-  }
-
-  .chip::before {
-    content: "";
-    width: 0.5rem;
-    height: 0.5rem;
-    flex: none;
-    border-radius: 50%;
-    background: var(--color-gold);
-  }
-
   /* --- sections --------------------------------------------------------- */
 
   .section {
@@ -212,17 +189,14 @@
     color: var(--color-ink-soft);
   }
 
-  /* A smaller surface inside a panel. */
+  /* A part of a panel set off from the rest: a rule above it, not a box. */
   .tile {
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-tile);
-    background: rgb(12 12 14 / 0.55);
-    padding: 1rem 1.125rem;
+    border-top: 1px solid rgb(255 255 255 / 0.22);
+    padding-top: 1.125rem;
   }
 
   .tile-waiting {
-    border-color: rgb(227 176 75 / 0.4);
-    background: rgb(227 176 75 / 0.08);
+    border-top-color: var(--color-gold);
   }
 
   /* --- what the agent's key can do --------------------------------------- */
@@ -246,53 +220,24 @@
   }
 
   .perms dd {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
     font-weight: 500;
-  }
-
-  .perms dd::before {
-    content: "";
-    width: 0.625rem;
-    height: 0.625rem;
-    flex: none;
-  }
-
-  /* Allowed is an open ring; never is the stop square. */
-  .perm-yes::before {
-    border: 2px solid currentColor;
-    border-radius: 50%;
   }
 
   .perm-never {
     color: var(--color-stop);
   }
 
-  .perm-never::before {
-    border-radius: 2px;
-    background: currentColor;
-  }
-
-  .bullets {
-    display: grid;
-    gap: 0.875rem;
-  }
-
+  /* A list of plain statements, a rule between each. */
   .bullets li {
-    position: relative;
-    padding-left: 1.375rem;
+    padding-block: 0.875rem;
+    border-top: 1px solid var(--color-rule);
     color: rgb(255 255 255 / 0.86);
   }
 
-  .bullets li::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.7em;
-    width: 0.5rem;
-    height: 1px;
-    background: var(--color-gold);
+  /* Two columns of statements under one rule each. */
+  .column-title {
+    padding-bottom: 1rem;
+    font-size: clamp(1.5rem, 1.25rem + 0.9vw, 2rem);
   }
 
   /* --- sections arriving -------------------------------------------------

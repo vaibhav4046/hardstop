@@ -96,7 +96,8 @@ export function practiceAddress(): Hex {
   return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
 }
 
-function toSetup(setup: SessionSetup): Setup {
+/** The numbers a vault is created with. On a real network `owner` and `agent` are replaced by the wallet and a fresh key. */
+export function toSetup(setup: SessionSetup): Setup {
   return {
     owner: OWNER,
     agent: AGENT,

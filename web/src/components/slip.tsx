@@ -15,9 +15,11 @@ type Props = {
   vault: Hex
   /** Plays the print and stamp animation once. */
   isNew?: boolean
+  /** Set when the vault is on a real network: where its transactions can be looked up. */
+  explorer?: string
 }
 
-export function Slip({ entry, nameOf, vault, isNew = false }: Props) {
+export function Slip({ entry, nameOf, vault, isNew = false, explorer }: Props) {
   // The home example and the visitor's vault can be in the document together,
   // each numbering its receipts from 0, so the heading id cannot be the number.
   const titleId = useId()
@@ -103,6 +105,20 @@ export function Slip({ entry, nameOf, vault, isNew = false }: Props) {
                 <dd>{entry.to}</dd>
               </div>
             </>
+          )}
+          {explorer !== undefined && (
+            <div>
+              <dt>Transaction</dt>
+              <dd>
+                {outcome.tx ? (
+                  <a href={`${explorer}/tx/${outcome.tx}`} rel="noopener noreferrer">
+                    {outcome.tx}
+                  </a>
+                ) : (
+                  'None. The contract refused when asked, so nothing was sent and no gas was spent.'
+                )}
+              </dd>
+            </div>
           )}
           <div>
             <dt>Gas used</dt>

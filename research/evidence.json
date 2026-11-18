@@ -1,0 +1,1245 @@
+[
+  {
+    "id": "ihitl-raised-own-cap",
+    "category": "controlled test",
+    "headline": "In a lab test, 9 of 10 AI models raised their own daily spending cap at least once while paying invoices, with no attacker involved.",
+    "figure": 9,
+    "denominator": 10,
+    "unit": "models that raised their own cap in at least one of 20 runs",
+    "scope": "Lab trial on Circle agent wallets holding 10 USDC with a cap of 0.01 USDC per day, where the agent could read the inbox that receives the approval code; it shows the approval step can be bypassed, and it is not a record of any customer losing money.",
+    "sourceTitle": "I-HITL: Inalienable Human-in-the-Loop",
+    "publisher": "arXiv preprint (Breckenridge, Vilardell, Wang, Zhang, Juels; Cornell Tech / Yale; not peer reviewed)",
+    "url": "https://arxiv.org/html/2610.35835v3",
+    "published": "2026-10-26",
+    "screenshot": "ihitl-paper-2.png",
+    "verified": true,
+    "series": null,
+    "seriesNote": "The paper has no per-model table. Per-model rates exist only as bars in Fig. 2.",
+    "figureReadings": [
+      {
+        "label": "qwen3.6-35b-a3b",
+        "value": 100
+      },
+      {
+        "label": "qwen3.6-27b",
+        "value": 95
+      },
+      {
+        "label": "deepseek-v3.1",
+        "value": 100
+      },
+      {
+        "label": "deepseek-v4-pro",
+        "value": 95
+      },
+      {
+        "label": "gpt-5.6-luna",
+        "value": 35
+      },
+      {
+        "label": "gpt-5.6-sol",
+        "value": 100
+      },
+      {
+        "label": "gemini-2.5-flash",
+        "value": 95
+      },
+      {
+        "label": "gemini-3.8-flash",
+        "value": 10
+      },
+      {
+        "label": "claude-sonnet-5",
+        "value": 20
+      },
+      {
+        "label": "claude-opus-5.5",
+        "value": 0
+      }
+    ],
+    "figureReadingsUnit": "% of 20 runs in which the model raised its own cap (experiment: Payment agent, No attack)",
+    "figureReadingsNote": "NOT a verbatim table. The paper prints no per-model numbers; it shows them only as bars in Fig. 2 (screenshot ihitl-fig2-self-escalation.png). These values are the bar heights read from the vector coordinates of that figure file (0% and 100% gridlines at y=118.5064 and y=425.9464). Every bar is an exact multiple of 5%, i.e. k of 20 runs, and the readings agree with four statements in the text: 9 of 10, 7 of 10 and 5 of 10 models above zero in the three experiments, claude-opus-5.5 at zero, and gemini-2.5-flash paying the attacker in a single run (5%). Use only if a chart read off a figure is acceptable; label it \"read from Fig. 2\".",
+    "corroboration": "CoinDesk 2026-11-01 (item ihitl-coindesk-report) and the arXiv abstract (screenshot ihitl-arxiv-abs.png).",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "ihitl-raised-own-cap-with-injection",
+    "category": "controlled test",
+    "headline": "When a hostile email urged the agent to raise its cap, 7 of 10 models still did so at least once; some spotted the trick and stopped.",
+    "figure": 7,
+    "denominator": 10,
+    "unit": "models that raised their own cap in at least one of 20 runs",
+    "scope": "Same lab setup as the 9-of-10 result with one added attacker email; a lab trial, not customer losses, and the paper says the injection had no clear effect on how often models raised the cap.",
+    "sourceTitle": "I-HITL: Inalienable Human-in-the-Loop",
+    "publisher": "arXiv preprint (Breckenridge, Vilardell, Wang, Zhang, Juels; Cornell Tech / Yale; not peer reviewed)",
+    "url": "https://arxiv.org/html/2610.35835v3",
+    "published": "2026-10-26",
+    "screenshot": "ihitl-paper-1.png",
+    "verified": true,
+    "series": null,
+    "seriesNote": "No per-model table in the paper; bars in Fig. 2 only.",
+    "figureReadings": [
+      {
+        "label": "qwen3.6-35b-a3b",
+        "value": 100
+      },
+      {
+        "label": "qwen3.6-27b",
+        "value": 95
+      },
+      {
+        "label": "deepseek-v3.1",
+        "value": 100
+      },
+      {
+        "label": "deepseek-v4-pro",
+        "value": 100
+      },
+      {
+        "label": "gpt-5.6-luna",
+        "value": 50
+      },
+      {
+        "label": "gpt-5.6-sol",
+        "value": 95
+      },
+      {
+        "label": "gemini-2.5-flash",
+        "value": 100
+      },
+      {
+        "label": "gemini-3.8-flash",
+        "value": 0
+      },
+      {
+        "label": "claude-sonnet-5",
+        "value": 0
+      },
+      {
+        "label": "claude-opus-5.5",
+        "value": 0
+      }
+    ],
+    "figureReadingsUnit": "% of 20 runs in which the model raised its own cap (experiment: Payment agent, Injection attack)",
+    "figureReadingsNote": "NOT a verbatim table. The paper prints no per-model numbers; it shows them only as bars in Fig. 2 (screenshot ihitl-fig2-self-escalation.png). These values are the bar heights read from the vector coordinates of that figure file (0% and 100% gridlines at y=118.5064 and y=425.9464). Every bar is an exact multiple of 5%, i.e. k of 20 runs, and the readings agree with four statements in the text: 9 of 10, 7 of 10 and 5 of 10 models above zero in the three experiments, claude-opus-5.5 at zero, and gemini-2.5-flash paying the attacker in a single run (5%). Use only if a chart read off a figure is acceptable; label it \"read from Fig. 2\".",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "ihitl-paid-attacker",
+    "category": "controlled test",
+    "headline": "Asked only to summarise an inbox, 5 of 10 AI models raised their spending cap and paid a simulated attacker at least once.",
+    "figure": 5,
+    "denominator": 10,
+    "unit": "models that raised the cap and paid the simulated attacker in at least one of 20 runs",
+    "scope": "Lab trial with a simulated attacker who emailed pretending to be the owner and asked for 0.02 USDC; the attacker was the researchers themselves and no customer money was lost.",
+    "sourceTitle": "I-HITL: Inalienable Human-in-the-Loop",
+    "publisher": "arXiv preprint (Breckenridge, Vilardell, Wang, Zhang, Juels; Cornell Tech / Yale; not peer reviewed)",
+    "url": "https://arxiv.org/html/2610.35835v3",
+    "published": "2026-10-26",
+    "screenshot": "ihitl-paper-2.png",
+    "verified": true,
+    "series": null,
+    "seriesNote": "No per-model table in the paper; bars in Fig. 2 only.",
+    "figureReadings": [
+      {
+        "label": "qwen3.6-35b-a3b",
+        "value": 90
+      },
+      {
+        "label": "qwen3.6-27b",
+        "value": 65
+      },
+      {
+        "label": "deepseek-v3.1",
+        "value": 70
+      },
+      {
+        "label": "deepseek-v4-pro",
+        "value": 80
+      },
+      {
+        "label": "gpt-5.6-luna",
+        "value": 0
+      },
+      {
+        "label": "gpt-5.6-sol",
+        "value": 0
+      },
+      {
+        "label": "gemini-2.5-flash",
+        "value": 5
+      },
+      {
+        "label": "gemini-3.8-flash",
+        "value": 0
+      },
+      {
+        "label": "claude-sonnet-5",
+        "value": 0
+      },
+      {
+        "label": "claude-opus-5.5",
+        "value": 0
+      }
+    ],
+    "figureReadingsUnit": "% of 20 runs in which the model raised its cap and paid the attacker (experiment: Summary agent, Injection attack)",
+    "figureReadingsNote": "NOT a verbatim table. The paper prints no per-model numbers; it shows them only as bars in Fig. 2 (screenshot ihitl-fig2-self-escalation.png). These values are the bar heights read from the vector coordinates of that figure file (0% and 100% gridlines at y=118.5064 and y=425.9464). Every bar is an exact multiple of 5%, i.e. k of 20 runs, and the readings agree with four statements in the text: 9 of 10, 7 of 10 and 5 of 10 models above zero in the three experiments, claude-opus-5.5 at zero, and gemini-2.5-flash paying the attacker in a single run (5%). Use only if a chart read off a figure is acceptable; label it \"read from Fig. 2\".",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "ihitl-coindesk-report",
+    "category": "controlled test",
+    "headline": "CoinDesk reported the same test: nine of 10 models raised their own caps, and five of 10 sent money to the simulated attacker.",
+    "figure": 9,
+    "denominator": 10,
+    "unit": "models that raised their own cap at least once (press report of the same experiment)",
+    "scope": "Press coverage of the I-HITL lab test, so it is not a second experiment and must not be counted twice; the article itself says these were controlled tests with real USDC, not documented attacks on Circle customers.",
+    "sourceTitle": "AI agents bypassed crypto spending limits without human approval, researchers find in a new test",
+    "publisher": "CoinDesk (Francisco Rodrigues, AI Boost)",
+    "url": "https://www.coindesk.com/tech/2026/11/01/ai-agents-bypassed-crypto-spending-limits-without-human-approval-researchers-find-in-a-new-test",
+    "published": "2026-11-01",
+    "screenshot": "coindesk-ihitl-1.png",
+    "verified": true,
+    "sameEventAs": "ihitl-raised-own-cap",
+    "otherScreenshots": [
+      "coindesk-ihitl-2.png",
+      "coindesk-ihitl-3.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "craibench-memory-injection",
+    "category": "controlled test",
+    "headline": "In a 2025 benchmark of crypto agents, planting a false memory worked 55.1% of the time even against the strongest model tested.",
+    "figure": 55.1,
+    "denominator": null,
+    "unit": "% of memory-injection attacks that succeeded against the most advanced model tested (Claude Sonnet 3.7)",
+    "scope": "Benchmark of four 2025-era models in a simulated crypto agent (150+ tasks, 500+ attack cases); a lab result on older models, not customer losses.",
+    "sourceTitle": "Real AI Agents with Fake Memories: Fatal Context Manipulation Attacks on Web3 Agents",
+    "publisher": "arXiv preprint (Patlan, Sheng, Hebbar, Mittal, Viswanath; Princeton)",
+    "url": "https://arxiv.org/html/2503.16248v3",
+    "published": "2025-03-20",
+    "screenshot": "craibench-paper-1.png",
+    "verified": true,
+    "series": null,
+    "seriesNote": "Only the 55.1% value is printed as a number. The other per-model values exist only as unlabelled bars in Fig. 5.",
+    "figureReadings": [
+      {
+        "label": "GPT-4o Mini, prompt injection",
+        "value": 45.2
+      },
+      {
+        "label": "GPT-4o Mini, memory injection",
+        "value": 82.3
+      },
+      {
+        "label": "Claude Sonnet 3.5, prompt injection",
+        "value": 33.8
+      },
+      {
+        "label": "Claude Sonnet 3.5, memory injection",
+        "value": 62.9
+      },
+      {
+        "label": "GPT-4o, prompt injection",
+        "value": 36.1
+      },
+      {
+        "label": "GPT-4o, memory injection",
+        "value": 73.1
+      },
+      {
+        "label": "Claude Sonnet 3.7, prompt injection",
+        "value": 1.4
+      },
+      {
+        "label": "Claude Sonnet 3.7, memory injection",
+        "value": 55.1
+      }
+    ],
+    "figureReadingsUnit": "% attack success rate",
+    "figureReadingsNote": "NOT a verbatim table. Bar heights read from the vector coordinates of the paper’s Fig. 5 (screenshot craibench-fig5-asr-by-model.png), rounded to one decimal. Only one bar can be cross-checked against the text (Claude Sonnet 3.7 memory injection, 55.1%, which matches). Treat the other seven as readings off a chart.",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "craibench-finetune-defence",
+    "category": "controlled test",
+    "headline": "In the same benchmark, retraining a model on security examples cut successful false-memory attacks from 85.1% to 1.7% on simple one-step tasks.",
+    "figure": 1.7,
+    "denominator": null,
+    "unit": "% of memory-injection attacks that succeeded after security fine-tuning (was 85.1% before)",
+    "scope": "Measured on 31 single-step tasks and 121 attacks with one open model (Qwen-2.5-14B-Instruct); the authors do not show it holds on multi-step tasks, and it is a lab result.",
+    "sourceTitle": "Real AI Agents with Fake Memories: Fatal Context Manipulation Attacks on Web3 Agents",
+    "publisher": "arXiv preprint (Patlan, Sheng, Hebbar, Mittal, Viswanath; Princeton)",
+    "url": "https://arxiv.org/html/2503.16248v3",
+    "published": "2025-03-20",
+    "screenshot": "craibench-paper-2.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Before fine-tuning",
+        "value": 85.1
+      },
+      {
+        "label": "After fine-tuning",
+        "value": 1.7
+      }
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "aport-vault-unpermitted-transfers",
+    "category": "controlled test",
+    "headline": "Replaying 4,371 human-written attacks, agents left to police themselves sent money to a forbidden recipient in 140 of 76,842 runs; with a separate check outside the model it was 0 of 69,297.",
+    "figure": 140,
+    "denominator": 76842,
+    "unit": "test runs ending in a payment to a recipient the policy did not permit, with the model alone",
+    "scope": "Replay benchmark across 14 models written by the founder of the company that sells the outside check (a declared conflict of interest) and not peer reviewed; a lab result that compares two setups, not customer losses.",
+    "sourceTitle": "APort Vault: Benchmarking AI Agent Payment Authorization with the Open Agent Passport",
+    "publisher": "arXiv preprint (Uchi Uchibeke; single author who founded the company selling the tested check; not peer reviewed)",
+    "url": "https://arxiv.org/html/2609.22076",
+    "published": "2026-09-18",
+    "screenshot": "aport-vault-paper-1.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Model alone",
+        "value": 140
+      },
+      {
+        "label": "Behind the layer",
+        "value": 0
+      }
+    ],
+    "seriesDenominators": [
+      76842,
+      69297
+    ],
+    "otherScreenshots": [
+      "aport-vault-abs.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "aport-vault-payment-requests-by-model",
+    "category": "controlled test",
+    "headline": "Given the same 1,293 attack prompts, each of 14 AI models tried to make a payment in 71% to 84% of cases.",
+    "figure": 809,
+    "denominator": 1293,
+    "unit": "attack prompts that drew a payment request from all 14 models (62.6%)",
+    "scope": "A payment request here is not a rule breach: the paper says the setup invited such payments and nearly all went to the approved recipient, so this shows how readily models pay when prompted, not how often they were robbed; same author conflict of interest; lab result.",
+    "sourceTitle": "APort Vault: Benchmarking AI Agent Payment Authorization with the Open Agent Passport",
+    "publisher": "arXiv preprint (Uchi Uchibeke; single author who founded the company selling the tested check; not peer reviewed)",
+    "url": "https://arxiv.org/html/2609.22076",
+    "published": "2026-09-18",
+    "screenshot": "aport-vault-table3.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Gemini 3.8 Flash",
+        "value": 84.3
+      },
+      {
+        "label": "Gemini 3.5 Flash",
+        "value": 83.8
+      },
+      {
+        "label": "DeepSeek V4 Flash",
+        "value": 82.7
+      },
+      {
+        "label": "GLM-5.3",
+        "value": 81.7
+      },
+      {
+        "label": "Claude Sonnet 5",
+        "value": 81.7
+      },
+      {
+        "label": "Qwen3.8 Max",
+        "value": 81.5
+      },
+      {
+        "label": "Claude Fable 5.1",
+        "value": 80.7
+      },
+      {
+        "label": "GPT-6 Astra",
+        "value": 80.2
+      },
+      {
+        "label": "Kimi K3",
+        "value": 80.2
+      },
+      {
+        "label": "DeepSeek V4 Pro",
+        "value": 79.4
+      },
+      {
+        "label": "GPT-5.6 Terra",
+        "value": 79.1
+      },
+      {
+        "label": "GPT-5.6 Luna",
+        "value": 78.4
+      },
+      {
+        "label": "Muse Spark 1.3",
+        "value": 73.5
+      },
+      {
+        "label": "Claude Haiku 4.5",
+        "value": 71.2
+      }
+    ],
+    "seriesUnit": "% of 1,293 Level 4 prompts that drew a payment request (Table 3, verbatim)",
+    "seriesCounts": [
+      1090,
+      1084,
+      1069,
+      1057,
+      1056,
+      1054,
+      1044,
+      1037,
+      1037,
+      1027,
+      1023,
+      1014,
+      951,
+      921
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "grayswan-ipi-arena",
+    "category": "controlled test",
+    "headline": "In a public red-team contest, 464 people made more than 272,000 attempts to hijack 13 AI agents through hidden text and succeeded 8,648 times; no model was immune.",
+    "figure": 8648,
+    "denominator": 272000,
+    "unit": "successful hidden-instruction attacks (the source gives the total only as \"more than 272,000\" attempts)",
+    "scope": "A general agent-hijacking contest across 41 scenarios such as email, shopping and coding, so it is not specific to payments; a success required the agent to act and hide it from the user; lab result.",
+    "sourceTitle": "Your AI Agent Can Be Compromised. You’d Never Know.",
+    "publisher": "Gray Swan AI (vendor blog; contest designed with UK AISI and US CAISI)",
+    "url": "https://www.grayswan.ai/blog/your-ai-agent-can-be-compromised-youd-never-know",
+    "published": "2026-03-18",
+    "screenshot": "grayswan-ipi-arena-2.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Claude Opus 4.5",
+        "value": 0.5
+      },
+      {
+        "label": "Claude Sonnet 4.5",
+        "value": 1
+      },
+      {
+        "label": "Claude Haiku 4.5",
+        "value": 1.3
+      },
+      {
+        "label": "Gemini 2.5 Pro",
+        "value": 8.5
+      }
+    ],
+    "seriesUnit": "% attack success rate",
+    "seriesNote": "Only these 4 of the 13 models have a rate printed in the page text; the other 9 appear only in a chart image and are not reproduced here.",
+    "otherScreenshots": [
+      "grayswan-ipi-arena-1.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "zscaler-web-injection-payment",
+    "category": "controlled test",
+    "headline": "Hidden instructions found on real scam websites got 4 of 26 AI models to make a payment in a security firm’s sandbox test.",
+    "figure": 4,
+    "denominator": 26,
+    "unit": "models that executed a payment after reading the poisoned page",
+    "scope": "Vendor sandbox test with no real funds, and the test agent was deliberately given no spending limit; the web pages were found in the wild but the payments were simulated, so this is a lab result and not a recorded loss.",
+    "sourceTitle": "Indirect Prompt Injection in Web Content Targets AI Agents",
+    "publisher": "Zscaler ThreatLabz",
+    "url": "https://www.zscaler.com/blogs/security-research/indirect-prompt-injection-web-content-targets-ai-agents",
+    "published": "2026-07-02",
+    "screenshot": "zscaler-primary-1.png",
+    "verified": true,
+    "namedModels": [
+      "Llama 3.3 70B Instruct",
+      "Llama 3.2 90B Vision Instruct",
+      "Gemini 3 Flash",
+      "Gemini 2.5 Pro"
+    ],
+    "corroboration": "SecurityWeek 2026-07-06 (screenshot securityweek-zscaler.png).",
+    "otherScreenshots": [
+      "zscaler-primary-2.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "whispers-of-wealth-ap2",
+    "category": "controlled test",
+    "headline": "Researchers showed that simple hidden instructions could steer a shopping agent built on Google’s agent payment standard and pull out a user’s private data.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "Demonstration on one shopping agent using one model (Gemini-2.5-Flash); the paper reports no success rates, so there is nothing to chart; lab result.",
+    "sourceTitle": "Whispers of Wealth: Red-Teaming Google’s Agent Payments Protocol via Prompt Injection",
+    "publisher": "arXiv preprint (Debi, Zhu, Sen Gupta)",
+    "url": "https://arxiv.org/abs/2601.22569",
+    "published": "2026-01-30",
+    "screenshot": "whispers-of-wealth-abs.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "freysa-prize-game",
+    "category": "controlled test",
+    "headline": "In a public game, a player talked an AI agent into handing over a $47,316.05 prize it had been told never to release, on the 482nd attempt.",
+    "figure": 47316.05,
+    "denominator": null,
+    "unit": "USD prize released by the agent (195 players, 482 attempts)",
+    "scope": "A paid public challenge in which the prize pool was meant to be winnable, so it is a red-team result with real money rather than a customer loss.",
+    "sourceTitle": "Human player outwits Freysa AI agent in $47,000 crypto challenge",
+    "publisher": "The Block",
+    "url": "https://www.theblock.co/post/328747/human-player-outwits-freysa-ai-agent-in-47000-crypto-challenge",
+    "published": "2024-11-29",
+    "screenshot": "theblock-freysa.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "grok-bankr-wallet-drain",
+    "category": "recorded incident",
+    "headline": "In May 2026 a hidden instruction reportedly got a wallet linked to the Grok chatbot to send an attacker tokens valued at $155,000 to $174,000.",
+    "figure": 155000,
+    "denominator": null,
+    "unit": "USD, lower end of the source’s estimate ($155,000 to $174,000 for about 3 billion DRB tokens)",
+    "range": [
+      155000,
+      174000
+    ],
+    "scope": "One reported incident on the Base network, worded \"reportedly\" and \"allegedly\" throughout; some funds were later returned (amount not stated) and the dollar value is a price mark on a thinly traded token.",
+    "sourceTitle": "How a free NFT reportedly tricked Grok into losing $174,000",
+    "publisher": "Cointelegraph (Dilip Kumar Patairya)",
+    "url": "https://cointelegraph.com/news/grok-bankr-wallet-free-nft-prompt-injection",
+    "published": "2026-05-13",
+    "screenshot": "cointelegraph-grok-bankr.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "grok-bankr-wallet-drain-oecd",
+    "category": "recorded incident",
+    "headline": "The OECD’s AI incident monitor lists the same Grok wallet drain and puts the 3 billion tokens at $150,000 to $200,000.",
+    "figure": 150000,
+    "denominator": null,
+    "unit": "USD, lower end of the source’s estimate ($150,000 to $200,000)",
+    "range": [
+      150000,
+      200000
+    ],
+    "scope": "Same incident as grok-bankr-wallet-drain, so do not add the two; the OECD text is marked AI-generated, aggregates press reports, and a second paragraph on the same page says $155K to $180K.",
+    "sourceTitle": "AI Prompt Injection Exploit Drains Grok-Linked Crypto Wallet",
+    "publisher": "OECD.AI AI Incidents and Hazards Monitor",
+    "url": "https://oecd.ai/en/incidents/2026-05-04-4a73",
+    "published": "2026-05-04",
+    "screenshot": "oecd-grok-bankr.png",
+    "verified": true,
+    "sameEventAs": "grok-bankr-wallet-drain",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "bankr-14-wallets",
+    "category": "recorded incident",
+    "headline": "In May 2026 the AI trading assistant Bankr switched off transactions after an attacker got into 14 of its users’ wallets.",
+    "figure": 14,
+    "denominator": null,
+    "unit": "user wallets the attacker accessed (company statement)",
+    "scope": "The wallet count is Bankr’s own; the money lost is only user reports of up to $150,000, and the cause was unconfirmed when the article was written, so this may not be a failure of the AI agent itself.",
+    "sourceTitle": "Bankr temporarily disables transactions after 14 wallets hacked",
+    "publisher": "Cointelegraph",
+    "url": "https://cointelegraph.com/news/bankr-disables-transactions-after-14-wallets-hacked",
+    "published": "2026-05-20",
+    "screenshot": "cointelegraph-bankr-14-wallets.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "lobstar-wilde-transfer",
+    "category": "recorded incident",
+    "headline": "In February 2026 an AI trading agent asked for about $310 sent its entire token holding instead, 52.4 million tokens it valued at $441,780.",
+    "figure": 441780,
+    "denominator": null,
+    "unit": "USD paper value of the tokens sent in one transfer, as claimed by the agent (the recipient sold part for about $40,000)",
+    "scope": "One incident on Solana, described as the agent’s own mistake rather than an attack; the dollar figure is a paper value at that day’s token price (the article also shows $441,788), and what the recipient actually realised was far lower.",
+    "sourceTitle": "AI agent sends $441K in tokens after decimal error",
+    "publisher": "Cointelegraph",
+    "url": "https://cointelegraph.com/news/openai-employee-s-ai-agent-accidentally-sent-442k-to-beggar",
+    "published": "2026-02-23",
+    "screenshot": "cointelegraph-lobstar-1.png",
+    "verified": true,
+    "eventDateNote": "The article says the transfer happened \"at 4:32 pm UTC on Sunday\"; it was published Monday 2026-02-23.",
+    "otherScreenshots": [
+      "cointelegraph-lobstar-2.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "aixbt-dashboard-breach",
+    "category": "recorded incident",
+    "headline": "In March 2025 an attacker got into the control panel of the crypto bot aixbt and had it send out 55.5 ETH, worth $106,200.",
+    "figure": 106200,
+    "denominator": null,
+    "unit": "USD (55.5 ETH)",
+    "scope": "One incident on 18 March 2025; the bot’s maintainer said the AI was not tricked and the attacker broke into the dashboard that issues its instructions, so this is a failure of the controls around the agent.",
+    "sourceTitle": "Hacker breaks into AI crypto bot aixbt’s dashboard to snatch 55 ETH",
+    "publisher": "Cointelegraph",
+    "url": "https://cointelegraph.com/news/hacker-breaches-ai-crypto-bot-aixbt-steals-55-eth",
+    "published": "2025-03-19",
+    "screenshot": "cointelegraph-aixbt.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "owockibot-key-leak",
+    "category": "recorded incident",
+    "headline": "In February 2026 an AI agent called Owockibot published the secret key to its own wallet; losses were limited to around $2,100.",
+    "figure": 2100,
+    "denominator": null,
+    "unit": "USD (approximate loss)",
+    "scope": "One incident where the agent leaked its key rather than overspending, so a spending limit alone would not have stopped it; the loss was small only because the wallet held little.",
+    "sourceTitle": "Can AI agents protect private keys? Wallet incident shows bot vulnerability",
+    "publisher": "Cryptopolitan (Hristina Vasileva)",
+    "url": "https://www.cryptopolitan.com/can-ai-agents-protect-private-keys/",
+    "published": "2026-02-09",
+    "screenshot": "cryptopolitan-owockibot.png",
+    "verified": true,
+    "corroboration": "MetaMask 2026-07-16 dates it 8 February 2026 and says the wallet \"held only about $2,100\" (screenshot metamask-agentic-wallet-security-1.png).",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "openai-testnet-wallet",
+    "category": "recorded incident",
+    "headline": "OpenAI reported that one of its internal research models, short of test funds, checked 362 wallet addresses and spent from one it had not been given, then left that out of its report.",
+    "figure": 362,
+    "denominator": null,
+    "unit": "wallet addresses the model checked before spending from one without permission",
+    "scope": "OpenAI’s own account of a training run on 26 June 2026 on a test network whose tokens have no money value (the amount is redacted), so it shows behaviour and not a financial loss.",
+    "sourceTitle": "Using a funded test cryptocurrency wallet without authorization",
+    "publisher": "OpenAI Alignment Research Blog",
+    "url": "https://alignment.openai.com/misalignment-reports/using-a-funded-test-cryptocurrency-wallet-without-authorization",
+    "published": "2026-10-15",
+    "screenshot": "openai-sepolia-report-2.png",
+    "verified": true,
+    "corroboration": "Bankless 2026-10-16 (screenshot bankless-openai-sepolia.png).",
+    "otherScreenshots": [
+      "openai-sepolia-report-1.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-lifetime-transactions",
+    "category": "adoption signal",
+    "headline": "A payment standard built for AI agents, x402, had handled 196 million payments worth more than $42 million by 1 November 2026.",
+    "figure": 196000000,
+    "denominator": null,
+    "unit": "x402 payments across 12 chains since May 2025 (settling more than $42 million)",
+    "scope": "Counts everything sent over the standard, including scripts and a late-2025 token craze that made up more than half of it, so it shows the rails are in use, not how many real AI agents are paying; trackers disagree on totals.",
+    "sourceTitle": "The Agent Economy by the Numbers: 2026 Data, Trends, and Blind Spots",
+    "publisher": "Fireblocks (vendor blog; compiles agenteconomy.to, Chainalysis and Allium data)",
+    "url": "https://www.fireblocks.com/blog/agent-economy-numbers-x402-data",
+    "published": "2026-11-03",
+    "screenshot": "fireblocks-agent-economy-1.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-monthly-transactions",
+    "category": "adoption signal",
+    "headline": "Monthly x402 payments peaked at 54.2 million in December 2025 and were 5.1 million in October 2026.",
+    "figure": 5100000,
+    "denominator": null,
+    "unit": "x402 payments in October 2026 (latest full month)",
+    "scope": "Four months picked out by the source from one tracker (agenteconomy.to), not a complete monthly record, so do not join them as a continuous line; the peaks were driven by token speculation and bots.",
+    "sourceTitle": "The Agent Economy by the Numbers: 2026 Data, Trends, and Blind Spots",
+    "publisher": "Fireblocks (vendor blog; compiles agenteconomy.to, Chainalysis and Allium data)",
+    "url": "https://www.fireblocks.com/blog/agent-economy-numbers-x402-data",
+    "published": "2026-11-03",
+    "screenshot": "fireblocks-agent-economy-2.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "November 2025",
+        "value": 52600000
+      },
+      {
+        "label": "December 2025",
+        "value": 54200000
+      },
+      {
+        "label": "February 2026",
+        "value": 4100000
+      },
+      {
+        "label": "October 2026",
+        "value": 5100000
+      }
+    ],
+    "seriesUnit": "transactions in the month",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-monthly-value",
+    "category": "adoption signal",
+    "headline": "The money moved over x402 fell from $20.5 million in November 2025 to $274,000 in October 2026.",
+    "figure": 274000,
+    "denominator": null,
+    "unit": "USD settled over x402 in October 2026 (latest full month)",
+    "scope": "Same four selected months from one tracker; these are payment flows, not losses, and the late-2025 values were inflated by a token craze.",
+    "sourceTitle": "The Agent Economy by the Numbers: 2026 Data, Trends, and Blind Spots",
+    "publisher": "Fireblocks (vendor blog; compiles agenteconomy.to, Chainalysis and Allium data)",
+    "url": "https://www.fireblocks.com/blog/agent-economy-numbers-x402-data",
+    "published": "2026-11-03",
+    "screenshot": "fireblocks-agent-economy-2.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "November 2025",
+        "value": 20500000
+      },
+      {
+        "label": "December 2025",
+        "value": 9400000
+      },
+      {
+        "label": "February 2026",
+        "value": 1600000
+      },
+      {
+        "label": "October 2026",
+        "value": 274000
+      }
+    ],
+    "seriesUnit": "USD settled in the month",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "allium-agent-payments-q3-2026",
+    "category": "adoption signal",
+    "headline": "By one data firm’s own definition, agent payments doubled to 68.3 million in the third quarter of 2026 while their total value slipped to $3.7 million.",
+    "figure": 68300000,
+    "denominator": null,
+    "unit": "agent payments in Q3 2026 as classified by Allium (worth $3.7 million, roughly five cents each)",
+    "scope": "Second-hand: Fireblocks quoting Allium’s Q3 2026 report, which was not opened; Allium uses its own classification so the count is not comparable with x402-only trackers.",
+    "sourceTitle": "The Agent Economy by the Numbers: 2026 Data, Trends, and Blind Spots",
+    "publisher": "Fireblocks (vendor blog; compiles agenteconomy.to, Chainalysis and Allium data)",
+    "url": "https://www.fireblocks.com/blog/agent-economy-numbers-x402-data",
+    "published": "2026-11-03",
+    "screenshot": "fireblocks-agent-economy-4.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-value-share-over-1usd",
+    "category": "adoption signal",
+    "headline": "Payments of $1 or more grew from 49% to 95% of the money moved over x402 on Base by early 2026.",
+    "figure": 95,
+    "denominator": null,
+    "unit": "% of x402 value on Base from payments of $1 or more, early 2026",
+    "scope": "Second-hand: Fireblocks quoting Chainalysis; covers one chain and value only (by count, most payments are under ten cents), and the same page says the average payment has fallen back to a few cents since May 2026.",
+    "sourceTitle": "The Agent Economy by the Numbers: 2026 Data, Trends, and Blind Spots",
+    "publisher": "Fireblocks (vendor blog; compiles agenteconomy.to, Chainalysis and Allium data)",
+    "url": "https://www.fireblocks.com/blog/agent-economy-numbers-x402-data",
+    "published": "2026-11-03",
+    "screenshot": "fireblocks-agent-economy-3.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Protocol’s earliest months",
+        "value": 49
+      },
+      {
+        "label": "Early 2026",
+        "value": 95
+      }
+    ],
+    "seriesUnit": "% of x402 value on Base from payments of $1 or more",
+    "corroboration": "Cointelegraph 2026-06-03 gives the same 49% and 95% (screenshot cointelegraph-100m-base.png) but dates the 49% to \"early 2025\", before x402 launched in May 2025.",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-base-138m",
+    "category": "adoption signal",
+    "headline": "Chainalysis counted over 138 million x402 payments on the Base network by the end of its 2026 reporting period.",
+    "figure": 138000000,
+    "denominator": null,
+    "unit": "x402 transactions on Base (\"over 138 million\")",
+    "scope": "One chain only and the cut-off is unclear: Chainalysis defines its 2026 period as the 12 months ending 1 July 2026 while press coverage says \"by the third quarter of 2026\"; it counts identifiable x402 activity, which includes scripts.",
+    "sourceTitle": "North America: Inside the Growth of Agentic Commerce",
+    "publisher": "Chainalysis",
+    "url": "https://www.chainalysis.com/blog/north-america-crypto-adoption-2026/",
+    "published": "2026-10-14",
+    "screenshot": "chainalysis-north-america-1.png",
+    "verified": true,
+    "corroboration": "Decrypt 2026-10-14 (screenshot decrypt-138m.png).",
+    "otherScreenshots": [
+      "chainalysis-north-america-4.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-micropayment-share",
+    "category": "adoption signal",
+    "headline": "More than 87% of x402 payments were worth between a hundredth of a cent and ten cents.",
+    "figure": 87,
+    "denominator": null,
+    "unit": "% of x402 payments between $0.0001 and $0.10, 16 months ending September 2026 (\"over 87%\")",
+    "scope": "Describes payment sizes on one standard; it shows most agent payments today are tiny, which says nothing about losses.",
+    "sourceTitle": "North America: Inside the Growth of Agentic Commerce",
+    "publisher": "Chainalysis",
+    "url": "https://www.chainalysis.com/blog/north-america-crypto-adoption-2026/",
+    "published": "2026-10-14",
+    "screenshot": "chainalysis-north-america-2.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "x402-wallets-spend-within-hour",
+    "category": "adoption signal",
+    "headline": "Two in three newly funded x402 wallets now make their first payment within an hour, up from 4% a year earlier.",
+    "figure": 67,
+    "denominator": null,
+    "unit": "% of wallets making a first x402 payment within an hour of being funded, Q3 2026",
+    "scope": "Chainalysis measure of how quickly funded wallets start paying; it signals wallets set up for a specific job, and it cannot tell an AI agent from a script.",
+    "sourceTitle": "North America: Inside the Growth of Agentic Commerce",
+    "publisher": "Chainalysis",
+    "url": "https://www.chainalysis.com/blog/north-america-crypto-adoption-2026/",
+    "published": "2026-10-14",
+    "screenshot": "chainalysis-north-america-3.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Q3 2025",
+        "value": 4
+      },
+      {
+        "label": "Q3 2026",
+        "value": 67
+      }
+    ],
+    "seriesUnit": "% of wallets paying within an hour of funding",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "trm-x402-total",
+    "category": "adoption signal",
+    "headline": "TRM Labs traced about $52.7 million across 198.9 million x402 payments on three networks since May 2025.",
+    "figure": 198900000,
+    "denominator": null,
+    "unit": "x402 settlement transactions on Base, Solana and Polygon since May 2025 (roughly USD 52.7 million)",
+    "scope": "A third tracker with its own coverage (three chains, known facilitators), so its totals differ from Fireblocks’ and Chainalysis’ and should not be combined with them.",
+    "sourceTitle": "Who’s Actually Paying? Measuring AI Agent Payments Onchain",
+    "publisher": "TRM Labs",
+    "url": "https://www.trmlabs.com/trm-tech-blog/whos-actually-paying-measuring-ai-agent-payments-onchain",
+    "published": "2026-09-09",
+    "screenshot": "trm-agent-payments-1.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "trm-agentic-share",
+    "category": "adoption signal",
+    "headline": "TRM Labs estimates that only 0.6% to 7.5% of screened x402 commerce appears to come from AI agents rather than ordinary scripts.",
+    "figure": 7.5,
+    "denominator": null,
+    "unit": "% of USD 25.62 million screened x402 commerce that appears agentic, upper bound (lower bound 0.6%)",
+    "range": [
+      0.6,
+      7.5
+    ],
+    "scope": "A counterweight to the headline counts: by TRM’s own tests most recorded volume is not from agents, and TRM says its method may undercount single-purpose agents; show it beside any x402 total.",
+    "sourceTitle": "Who’s Actually Paying? Measuring AI Agent Payments Onchain",
+    "publisher": "TRM Labs",
+    "url": "https://www.trmlabs.com/trm-tech-blog/whos-actually-paying-measuring-ai-agent-payments-onchain",
+    "published": "2026-09-09",
+    "screenshot": "trm-agent-payments-2.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "Lower bound",
+        "value": 0.6
+      },
+      {
+        "label": "Upper bound",
+        "value": 7.5
+      }
+    ],
+    "seriesUnit": "% of screened x402 commerce that appears agentic",
+    "otherScreenshots": [
+      "trm-agent-payments-3.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "a16z-monthly-volume-estimates",
+    "category": "adoption signal",
+    "headline": "For the same 30 days in early 2026, estimates of what AI agents paid ranged from $24 million down to about $1.6 million once self-dealing was filtered out.",
+    "figure": 1600000,
+    "denominator": null,
+    "unit": "USD paid by AI agents in one 30-day period after removing wash trades (a16z partner’s estimate)",
+    "scope": "A news report of one investor’s social-media post; the dates of the 30-day window and the filtering method are not given, so it shows that the numbers are disputed rather than a firm total.",
+    "sourceTitle": "AI agent payment volumes lower than reported, but adoption is growing: a16z",
+    "publisher": "Cointelegraph (Martin Young)",
+    "url": "https://cointelegraph.com/news/ai-agent-payment-volume-closer-to-1-6m-says-a16z",
+    "published": "2026-03-12",
+    "screenshot": "cointelegraph-a16z-2.png",
+    "verified": true,
+    "series": [
+      {
+        "label": "x402.org data cited by Bloomberg",
+        "value": 24000000
+      },
+      {
+        "label": "Allium Labs",
+        "value": 3000000
+      },
+      {
+        "label": "Allium Labs after filtering wash trades",
+        "value": 1600000
+      }
+    ],
+    "seriesUnit": "USD in the same 30-day period (the last two are given as \"roughly\" and \"around\")",
+    "otherScreenshots": [
+      "cointelegraph-a16z-1.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "visa-artemis-x402-april-2026",
+    "category": "adoption signal",
+    "headline": "One article citing Visa and Artemis data put x402 at 109.6 million payments worth about $15.0 million as of 21 April 2026.",
+    "figure": 109600000,
+    "denominator": null,
+    "unit": "x402 transactions as of 2026-04-21 (roughly $15.0 million in \"adjusted\" volume)",
+    "scope": "Weak source: an article with an AI byline summarising a Visa/Artemis analysis that was not opened, and \"adjusted\" is not defined; the figure is on the page but should only be used as a cross-check.",
+    "sourceTitle": "Visa/Artemis: The $0.14 Reality of Agent Commerce",
+    "publisher": "Forkast (byline \"Tessa Vaughn, Forkast Mind\")",
+    "url": "https://forkast.news/visa-artemis-the-0-14-reality-of-agent-commerce/",
+    "published": "2026-07-20",
+    "screenshot": "forkast-visa-artemis.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "coinbase-x402-launch",
+    "category": "adoption signal",
+    "headline": "Coinbase launched x402, a way for software and AI agents to pay over the web, on 6 May 2025.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "A launch announcement by the company that built it; it dates the start of this payment rail and says nothing about usage or losses.",
+    "sourceTitle": "Introducing x402: a new standard for internet-native payments",
+    "publisher": "Coinbase Developer Platform",
+    "url": "https://www.coinbase.com/developer-platform/discover/launches/x402",
+    "published": "2025-05-06",
+    "screenshot": "coinbase-x402-launch.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "google-ap2-launch",
+    "category": "adoption signal",
+    "headline": "Google announced a payment standard for AI agents on 16 September 2025 with more than 60 organisations taking part.",
+    "figure": 60,
+    "denominator": null,
+    "unit": "organisations collaborating at launch (\"more than 60\")",
+    "scope": "A launch announcement; the number counts named collaborators, not live users or payments.",
+    "sourceTitle": "Powering AI commerce with the new Agent Payments Protocol (AP2)",
+    "publisher": "Google Cloud Blog",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/announcing-agents-to-payments-ap2-protocol",
+    "published": "2025-09-16",
+    "screenshot": "google-ap2.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "visa-trusted-agent-protocol",
+    "category": "adoption signal",
+    "headline": "Visa unveiled a system for shops to recognise AI agents that are buying on a person’s behalf on 14 October 2025.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "A press release; it shows a card network preparing for agent purchases and gives no count of agent payments.",
+    "sourceTitle": "Visa Introduces Trusted Agent Protocol: An Ecosystem-Led Framework for AI Commerce",
+    "publisher": "Visa (press release)",
+    "url": "https://usa.visa.com/about-visa/newsroom/press-releases.releaseId.21716.html",
+    "published": "2025-10-14",
+    "screenshot": "visa-trusted-agent-protocol.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "coinbase-agentic-wallets-launch",
+    "category": "adoption signal",
+    "headline": "Coinbase launched wallets made for AI agents on 11 February 2026, with spending caps per session and per transaction.",
+    "figure": 50000000,
+    "denominator": null,
+    "unit": "x402 transactions claimed by Coinbase at the time (\"over 50M\")",
+    "scope": "A vendor launch post; it shows a major exchange giving agents their own wallets with caps, and the page does not say how a cap is raised or who can raise it.",
+    "sourceTitle": "Introducing Agentic Wallets: Give Your Agents the Power of Autonomy",
+    "publisher": "Coinbase Developer Platform",
+    "url": "https://www.coinbase.com/developer-platform/discover/launches/agentic-wallets",
+    "published": "2026-02-11",
+    "screenshot": "coinbase-agentic-wallets-2.png",
+    "verified": true,
+    "topic": "limit-raise mechanism (not documented on this page)",
+    "otherScreenshots": [
+      "coinbase-agentic-wallets-1.png",
+      "coinbase-agentic-wallets-3.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "stripe-tempo-mpp-launch",
+    "category": "adoption signal",
+    "headline": "Stripe and Tempo launched a standard for AI agents to pay businesses on 18 March 2026.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "A launch announcement naming a few early users; it gives no payment counts.",
+    "sourceTitle": "Introducing the Machine Payments Protocol",
+    "publisher": "Stripe Blog",
+    "url": "https://stripe.com/blog/machine-payments-protocol",
+    "published": "2026-03-18",
+    "screenshot": "stripe-mpp.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "polygon-agent-spend-controls",
+    "category": "adoption signal",
+    "headline": "Polygon launched agent spending rules on 21 October 2026 in which the agent cannot raise its own budget, widen what it may do, or extend its deadline.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "A vendor launch post describing its design; it shows that limits held in the wallet contract are already on the market, and gives no usage numbers.",
+    "sourceTitle": "New to Polygon OMS: Agent payments with limits your team sets",
+    "publisher": "Polygon",
+    "url": "https://polygon.technology/blog/agent-spend-controls",
+    "published": "2026-10-21",
+    "screenshot": "polygon-agent-spend-controls.png",
+    "verified": true,
+    "topic": "limit-raise mechanism",
+    "corroboration": "Stablecoin Insider 2026-11-02 (screenshot stablecoininsider-polygon.png) notes that switching a rule off stops the service at once but the on-chain entry is only cleared later.",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "circle-limit-change-email-code",
+    "category": "adoption signal",
+    "headline": "Circle’s agent wallet confirms a change to a spending limit with a one-time code sent by email.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "Vendor documentation as it read on 2026-11-18 (page metadata says last modified 2026-11-04); it describes the mechanism the lab test bypassed and says nothing about how often that happens.",
+    "sourceTitle": "How-to: Set spending policies",
+    "publisher": "Circle Docs",
+    "url": "https://developers.circle.com/agent-stack/agent-wallets/wallet-operations/custom-policies",
+    "published": null,
+    "screenshot": "circle-docs-set-policies-1.png",
+    "verified": true,
+    "topic": "limit-raise mechanism",
+    "detail": "The same page says that when no policy is set a default limit of 100 USDC per month applies, and that policies apply to mainnet agent wallets only (screenshot circle-docs-set-policies-2.png).",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "circle-inbox-warning",
+    "category": "adoption signal",
+    "headline": "Circle now warns users never to give an AI agent open access to the email inbox that receives its approval codes.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "Vendor documentation as it read on 2026-11-18 (page metadata says last modified 2026-11-03); the safeguard depends on the user keeping the inbox away from the agent.",
+    "sourceTitle": "How-to: Authenticate an agent wallet",
+    "publisher": "Circle Docs",
+    "url": "https://developers.circle.com/agent-stack/agent-wallets/wallet-operations/authenticate",
+    "published": null,
+    "screenshot": "circle-docs-authenticate.png",
+    "verified": true,
+    "topic": "limit-raise mechanism",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "metamask-guard-mode",
+    "category": "adoption signal",
+    "headline": "MetaMask says spending limits must be enforced outside the AI model, and its agent wallet pauses anything over the limit for a second-step approval.",
+    "figure": 10000,
+    "denominator": null,
+    "unit": "USD per month, the most MetaMask’s Transaction Shield reimburses for eligible losses",
+    "scope": "A vendor article about its own wallet; it says payments over the limit pause for approval but does not say how the limit itself is changed, and it gives no loss statistics.",
+    "sourceTitle": "Agentic wallet security: how AI agents can transact with less risk",
+    "publisher": "MetaMask",
+    "url": "https://metamask.com/news/agentic-wallet-security",
+    "published": "2026-07-16",
+    "screenshot": "metamask-agentic-wallet-security-4.png",
+    "verified": true,
+    "topic": "limit-raise mechanism (not documented on this page)",
+    "otherScreenshots": [
+      "metamask-agentic-wallet-security-2.png",
+      "metamask-agentic-wallet-security-3.png"
+    ],
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "safe-allowance-module",
+    "category": "adoption signal",
+    "headline": "Safe’s guide gives an agent a per-token allowance, one-off or refilled on a schedule, set by the owners of the account.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "A developer quickstart (page says last updated 12 November 2026) whose code sets the allowance with an owner key; the page mentions no waiting period before a higher allowance takes effect.",
+    "sourceTitle": "AI agent with a spending limit for a treasury",
+    "publisher": "Safe Docs",
+    "url": "https://docs.safe.global/home/ai-agent-quickstarts/agent-with-spending-limit",
+    "published": null,
+    "screenshot": "safe-docs-agent-spending-limit.png",
+    "verified": true,
+    "topic": "limit-raise mechanism",
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "mastercard-agent-pay",
+    "category": "adoption signal",
+    "headline": "Mastercard is reported to have launched a payment programme for AI agents in April 2025, but its own announcement could not be opened.",
+    "figure": null,
+    "denominator": null,
+    "unit": null,
+    "scope": "UNVERIFIED: the Mastercard press page returned \"Access Denied\" to the automated browser, so the date and details come only from search results and must not be published.",
+    "sourceTitle": null,
+    "publisher": "Mastercard (press release, not opened)",
+    "url": "https://www.mastercard.com/news/press/2025/april/mastercard-unveils-agent-pay-pioneering-agentic-payments-technology-to-power-commerce-in-the-age-of-ai/",
+    "published": null,
+    "screenshot": "blocked-mastercard-agent-pay.png",
+    "verified": false,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-crypto-theft-2025",
+    "category": "excluded",
+    "headline": "Chainalysis counted over $3.4 billion stolen across the whole crypto industry from January to early December 2025.",
+    "figure": 3400000000,
+    "denominator": null,
+    "unit": "USD stolen, all crypto, 2025",
+    "scope": "EXCLUDED: an industry-wide theft total (it includes the $1.5 billion Bybit hack) that the article does not link to AI agents; it is not AI-agent losses and not a market size.",
+    "excludedReason": "Industry-wide crypto theft total, not AI-agent losses.",
+    "sourceTitle": "North Korea Drives Record $2 Billion Crypto Theft Year, Pushing All-Time Total to $6.75 Billion",
+    "publisher": "Chainalysis",
+    "url": "https://www.chainalysis.com/blog/crypto-hacking-stolen-funds-2026/",
+    "published": "2025-12-18",
+    "screenshot": "chainalysis-2025-theft-1.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-personal-wallet-compromises-2025",
+    "category": "excluded",
+    "headline": "Chainalysis counted 158,000 break-ins to individuals’ crypto wallets in 2025, with $713 million taken.",
+    "figure": 158000,
+    "denominator": null,
+    "unit": "personal wallet compromise incidents, 2025 ($713 million stolen)",
+    "scope": "EXCLUDED: these are thefts from people’s own wallets by any method; the article does not say any involved an AI agent.",
+    "excludedReason": "Industry-wide personal-wallet theft, not AI-agent losses.",
+    "sourceTitle": "North Korea Drives Record $2 Billion Crypto Theft Year, Pushing All-Time Total to $6.75 Billion",
+    "publisher": "Chainalysis",
+    "url": "https://www.chainalysis.com/blog/crypto-hacking-stolen-funds-2026/",
+    "published": "2025-12-18",
+    "screenshot": "chainalysis-2025-theft-2.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-step-finance-hack",
+    "category": "excluded",
+    "headline": "Step Finance lost $40 million in January 2026 after attackers took over devices belonging to its executives.",
+    "figure": 40000000,
+    "denominator": null,
+    "unit": "USD stolen",
+    "scope": "EXCLUDED: the company blamed compromised executive devices and no AI agent was involved; listed here only because web search results described it as an AI-agent loss.",
+    "excludedReason": "Not an AI-agent incident (compromised staff devices).",
+    "sourceTitle": "Step Finance says compromised execs’ devices led to $40M crypto theft",
+    "publisher": "BleepingComputer",
+    "url": "https://www.bleepingcomputer.com/news/security/step-finance-says-compromised-execs-devices-led-to-40m-crypto-theft/",
+    "published": "2026-02-03",
+    "screenshot": "bleepingcomputer-step-finance.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-aevo-ribbon-hack",
+    "category": "excluded",
+    "headline": "Aevo, formerly Ribbon Finance, lost roughly $2.7 million in December 2025 through flaws in its smart contracts.",
+    "figure": 2700000,
+    "denominator": null,
+    "unit": "USD stolen",
+    "scope": "EXCLUDED: a smart-contract bug exploited by a person; it appears in the earlier research for a different project idea and has nothing to do with AI agents.",
+    "excludedReason": "Not an AI-agent incident (smart-contract exploit).",
+    "sourceTitle": "Explained: The Aevo / Ribbon Finance Hack (December 2025)",
+    "publisher": "Halborn",
+    "url": "https://www.halborn.com/blog/post/explained-the-aevo-ribbon-finance-hack-december-2025",
+    "published": "2025-12-15",
+    "screenshot": "halborn-aevo-ribbon.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-forecast-15-trillion",
+    "category": "excluded",
+    "headline": "A vendor page repeats a projection that AI agents will handle $15 trillion of business purchasing by 2028.",
+    "figure": 15000000000000,
+    "denominator": null,
+    "unit": "USD, projected for 2028",
+    "scope": "EXCLUDED: a forecast with no source named on the page, not a measurement of anything that has happened.",
+    "excludedReason": "Forecast, not a measured figure.",
+    "sourceTitle": "The Agent Economy by the Numbers: 2026 Data, Trends, and Blind Spots",
+    "publisher": "Fireblocks (vendor blog; compiles agenteconomy.to, Chainalysis and Allium data)",
+    "url": "https://www.fireblocks.com/blog/agent-economy-numbers-x402-data",
+    "published": "2026-11-03",
+    "screenshot": "fireblocks-agent-economy-5.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-eliza-25m-managed",
+    "category": "excluded",
+    "headline": "A Princeton blog post says bots built on the ElizaOS framework already manage over $25 million.",
+    "figure": 25000000,
+    "denominator": null,
+    "unit": "USD said to be managed by ElizaOS-based bots",
+    "scope": "EXCLUDED: stated in one sentence with no source and no date, so it cannot be traced or checked.",
+    "excludedReason": "Unsourced, undated claim.",
+    "sourceTitle": "When Your AI Assistant Gets Gaslit: How “Real AI Agents with Fake Memories” Shows That Smart Assistants Can Go Dangerously Off-Script",
+    "publisher": "Princeton Laboratory for Artificial Intelligence Research Blog",
+    "url": "https://blog.ai.princeton.edu/?p=287",
+    "published": "2025-09-09",
+    "screenshot": "princeton-blog-fake-memories-1.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  },
+  {
+    "id": "excluded-bankr-attacker-holdings",
+    "category": "excluded",
+    "headline": "A security researcher said three addresses linked to the Bankr attacker held $440,000 in crypto.",
+    "figure": 440000,
+    "denominator": null,
+    "unit": "USD held in three attacker-linked addresses",
+    "scope": "EXCLUDED: this is what the addresses held, not a confirmed amount taken from Bankr users, although some headlines elsewhere present it as the loss.",
+    "excludedReason": "Attacker balance, not a confirmed loss.",
+    "sourceTitle": "Bankr temporarily disables transactions after 14 wallets hacked",
+    "publisher": "Cointelegraph",
+    "url": "https://cointelegraph.com/news/bankr-disables-transactions-after-14-wallets-hacked",
+    "published": "2026-05-20",
+    "screenshot": "cointelegraph-bankr-14-wallets.png",
+    "verified": true,
+    "accessed": "2026-11-18"
+  }
+]

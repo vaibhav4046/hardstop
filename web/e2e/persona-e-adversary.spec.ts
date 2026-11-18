@@ -244,7 +244,7 @@ test.describe('Persona E: adversarial agent', () => {
     for (const raw of ['{"setup":', 'null', '[]', '{"setup":{},"actions":[]}', JSON.stringify({ setup: (await readSession(page)).setup, actions: [{ type: 'mint', amount: '1' }] })]) {
       await writeSession(page, raw)
       await page.reload()
-      await expect(page.getByRole('alert').filter({ hasText: 'The practice vault could not start' })).toBeVisible()
+      await expect(page.getByRole('alert').filter({ hasText: 'The vault could not be opened' })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Discard the saved vault' })).toBeVisible()
     }
     await shot(page, 'E-07-corrupt-storage')
@@ -272,7 +272,7 @@ test.describe('Persona E: adversarial agent', () => {
     for (const candidate of broken) {
       await writeSession(page, JSON.stringify(candidate))
       await page.reload()
-      const failed = page.getByRole('alert').filter({ hasText: 'The practice vault could not start' })
+      const failed = page.getByRole('alert').filter({ hasText: 'The vault could not be opened' })
       const ready = page.getByRole('heading', { name: 'What the agent tries' })
       await expect(failed.or(ready)).toBeVisible()
       outcomes.push((await failed.isVisible()) ? 'error shown' : 'vault rebuilt')

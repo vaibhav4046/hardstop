@@ -274,3 +274,44 @@ It found two errors in the README, both fixed: the `Pay` excerpt showed
 `is_approved(...)` where the source has `cooled(at: ...)`, and `npm test`
 was described as 15 tests where it runs 20. Its other recommendations are
 listed in `PROGRESS.md` and are not done.
+
+**Real test networks, evidence on the landing page, no nested boxes
+(2026-11-18).** Requested by the owner: the site should open real vaults,
+show the evidence for the problem, and drop the dotted pills and boxes
+inside boxes.
+
+- `fe/src/launcher.fe`: one transaction creates a vault owned by the caller,
+  funds it with test dollars and gives the agent's key gas money. Installed
+  through the deterministic deployment proxy (0x4e59b448...), so it has one
+  address on every network that has the proxy. The proxy's runtime code was
+  read on Base Sepolia and Sepolia with `eth_getCode`: 69 bytes on both, and
+  identical to the bytes `web/tests/fake-network.ts` puts on its chain.
+- `web/src/lib/live/`: the vault wrapper on a real network. Every call is
+  run first without sending; a call the contract would revert is answered
+  from that and costs nothing. The owner signs in their wallet; the agent
+  signs with a key made in the browser.
+- Evidence: an AI research agent re-opened every source and saved page
+  screenshots (git-ignored, not published). I checked six figures against
+  those screenshots or the page itself: the paper's 9, 7 and 5 of 10, Circle
+  confirming a policy change by emailed code, Zscaler's 4 of 26, the Grok
+  wallet's $155,000 to $174,000, Fireblocks' monthly x402 table and APort's
+  140 of 76,842 against 0 of 69,297.
+
+```
+$ fe fmt --check && fe test           -> 77 passed, 0 failed
+$ scripts/native.sh (WSL)             -> 44 passed (run by the agent that wrote the launcher)
+$ npx tsc --noEmit; npx eslint src e2e tests -> clean
+$ npm test                            -> 35 passed, 0 failed
+$ npm run e2e                         -> first run 37 passed, 10 failed, 8 did not run:
+                                         8 checked wording changed on purpose, 1 real defect
+                                         (source links smaller than 44px on a phone), 1 safety
+                                         scan finding new comparisons that needed a judgement
+                                      -> second run 40 passed, 4 failed: a hidden list holding
+                                         links, a table overflowing a phone at 125% text, a test
+                                         written for a site that never offered a wallet, a missing
+                                         path in a test list
+                                      -> final run 55 passed (3.8m)
+```
+
+Not done: no vault has been opened on a public network. That needs a wallet
+with test ETH, which only the owner can provide.

@@ -105,7 +105,7 @@ test.describe('Accessibility: axe', () => {
     await page.goto('/activity')
     await page.evaluate(() => sessionStorage.setItem('hardstop.practice.v1', '{'))
     await page.reload()
-    await expect(page.getByRole('alert').filter({ hasText: 'The practice vault could not start' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'The vault could not be opened' })).toBeVisible()
     await axe(page, '/activity (error state)')
   })
 
@@ -200,7 +200,7 @@ test.describe('Accessibility: keyboard only', () => {
     await expect(reviewTitle).toBeFocused()
     await expect(page.getByText('up to $10.00 at a time, and up to $30.00 in a day')).toBeVisible()
 
-    await tabTo(page, /^button "Create vault"/, trail)
+    await tabTo(page, /^button "Create it in this browser"/, trail)
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/activity$/)
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()

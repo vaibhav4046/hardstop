@@ -20,7 +20,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: { default: 'HARDSTOP: spending limits your AI agent cannot change', template: '%s | HARDSTOP' },
   description:
-    'Put money for your AI agent in a vault with limits only you can change. Practice mode: the real contract runs in your browser with test dollars.',
+    'Put money for your AI agent in a vault with limits only you can change. Open one on a public test network with your wallet, or try it in your browser.',
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
@@ -30,15 +30,6 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <a className="skip" href="#main">
           Skip to content
         </a>
-        <aside className="practice" aria-label="Practice mode">
-          <p className="wrap">
-            <strong>Practice mode.</strong>{' '}
-            <span className="practice-more">
-              The real contract runs here in your browser, on a private simulated chain, with test dollars.{' '}
-            </span>
-            No wallet, no network, no real money.
-          </p>
-        </aside>
         <header className="topbar">
           <div className="wrap topbar-row">
             <Link href="/" className="wordmark" aria-label="HARDSTOP home">
@@ -61,8 +52,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                 <span className="fullstop" />
               </p>
               <p className="mt-1 max-w-[36rem]">
-                HARDSTOP is an unaudited prototype built for the Fe Builders Challenge 2026. This site is practice mode
-                only: nothing here holds or moves real money, and it should not be used for real money.
+                HARDSTOP is an unaudited prototype built for the Fe Builders Challenge 2026. Vaults opened here are on
+                public test networks or inside your browser. Nothing here holds or moves real money, and it should not
+                be used for real money.
               </p>
             </div>
             <ul className="flex flex-wrap content-start gap-x-8 md:justify-end">

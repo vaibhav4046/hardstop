@@ -12,7 +12,7 @@ import {
   type Hex,
 } from 'viem'
 import { tokenAbi, tokenBytecode, vaultAbi, vaultBytecode } from './artifacts.ts'
-import { Chain, type Receipt } from './chain.ts'
+import { Chain, type ChainLike, type Receipt } from './chain.ts'
 
 export const ZERO: Hex = '0x0000000000000000000000000000000000000000'
 
@@ -54,6 +54,8 @@ export type Outcome = {
   gasUsed: bigint
   /** Block timestamp the message ran at. */
   at: bigint
+  /** On a real network: the transaction that carried the message. */
+  tx?: Hex
 }
 
 export type PayOutcome = Outcome & {
@@ -139,13 +141,13 @@ function revertName(data: Hex): string {
 }
 
 export class Sim {
-  readonly chain: Chain
+  readonly chain: ChainLike
   readonly token: Hex
   readonly vault: Hex
   readonly owner: Hex
   readonly agent: Hex
 
-  private constructor(chain: Chain, token: Hex, vault: Hex, owner: Hex, agent: Hex) {
+  private constructor(chain: ChainLike, token: Hex, vault: Hex, owner: Hex, agent: Hex) {
     this.chain = chain
     this.token = token
     this.vault = vault
@@ -182,6 +184,11 @@ export class Sim {
     const sim = new Sim(chain, token, vault, setup.owner, setup.agent)
     if (setup.funding > 0n) await sim.fund(setup.funding)
     return sim
+  }
+
+  /** A vault that already exists, on whatever chain is given. Nothing is deployed. */
+  static attach(chain: ChainLike, token: Hex, vault: Hex, owner: Hex, agent: Hex): Sim {
+    return new Sim(chain, token, vault, owner, agent)
   }
 
   /** Mint test dollars into the vault. */
@@ -301,6 +308,7 @@ export class Sim {
       events: receipt.ok ? decodeEvents(receipt, this.vault) : [],
       gasUsed: receipt.gasUsed,
       at: this.chain.now,
+      tx: receipt.hash,
     }
   }
 }
@@ -321,7 +329,7 @@ type ViewResult<F extends ViewFunction> = F extends 'preview'
             ? readonly [bigint, bigint, bigint]
             : bigint
 
-async function deploy(chain: Chain, from: Hex, initCode: Hex): Promise<Hex> {
+async function deploy(chain: ChainLike, from: Hex, initCode: Hex): Promise<Hex> {
   const receipt = await chain.send(from, null, initCode)
   if (!receipt.ok || !receipt.created) throw new Error(`deployment failed: ${revertName(receipt.data)}`)
   return receipt.created

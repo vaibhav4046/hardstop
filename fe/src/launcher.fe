@@ -1,0 +1,151 @@
+//! The launcher: sets up a vault in one transaction.
+//!
+//! `launch` creates a `Vault` owned by whoever called it, funds it with test
+//! dollars when asked to, and passes any ETH sent along to the agent so the
+//! agent's own key can pay for gas.
+//!
+//! The launcher has no owner, no settings and no storage that can change. It
+//! is never the owner of a vault it creates, so it has no way to move a
+//! vault's money or change a vault's rules.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Call, Create, Ctx, Log, revert_error}
+use std::evm::crypto::keccak_words
+use ingot::token::{TestDollar, TokenMsg}
+use ingot::vault::Vault
+
+pub msg LauncherMsg {
+    /// Creates a vault owned by the caller and returns its address.
+    ///
+    /// `token` zero: the vault holds the launcher's test dollars and `deposit`
+    /// of them are minted into it. `token` non-zero: the vault holds that
+    /// token, nothing is minted and `deposit` must be zero; the owner funds
+    /// the vault with an ordinary transfer.
+    ///
+    /// The policy arguments are checked by the vault's own constructor.
+    #[selector = sol(
+        "launch(address,uint256,uint256,uint64,uint64,uint64,address,address,address,address,uint256,uint256)",
+    )]
+    Launch {
+        agent: Address,
+        per_payment: u256,
+        per_window: u256,
+        valid_until: u64,
+        window_secs: u64,
+        cooling_secs: u64,
+        payee_a: Address,
+        payee_b: Address,
+        payee_c: Address,
+        token: Address,
+        deposit: u256,
+        salt: u256,
+    } -> Address,
+
+    /// The test token created with this launcher.
+    #[selector = sol("token()")]
+    Token -> Address,
+}
+
+#[event]
+pub struct Launched {
+    #[indexed]
+    owner: Address,
+    #[indexed]
+    vault: Address,
+    #[indexed]
+    agent: Address,
+    token: Address,
+}
+
+/// Test dollars can be minted into a vault; any other token cannot.
+#[error]
+pub struct DepositNeedsTestDollar {}
+
+/// The agent's address refused the ETH sent with `launch`.
+#[error]
+pub struct AgentRefusedEth {}
+
+pub contract Launcher uses (ctx: Ctx, call: mut Call, create: mut Create, log: mut Log) {
+    test_dollar: Address,
+
+    init()
+    uses (mut create, mut test_dollar)
+    {
+        test_dollar = create.create2<TestDollar>(value: Wei::zero(), args: (), salt: 0)
+    }
+
+    recv LauncherMsg {
+        #[payable]
+        Launch {
+            agent,
+            per_payment,
+            per_window,
+            valid_until,
+            window_secs,
+            cooling_secs,
+            payee_a,
+            payee_b,
+            payee_c,
+            token,
+            deposit,
+            salt,
+        } -> Address
+        uses (ctx, test_dollar, mut call, mut create, mut log)
+        {
+            let owner = ctx.caller()
+            let testing = token == Address::zero()
+            if !testing && deposit != 0 {
+                revert_error(DepositNeedsTestDollar {})
+            }
+            let held = if testing { test_dollar } else { token }
+
+            // The caller is part of the salt, so nobody else can take, or
+            // get in ahead of, an address this caller would be given. The
+            // same caller using the same salt for the same vault twice
+            // reverts with no data: the address is already taken.
+            let vault = create
+                .create2<Vault>(
+                    value: Wei::zero(),
+                    args: (
+                        owner,
+                        agent,
+                        held,
+                        per_payment,
+                        per_window,
+                        valid_until,
+                        window_secs,
+                        cooling_secs,
+                        payee_a,
+                        payee_b,
+                        payee_c,
+                    ),
+                    salt: keccak_words([owner.word(), salt]),
+                )
+
+            // A deposit that got this far is in test dollars.
+            if deposit != 0 {
+                call.call(
+                    addr: test_dollar,
+                    gas: ctx.gas(),
+                    value: Wei::zero(),
+                    message: TokenMsg::Mint { to: vault, amount: deposit },
+                )
+            }
+
+            // Gas money for the agent's own key. Nothing stays here.
+            let eth = ctx.value()
+            if eth != Wei::zero() {
+                if !call.send_value(addr: agent, gas: ctx.gas(), value: eth).success() {
+                    revert_error(AgentRefusedEth {})
+                }
+            }
+
+            log.emit(Launched { owner, vault, agent, token: held })
+            vault
+        }
+
+        Token -> Address uses (test_dollar) {
+            test_dollar
+        }
+    }
+}

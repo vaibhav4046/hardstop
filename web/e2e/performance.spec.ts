@@ -198,14 +198,14 @@ for (const mode of ['unthrottled', 'throttled'] as const) {
         await fresh(browser, mode, mobile, async (page) => {
           await page.goto('/protect', WAIT)
           await page.getByRole('button', { name: 'Review the rules' }).click()
-          await expect(page.getByRole('button', { name: 'Create vault' })).toBeVisible(WAIT)
-          own.push(await clickToAppear(page, 'Create vault', '#agent-title'))
+          await expect(page.getByRole('button', { name: 'Create it in this browser' })).toBeVisible(WAIT)
+          own.push(await clickToAppear(page, 'Create it in this browser', '#agent-title'))
         })
       }
       record(`perf-${mode}-create-vault`, {
         conditions,
         exampleVaultMs: { ...summary(example), what: 'click "Start with an example vault" on /activity until the vault is on screen; empty cache, so this includes downloading the EVM chunk' },
-        ownVaultMs: { ...summary(own), what: 'click "Create vault" on the /protect review until the vault is on screen on /activity; the EVM chunk was already loaded by the review' },
+        ownVaultMs: { ...summary(own), what: 'click "Create it in this browser" on the /protect review until the vault is on screen on /activity; the EVM chunk was already loaded by the review' },
       })
       expect(example).toHaveLength(RUNS[mode].create)
     })

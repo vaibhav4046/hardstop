@@ -17,10 +17,10 @@ test.describe('Persona A: Maya, non-technical creator', () => {
     }
     await page.goto('/')
 
-    // The practice-mode notice is on screen before she does anything.
-    const notice = page.getByRole('complementary', { name: 'Practice mode' })
+    // Before she presses anything she is told the example is practice, and the footer says no real money is used.
+    await expect(page.getByRole('heading', { name: 'Try it on a practice vault' })).toBeVisible()
+    const notice = page.getByRole('contentinfo').getByText(/Nothing here holds or moves real money/)
     await expect(notice).toBeVisible()
-    await expect(notice).toContainText('No wallet, no network, no real money.')
 
     // The example on the home page.
     const demo = page.locator('section[aria-labelledby="demo-title"]')
@@ -55,11 +55,13 @@ test.describe('Persona A: Maya, non-technical creator', () => {
     expect(jargonIn(await primaryCopy(page)), 'jargon in the primary copy of the review').toEqual([])
     await evidence('A-02-review')
 
-    await page.getByRole('button', { name: 'Create vault' }).click()
+    await page.getByRole('button', { name: 'Create it in this browser' }).click()
     clicks++
     await expect(page).toHaveURL(/\/activity$/)
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
     await expect(notice).toBeVisible()
+    // Her vault says where it lives.
+    await expect(page.getByText('In this browser only')).toBeVisible()
 
     // An approved payment on her own vault.
     const paid = await press(page, 'Pay $4.00 to Cloud hosting')
@@ -90,13 +92,13 @@ test.describe('Persona A: Maya, non-technical creator', () => {
     await page.goto('/')
     await page.getByRole('main').getByRole('link', { name: 'Protect my AI' }).click()
     await page.getByRole('button', { name: 'Review the rules' }).click()
-    await page.getByRole('button', { name: 'Create vault' }).click()
+    await page.getByRole('button', { name: 'Create it in this browser' }).click()
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
     const paid = await press(page, 'Pay $4.00 to Cloud hosting')
     await expect(paid.locator('.stamp')).toHaveText('Paid')
     const clicks = 4
     record('persona-a-shortest-path', {
-      note: 'Landing, primary CTA, Review the rules, Create vault, Pay $4.00. No typing. Wall time includes Playwright overhead.',
+      note: 'Landing, primary CTA, Review the rules, Create it in this browser, Pay $4.00. No typing. Wall time includes Playwright overhead.',
       clicks,
       wallMs: Date.now() - started,
     })

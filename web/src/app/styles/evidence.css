@@ -1,0 +1,548 @@
+/* The landing page's evidence: the ten-model tally, the two paths, the
+   worst-case chart and the list of sources. Tokens are in ../globals.css.
+   Motion here is transform and clip-path, plus one stroke being drawn. */
+
+@layer components {
+  .eyebrow {
+    color: var(--color-gold);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* A section that runs the full width of the page with a hairline above it. */
+  .band {
+    margin-top: var(--gap-section);
+    border-top: 1px solid var(--color-rule);
+    padding-top: clamp(3rem, 2rem + 4vw, 5.5rem);
+    scroll-margin-top: 6.5rem;
+  }
+
+  /* --- ten models -------------------------------------------------------- */
+
+  .models {
+    display: grid;
+    gap: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+    margin-top: clamp(2.5rem, 2rem + 3vw, 4.5rem);
+  }
+
+  .models-head {
+    display: grid;
+    gap: 1rem 3rem;
+    align-items: end;
+  }
+
+  @media (min-width: 56rem) {
+    .models-head {
+      grid-template-columns: auto minmax(0, 30rem);
+    }
+  }
+
+  .models-count {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 1.5rem + 4vw, 4.5rem);
+    line-height: 0.9;
+    white-space: nowrap;
+  }
+
+  .models-number {
+    display: inline-block;
+    color: var(--color-stop);
+    font-size: 2.6em;
+    line-height: 0.8;
+    letter-spacing: -0.03em;
+    animation: rise-in 600ms var(--ease-out-expo) both;
+  }
+
+  .models-claim {
+    color: rgb(255 255 255 / 0.86);
+    font-size: clamp(var(--text-lg), 1rem + 0.5vw, 1.375rem);
+    line-height: 1.45;
+  }
+
+  /* One bar a model. A bar that counts fills from the floor up. */
+  .models-bars {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: clamp(0.375rem, 0.2rem + 0.8vw, 1rem);
+    height: clamp(7rem, 5rem + 9vw, 12rem);
+  }
+
+  .models-bars span {
+    position: relative;
+    border: 1px solid rgb(255 255 255 / 0.16);
+    overflow: hidden;
+  }
+
+  .models-bars .is-hit::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--color-stop);
+    transform-origin: bottom;
+    animation: bar-up 700ms var(--ease-out-expo) both;
+    animation-delay: inherit;
+  }
+
+  .models-note {
+    max-width: 52rem;
+  }
+
+  /* Two or three choices in a row; the chosen one is filled. */
+  .switch {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .switch button {
+    min-height: 2.875rem;
+    padding: 0.5rem 1.125rem;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-ink-soft);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background-color var(--duration-hover) ease-out,
+      color var(--duration-hover) ease-out,
+      border-color var(--duration-hover) ease-out;
+  }
+
+  .switch button:hover {
+    border-color: rgb(255 255 255 / 0.42);
+    color: var(--color-ink);
+  }
+
+  .switch button[aria-pressed="true"] {
+    border-color: var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-page);
+  }
+
+  /* --- two paths --------------------------------------------------------- */
+
+  .paths {
+    display: grid;
+    gap: 1.75rem;
+    margin-top: clamp(2.5rem, 2rem + 3vw, 4rem);
+  }
+
+  .paths-lanes {
+    display: grid;
+    gap: 2.5rem;
+  }
+
+  @media (min-width: 56rem) {
+    .paths-lanes {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(2.5rem, 5vw, 5rem);
+    }
+  }
+
+  .lane-title {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid currentColor;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .lane-bad .lane-title {
+    color: var(--color-stop);
+  }
+
+  .lane-good .lane-title {
+    color: var(--color-paid);
+  }
+
+  .lane li {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-block: 1rem;
+    border-bottom: 1px solid var(--color-rule);
+    color: var(--color-ink-soft);
+    font-size: var(--text-lg);
+    line-height: 1.45;
+  }
+
+  .lane-number {
+    padding-top: 0.2em;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+  }
+
+  /* A step not reached yet keeps its place and is not shown. */
+  .lane li.is-ahead {
+    visibility: hidden;
+  }
+
+  .lane li.is-now {
+    color: var(--color-ink);
+    animation: rise-in 500ms var(--ease-out-expo) both;
+  }
+
+  .lane li:last-child:not(.is-ahead) {
+    font-weight: 500;
+  }
+
+  .lane-bad li:last-child:not(.is-ahead) {
+    color: var(--color-stop);
+  }
+
+  .lane-good li:last-child:not(.is-ahead) {
+    color: var(--color-paid);
+  }
+
+  .paths-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+  }
+
+  .paths-controls p {
+    min-width: 6.5rem;
+    color: var(--color-ink-soft);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  /* --- worst-case chart -------------------------------------------------- */
+
+  .chart {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .chart-axis {
+    stroke: rgb(255 255 255 / 0.3);
+  }
+
+  .chart-all {
+    stroke: var(--color-stop);
+    stroke-dasharray: 6 6;
+  }
+
+  .chart-wait {
+    stroke: var(--color-gold);
+    stroke-dasharray: 2 5;
+  }
+
+  .chart-fixed {
+    fill: rgb(227 176 75 / 0.07);
+  }
+
+  .chart-area {
+    fill: rgb(255 255 255 / 0.07);
+    transform-origin: bottom;
+    transform-box: fill-box;
+    animation: bar-up 900ms var(--ease-out-expo) both;
+  }
+
+  .chart-line {
+    fill: none;
+    stroke: var(--color-ink);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    animation: draw 1100ms var(--ease-out-expo) both;
+  }
+
+  .chart-cursor {
+    stroke: rgb(255 255 255 / 0.5);
+  }
+
+  .chart-mark {
+    fill: var(--color-gold);
+  }
+
+  .chart-label {
+    fill: rgb(255 255 255 / 0.68);
+    font-family: var(--font-sans);
+    font-size: 13px;
+  }
+
+  .chart-label-stop {
+    fill: var(--color-stop);
+  }
+
+  .chart-read {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .chart-read label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-ink-soft);
+  }
+
+  .chart-read input[type="range"] {
+    width: 100%;
+    min-height: 2.75rem;
+    accent-color: var(--color-gold);
+  }
+
+  .chart-reading {
+    font-size: var(--text-lg);
+    line-height: 1.5;
+  }
+
+  .chart-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  /* --- sources ----------------------------------------------------------- */
+
+  .sources {
+    display: grid;
+    gap: 2.5rem;
+    margin-top: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+  }
+
+  .sources-heading {
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid rgb(255 255 255 / 0.3);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
+  }
+
+  .sources li {
+    display: grid;
+    gap: 0.5rem 2.5rem;
+    padding-block: 1.5rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  @media (min-width: 56rem) {
+    .sources li {
+      grid-template-columns: 14rem minmax(0, 46rem);
+    }
+  }
+
+  .sources-from {
+    color: var(--color-ink-soft);
+    font-size: var(--text-sm);
+  }
+
+  .sources-finding {
+    font-size: var(--text-lg);
+    line-height: 1.5;
+  }
+}
+
+@keyframes bar-up {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* On a phone the drawing is half the size, so its labels are set twice as large. */
+@media (max-width: 40rem) {
+  .chart-label {
+    font-size: 24px;
+  }
+}
+
+/* A source's title is a link on a line of its own, so it gets a full-size target. */
+.sources-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+@layer components {
+  /* Two figures side by side, a rule above each. */
+  .figures {
+    display: grid;
+    gap: 2.5rem;
+    margin-top: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+  }
+
+  @media (min-width: 56rem) {
+    .figures {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(2.5rem, 5vw, 5rem);
+    }
+  }
+
+  .figure-block {
+    border-top: 1px solid rgb(255 255 255 / 0.22);
+    padding-top: 1.5rem;
+  }
+
+  .figures-number {
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 2rem + 4vw, 5rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .figures-versus {
+    color: var(--color-ink-soft);
+    font-size: 0.45em;
+    letter-spacing: 0;
+  }
+
+  .figure-block figcaption {
+    margin-top: 1rem;
+    max-width: 34rem;
+    color: var(--color-ink-soft);
+    line-height: 1.55;
+  }
+
+  /* --- recorded losses: one row each, a bar to scale ---------------------- */
+
+  .incidents {
+    margin-top: 1.5rem;
+  }
+
+  .incidents li {
+    display: grid;
+    gap: 0.5rem 2rem;
+    padding-block: 1.25rem;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  @media (min-width: 56rem) {
+    .incidents li {
+      grid-template-columns: 7rem minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+
+  .incidents-when {
+    color: var(--color-ink-soft);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .incidents-row {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .incidents-track {
+    position: relative;
+    height: 0.75rem;
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  .incidents-bar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--color-stop);
+    transform-origin: left;
+    animation: grow-right 900ms var(--ease-out-expo) both;
+  }
+
+  /* Where a source gives a range, its upper part is drawn as an outline. */
+  .incidents-range {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border: 1px solid var(--color-stop);
+    border-left: 0;
+  }
+
+  .incidents-amount {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    line-height: 1.1;
+  }
+
+  .incidents-what {
+    color: var(--color-ink-soft);
+    line-height: 1.55;
+  }
+
+  .incidents-what strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  /* --- agent payment traffic: four columns -------------------------------- */
+
+  .adoption {
+    margin-top: 1.5rem;
+  }
+
+  .adoption-bars {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(0.75rem, 0.5rem + 2vw, 2.5rem);
+    max-width: 48rem;
+  }
+
+  .adoption-value {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  }
+
+  .adoption-track {
+    display: flex;
+    align-items: flex-end;
+    height: clamp(8rem, 6rem + 8vw, 13rem);
+    margin-top: 0.5rem;
+    border-bottom: 1px solid rgb(255 255 255 / 0.3);
+  }
+
+  .adoption-track span {
+    width: min(100%, 4.5rem);
+    min-height: 2px;
+    background: var(--color-ink);
+    border-radius: 4px 4px 0 0;
+    transform-origin: bottom;
+    animation: bar-up 900ms var(--ease-out-expo) both;
+  }
+
+  .adoption-month {
+    margin-top: 0.625rem;
+    color: var(--color-ink-soft);
+    font-size: var(--text-sm);
+  }
+}
+
+@keyframes grow-right {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}

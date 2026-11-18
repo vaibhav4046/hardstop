@@ -182,8 +182,10 @@ export default function HowItWorks() {
             </p>
             <p>
               The contract resolves two facts for the kernel, who is calling and whether the recipient is approved by
-              now, and then does exactly what the kernel decided. In this practice mode the same compiled contract
-              runs in an in-browser EVM (ethereumjs); the page sends it messages and prints what it returns.
+              now, and then does exactly what the kernel decided. On a test network the vault is created in one
+              transaction by a third Fe contract, the launcher, and your wallet is its owner. In this browser the
+              same compiled contract runs in an in-page EVM (ethereumjs). Either way the page sends it messages and
+              prints what it returns.
             </p>
             <p>Source files:</p>
             <ul className="grid gap-1">
@@ -192,6 +194,10 @@ export default function HowItWorks() {
               </li>
               <li>
                 <a href={source('fe/src/vault.fe')}>fe/src/vault.fe</a>, the contract that holds the money
+              </li>
+              <li>
+                <a href={source('fe/src/launcher.fe')}>fe/src/launcher.fe</a>, which creates a vault in one
+                transaction, owned by whoever asked
               </li>
               <li>
                 <a href={source('fe/src/adversary.fe')}>fe/src/adversary.fe</a>, a seeded attacker used in the tests

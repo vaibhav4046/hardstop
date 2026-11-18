@@ -32,7 +32,7 @@ test.describe('Moving between pages', () => {
   test('after creating a vault, /protect can be used again', async ({ page }) => {
     await page.goto('/protect')
     await page.getByRole('button', { name: 'Review the rules' }).click()
-    await page.getByRole('button', { name: 'Create vault' }).click()
+    await page.getByRole('button', { name: 'Create it in this browser' }).click()
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
     await press(page, 'Pay $4.00 to Cloud hosting')
 
@@ -49,8 +49,8 @@ test.describe('Moving between pages', () => {
     await page.locator('#perPayment').fill('7')
     await page.locator('#perDay').fill('14')
     await review.click()
-    await expect(page.getByText('Creating this vault replaces the practice vault you already have.')).toBeVisible()
-    await page.getByRole('button', { name: 'Create vault' }).click()
+    await expect(page.getByText('Creating this vault replaces the one this browser is showing now.')).toBeVisible()
+    await page.getByRole('button', { name: 'Create it in this browser' }).click()
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
     await expect(rulesInForce(page)).toContainText('Most per payment$7.00')
     await expect(balance(page)).toHaveText('$100.00')
@@ -60,7 +60,7 @@ test.describe('Moving between pages', () => {
     await page.goBack()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Set the rules your agent has to live inside')
     await expect(page.getByRole('button', { name: /Creating the vault/ })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Review the rules' }).or(page.getByRole('button', { name: 'Create vault' }))).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Review the rules' }).or(page.getByRole('button', { name: 'Create it in this browser' }))).toBeEnabled()
   })
 
   test('labels still point at the right thing after visiting every page, and axe stays clean', async ({ page }) => {
@@ -84,7 +84,7 @@ test.describe('Moving between pages', () => {
     // The worst-case panel is named by its own heading, not one from a page left behind.
     await expect(page.getByRole('complementary', { name: 'Worst case in the next 24 hours' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Create vault' }).click()
+    await page.getByRole('button', { name: 'Create it in this browser' }).click()
     await expect(page.getByRole('heading', { name: 'What the agent tries' })).toBeVisible()
     await press(page, 'Pay $4.00 to Cloud hosting')
     await check('/activity after /protect and /how-it-works')

@@ -13,14 +13,13 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
 People are starting to let AI agents pay for things. The usual safety net is
 a spending cap. In a controlled test published in October 2026 (Cornell Tech
-and Yale; [CoinDesk report](https://www.coindesk.com/tech/2026/11/01/ai-agents-bypassed-crypto-spending-limits-without-human-approval-researchers-find-in-a-new-test),
-[preprint](https://arxiv.org/abs/2610.35835)), agents holding a wallet with
-a daily cap **raised that cap themselves in 9 of 10 models tested**, by
-reading the one-time passcode that was supposed to prove a human had
-approved the change. In a separate impersonation scenario, five of the ten
-sent money to a simulated attacker at least once. (The counts are from the
-CoinDesk report; the preprint's abstract says only that the models "often"
-raise the cap.)
+and Yale; [preprint](https://arxiv.org/html/2610.35835v3),
+[CoinDesk report](https://www.coindesk.com/tech/2026/11/01/ai-agents-bypassed-crypto-spending-limits-without-human-approval-researchers-find-in-a-new-test)),
+agents holding a wallet with a daily cap **raised that cap themselves in 9
+of 10 models tested**, by reading the one-time passcode that was supposed to
+prove a human had approved the change. With an attacker's email added, 7 of
+10 still did; five of ten raised it and paid a simulated attacker. All three
+counts are stated in the paper's text.
 
 Two things about that result shaped this project:
 
@@ -28,9 +27,14 @@ Two things about that result shaped this project:
 - Those were lab trials with real USDC, not customer losses. Recorded
   real-world agent losses are few; the largest we could verify is one
   incident of roughly $150,000 to $200,000 in May 2026. Industry-wide crypto
-  theft figures are not agent losses and are not used here. Sources, scope
-  and limits for every number are in
-  [`research/SOURCE_REGISTER.md`](research/SOURCE_REGISTER.md).
+  theft figures are not agent losses and are not used here.
+
+Every figure on the site was re-opened at its source on 2026-11-18: 49
+sources, 48 confirmed on the page, kept apart as controlled tests, recorded
+incidents, adoption signals and excluded figures. See
+[`research/EVIDENCE_DATA.md`](research/EVIDENCE_DATA.md) (with corrections to
+the earlier [`research/SOURCE_REGISTER.md`](research/SOURCE_REGISTER.md)) and
+[`research/evidence.json`](research/evidence.json).
 
 On-chain spending caps for agents already exist (Safe's allowance module,
 MetaMask delegation caveats, Coinbase spend permissions, Polygon sessions),
@@ -121,15 +125,19 @@ fe/src/
   kernel.fe           pure. decide / amend / cancel / exposure. Both targets.
   adversary.fe        pure. Seeded campaign + reference spec. Both targets.
   vault.fe            EVM only. Holds the token, gathers facts, obeys the kernel.
+  launcher.fe         EVM only. Creates a vault in one transaction, owned by the caller.
   token.fe            EVM only. 6-decimal test token.
   cli.fe              native only. decide / exposure / batch / campaign.
   tests.fe            kernel tests, run on both targets
   adversary_tests.fe  campaign + 14 broken kernels, run on both targets
   vault_tests.fe      vault tests, EVM
+  launcher_tests.fe   launcher tests, EVM
 
 web/
   src/lib/hardstop/   an in-memory EVM (ethereumjs) running the bytecode above,
                       and a typed wrapper. No rules are restated in TypeScript.
+  src/lib/live/       the same wrapper on a public test network, through the
+                      visitor's wallet; the agent signs with its own key
   tests/              time-travel tests against the contract, and a
                       differential test: contract vs native kernel
   e2e/                scripted persona, accessibility and performance tests
@@ -162,7 +170,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 68 tests on the EVM
+fe test                           # 77 tests on the EVM
 fe test --backend native          # the 44 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
@@ -170,10 +178,10 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 20 tests: 15 on the compiled contract, the differential test, 4 on the app's session log
+npm test                          # 35 tests: the contract, the launcher, the wallet path, the differential test, the session log
 
 npx playwright install chromium   # once
-npm run e2e                       # 51 browser tests against the production build
+npm run e2e                       # 55 browser tests against the production build
 ```
 
 Every command above except the browser suite runs in
@@ -186,15 +194,16 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 68 passed, 0 failed |
+| `fe test` (EVM) | 77 passed, 0 failed |
 | `fe test --backend native` | 44 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 14 of 14 mutants caught, on both targets |
 | Exposure promise under attack | taken 2,938 times in 200 games: 347 with a raise waiting, 565 with money already spent, reached exactly 100 times, never exceeded |
 | Contract vs native kernel (`web/tests/differential.test.ts`) | 2,400 payment requests (336 allowed, 1,951 denied, 113 reverted) and 480 exposure queries: agreed on all |
 | Tests against the compiled contract with a controllable clock | 15 passed |
+| Launcher, and the wallet path against a stand-in wallet (`launcher.test.ts`, `live.test.ts`) | 7 and 8 passed |
 | Vault runtime size | 7,539 bytes |
-| Browser suite (`npm run e2e`, Chromium, production build) | 51 passed, 0 failed: seven scripted personas, keyboard-only journey, reduced motion, performance |
+| Browser suite (`npm run e2e`, Chromium, production build) | 55 passed, 0 failed: seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
 | First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
@@ -212,17 +221,22 @@ substitute for the second.
 - **Reproducible CLI example:** the commands above; `./out/hardstop` prints
   usage with no arguments.
 - **Live app:** https://hardstop-omega.vercel.app (static; no server-side
-  state, no secrets). `node web/e2e/live-check.mjs https://hardstop-omega.vercel.app`
+  state, no secrets). Open a vault on Base Sepolia or Sepolia with your own
+  wallet, or in your browser with no wallet. `node web/e2e/live-check.mjs https://hardstop-omega.vercel.app`
   drives the whole journey against it and fails on any wrong verdict or
   console error.
-- **Locally:** `cd web && npm run dev`, then open http://localhost:3000. Practice
-  mode runs the compiled vault in your browser on a private simulated chain
-  with test dollars. No wallet, no network, no real money.
+- **Locally:** `cd web && npm run dev`, then open http://localhost:3000.
 
 ## Limitations
 
-- **Practice mode only.** The app runs the real contract in an in-browser
-  EVM. There is no wallet connection and no public-chain deployment yet.
+- **Test networks only, and not yet run on one.** A vault can be opened on
+  Base Sepolia or Sepolia: the launcher installs itself through the
+  deterministic deployment proxy on first use (its code on both networks was
+  read and matches the one the tests run), then one transaction creates the
+  vault. That whole path is tested against a stand-in wallet running the
+  compiled contracts, not yet against a public network, because no funded
+  test wallet was available while building it. The agent is a trial key kept
+  in the browser; a real agent would hold its own key.
 - **One vault, one token, one agent, three recipients at creation.** No Safe
   integration, no calldata rules, no multi-token caps.
 - **Nothing tells the owner a change is pending.** The ratchet only helps an
