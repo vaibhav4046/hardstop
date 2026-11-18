@@ -199,9 +199,12 @@
     padding-block: 0.5rem;
   }
 
+  /* The gold mark (components/logo.tsx) with the name beside it, set the way
+     a product wordmark is: medium weight, a touch of tracking. */
   .wordmark {
     display: inline-flex;
     align-items: center;
+    gap: 0.625rem;
     min-height: 2.75rem;
     padding-block: 0.375rem;
     margin-right: auto;
@@ -209,51 +212,29 @@
     text-decoration: none;
   }
 
-  /* The mark (components/logo.tsx). Its red block is the one place the
-     refusal colour is used that is not a verdict. On hover the bolt slides
-     home against the block. */
+  .wordmark-name {
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
   .logo {
     display: block;
     width: 2.75rem;
     height: auto;
-    overflow: visible;
   }
 
-  .logo-door,
-  .logo-wheel {
-    fill: none;
-    stroke: var(--color-gold);
+  /* On hover the split ring turns half a turn, which brings it back to the
+     same drawing, while the blade holds still. */
+  .logo-ring {
+    transition: transform 700ms var(--ease-out-expo);
   }
 
-  .logo-door {
-    stroke-width: 3;
-  }
-
-  .logo-wheel {
-    stroke-width: 1.75;
-    stroke-opacity: 0.6;
-    transform-origin: 15px 16px;
-    transition: transform 600ms var(--ease-out-expo);
-  }
-
-  .logo-bolt {
-    fill: currentColor;
-    transform: translateX(-3px);
-    transition: transform 380ms var(--ease-out-expo);
-  }
-
-  .logo-stop {
-    fill: var(--color-stop);
-  }
-
-  a:hover > .logo .logo-bolt,
-  a:focus-visible > .logo .logo-bolt {
-    transform: none;
-  }
-
-  a:hover > .logo .logo-wheel,
-  a:focus-visible > .logo .logo-wheel {
-    transform: rotate(90deg);
+  a:hover > .logo .logo-ring,
+  a:focus-visible > .logo .logo-ring {
+    transform: rotate(180deg);
   }
 
   .nav {

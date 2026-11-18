@@ -20,11 +20,19 @@ that:
 
 1. **The receipt.** Every verdict is a card with a label, the amount, the
    contract's sentence, and the facts under it.
-2. **The stop.** The mark (`web/src/components/logo.tsx`, no lettering) is a
-   gold ring for the vault door, a bolt across it, and a block in the refusal
-   colour that the bolt runs into. On hover the bolt slides home and the
-   wheel turns a quarter. The same mark, in fixed colours, is the site icon
-   (`web/src/app/icon.svg`). The red square closes the "spent today" gauge,
+2. **The mark and the stop.** The mark is the owner's logo, redrawn as
+   vectors (`web/src/components/logo.tsx`): a gold ring split in two, two
+   smaller arcs inside it, and a blade laid across the cut, all in one gold
+   gradient. In the top bar and footer it sits left of the name "HARDSTOP",
+   set in Outfit 500 with 0.04em tracking (the free face nearest the
+   geometric sans the owner pointed to on hydradb.com). On hover the split
+   ring turns half a turn, which brings it back to the same drawing. Brand
+   files: `brand/hardstop-mark.svg` (vector, any size),
+   `brand/hardstop-mark-4096.png` (transparent) and
+   `brand/hardstop-mark-on-black-4096.png`, and
+   `brand/hardstop-lockup-on-black.png` (mark and name, 4167px wide). The
+   site icon (`web/src/app/icon.svg`) is the mark on a dark rounded tile.
+   The red square of the refusal colour closes the "spent today" gauge,
    marks a refused receipt, and marks "Never" on the permissions card.
 3. **The door.** The home hero is a vault door with a bar across it, drawn
    in dithered gold dots, and moving where the browser has a graphics card.
@@ -142,11 +150,11 @@ Named distances: `--gap-hair` 0.375rem, `--gap-line` 0.75rem,
 - **Practice notice**: a slim band at the very top of every page, "Practice
   mode." in gold, in normal flow.
 - **Top bar** (`.topbar`): 76px, `rgb(12 12 13 / 0.72)` with
-  `backdrop-filter: blur(18px)` and a hairline under it; the mark left (its
+  `backdrop-filter: blur(18px)` and a hairline under it; the mark and the name "HARDSTOP" left (the
   link is named "HARDSTOP home"), links and the white "Protect my AI" pill
   right. From 56rem up it is sticky. `scroll-padding-top` keeps anything
   focused or jumped to clear of it.
-- **Footer**: the mark, the unaudited / practice-only line, and links to How
+- **Footer**: the mark and name, the unaudited / practice-only line, and links to How
   it works, Developers, GitHub and the licence.
 - **Built with** (home, under the hero): the real logos of what HARDSTOP is
   made with and runs on, each with its name under it: Fe (the contract),

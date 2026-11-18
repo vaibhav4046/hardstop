@@ -34,7 +34,8 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <header className="topbar">
           <div className="wrap topbar-row">
             <Link href="/" className="wordmark" aria-label="HARDSTOP home">
-              <Logo />
+              <Logo id="logo-top" />
+              <span className="wordmark-name">HARDSTOP</span>
             </Link>
             <Nav />
           </div>
@@ -48,8 +49,8 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           <div className="colophon grid gap-x-16 gap-y-6 md:grid-cols-[minmax(0,1fr)_auto]">
             <div>
               <p className="wordmark">
-                <Logo />
-                <span className="sr-only">HARDSTOP</span>
+                <Logo id="logo-foot" />
+                <span className="wordmark-name">HARDSTOP</span>
               </p>
               <p className="mt-1 max-w-[36rem]">
                 HARDSTOP is an unaudited prototype built for the Fe Builders Challenge 2026. Vaults opened here are on
