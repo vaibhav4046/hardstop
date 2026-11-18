@@ -8,8 +8,13 @@
 // bar, and that is a strip of CSS laid over the bar's dots (see home.css), not
 // a redraw: redrawing the canvas many times a second cost a whole processor
 // core on a machine without a graphics card.
+//
+// Where the browser has a graphics card, a 3D door (vault-scene.ts) is loaded
+// after the page is idle and takes this picture's place. This one is drawn
+// first either way, so it is the picture under reduced motion, without WebGL,
+// and until the 3D one is ready.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const CELL = 4 // CSS px between dots
 const DOT = 2.4
@@ -106,6 +111,8 @@ function paint(canvas: HTMLCanvasElement, glow: HTMLElement | null): void {
 export function HeroBackdrop() {
   const ref = useRef<HTMLCanvasElement>(null)
   const glow = useRef<HTMLSpanElement>(null)
+  const depth = useRef<HTMLCanvasElement>(null)
+  const [is3d, set3d] = useState(false)
 
   useEffect(() => {
     const canvas = ref.current
@@ -116,12 +123,48 @@ export function HeroBackdrop() {
     return () => observer.disconnect()
   }, [])
 
+  // The 3D door (vault-scene.ts) replaces the still one once the page is idle,
+  // where the browser can draw it on a graphics card. Under reduced motion,
+  // or if anything fails, the still picture above simply stays.
+  useEffect(() => {
+    const canvas = depth.current
+    const still = matchMedia('(prefers-reduced-motion: reduce)')
+    if (!canvas || still.matches) return
+    let stop: (() => void) | null = null
+    let isCancelled = false
+    const start = () => {
+      import('./vault-scene')
+        .then(({ mountVault }) => {
+          if (isCancelled) return
+          stop = mountVault(canvas, { onReady: () => set3d(true), onLost: () => set3d(false) })
+        })
+        // A chunk that fails to load leaves the still picture, which is already drawn.
+        .catch(() => set3d(false))
+    }
+    const hasIdle = 'requestIdleCallback' in window
+    const idle = hasIdle ? requestIdleCallback(start, { timeout: 2500 }) : window.setTimeout(start, 1200)
+    const quit = () => {
+      isCancelled = true
+      stop?.()
+      set3d(false)
+    }
+    still.addEventListener('change', quit)
+    return () => {
+      if (hasIdle) cancelIdleCallback(idle)
+      else clearTimeout(idle)
+      still.removeEventListener('change', quit)
+      isCancelled = true
+      stop?.()
+    }
+  }, [])
+
   return (
     <>
-      <canvas ref={ref} className="hero-backdrop" aria-hidden="true" />
+      <canvas ref={ref} className="hero-backdrop" aria-hidden="true" data-faded={is3d || undefined} />
       <span ref={glow} className="hero-glow" aria-hidden="true" hidden>
         <span />
       </span>
+      <canvas ref={depth} className="hero-3d" aria-hidden="true" data-ready={is3d || undefined} />
     </>
   )
 }

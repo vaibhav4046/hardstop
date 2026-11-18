@@ -6,21 +6,23 @@
   },
   "cache": "empty",
   "withNoVault": {
-    "files": 9,
-    "transferred": 176106,
-    "decoded": 556436,
+    "files": 10,
+    "transferred": 178022,
+    "decoded": 559988,
     "encodings": [
-      "gzip"
+      "gzip",
+      "none"
     ]
   },
   "afterStartingAVault": {
-    "files": 10,
-    "transferred": 324263,
-    "decoded": 1080847,
+    "files": 11,
+    "transferred": 326179,
+    "decoded": 1084399,
     "encodings": [
-      "gzip"
+      "gzip",
+      "none"
     ]
   },
-  "firstContentfulPaintMs": 116,
-  "largestContentfulPaintMs": 116
+  "firstContentfulPaintMs": 112,
+  "largestContentfulPaintMs": 112
 }

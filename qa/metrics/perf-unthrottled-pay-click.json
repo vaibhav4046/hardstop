@@ -8,20 +8,20 @@
   "notIncluded": "the 320 ms print animation that follows; any real chain",
   "ms": {
     "runs": 10,
-    "median": 51,
-    "max": 101,
-    "min": 44,
+    "median": 39,
+    "max": 73,
+    "min": 13,
     "all": [
-      64,
-      44,
-      48,
-      54,
-      44,
-      56,
-      45,
-      49,
-      53,
-      101
+      17,
+      73,
+      59,
+      61,
+      51,
+      16,
+      13,
+      17,
+      51,
+      27
     ]
   }
 }

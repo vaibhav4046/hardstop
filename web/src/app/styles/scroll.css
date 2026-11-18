@@ -1,0 +1,122 @@
+/* Motion tied to the scroll position, not to time: the browser runs it from
+   the scrollbar, with no script. Only transform moves, and only up or down,
+   so nothing can stick out sideways on a phone. Everything stays on the page
+   whatever the scroll position; these only shift or grow things into place.
+
+   Browsers without scroll-driven animations, and anyone who has asked for
+   reduced motion, get the page standing still. */
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    /* The hero copy drifts up a little faster than the page as it leaves. */
+    .hero-copy {
+      animation: drift-up linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 80vh;
+    }
+
+    /* Section openers rise as they come in. */
+    .band > .eyebrow,
+    .band > .section-title,
+    .band > .section-lede,
+    .band > .column-title {
+      animation: settle-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 90%;
+    }
+
+    /* The two figures from other tests travel at different speeds. */
+    .figure-block {
+      animation: parallax-near linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+
+    .figure-block + .figure-block {
+      animation-name: parallax-far;
+    }
+
+    /* The two paths, likewise: the test's lane lags the vault's. */
+    .lane-bad {
+      animation: parallax-near linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+
+    .lane-good {
+      animation: parallax-far linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+
+    /* Bars grow as they are scrolled to, not while they are still off screen. */
+    .incidents-bar {
+      animation: grow-right linear both;
+      animation-timeline: view();
+      animation-range: entry 30% cover 45%;
+    }
+
+    .adoption-track span {
+      animation: bar-up linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 50%;
+    }
+
+    /* The worst-case chart and the diagram ease up into place. Never scaled:
+       the chart's buttons must measure their full 44px at every moment. */
+    .chart,
+    .vd-stage {
+      animation: lift-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+
+    .sources li {
+      animation: settle-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+@keyframes drift-up {
+  to {
+    transform: translateY(-3.5rem);
+  }
+}
+
+@keyframes settle-in {
+  from {
+    transform: translateY(2.25rem);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes parallax-near {
+  from {
+    transform: translateY(1.5rem);
+  }
+  to {
+    transform: translateY(-1.5rem);
+  }
+}
+
+@keyframes parallax-far {
+  from {
+    transform: translateY(4rem);
+  }
+  to {
+    transform: translateY(-2.5rem);
+  }
+}
+
+@keyframes lift-in {
+  from {
+    transform: translateY(3rem);
+  }
+  to {
+    transform: none;
+  }
+}

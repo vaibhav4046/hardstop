@@ -1,6 +1,8 @@
 {
   "checked": [
+    "research/EVIDENCE_DATA.md",
     "research/SOURCE_REGISTER.md",
+    "research/evidence.json",
     "research/COMPETITOR_MATRIX.md",
     "fe/src/vault.fe",
     "DECISIONS.md",

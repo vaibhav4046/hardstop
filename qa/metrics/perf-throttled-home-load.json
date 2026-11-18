@@ -9,45 +9,46 @@
   "cache": "empty for every run",
   "firstContentfulPaintMs": {
     "runs": 3,
-    "median": 2360,
-    "max": 2424,
-    "min": 2360,
+    "median": 2556,
+    "max": 2588,
+    "min": 2548,
     "all": [
-      2360,
-      2360,
-      2424
+      2548,
+      2588,
+      2556
     ]
   },
   "largestContentfulPaintMs": {
     "runs": 3,
-    "median": 2360,
-    "max": 2424,
-    "min": 2360,
+    "median": 2556,
+    "max": 2588,
+    "min": 2548,
     "all": [
-      2360,
-      2360,
-      2424
+      2548,
+      2588,
+      2556
     ]
   },
   "largestContentfulPaintElement": "p.lede mt-7",
   "exampleVaultReadyMs": {
     "runs": 3,
-    "median": 11014,
-    "max": 11101,
-    "min": 10966,
+    "median": 13956,
+    "max": 13975,
+    "min": 13943,
     "all": [
-      11101,
-      10966,
-      11014
+      13956,
+      13975,
+      13943
     ],
     "note": "navigation start until the home example shows its balance, i.e. the EVM chunk has loaded and the vault is deployed"
   },
   "javascript": {
-    "files": 10,
-    "transferred": 324263,
-    "decoded": 1080847,
+    "files": 12,
+    "transferred": 464892,
+    "decoded": 1641046,
     "encodings": [
-      "gzip"
+      "gzip",
+      "none"
     ],
     "note": "all script responses until network idle, including the EVM chunk the home example loads and anything Next.js prefetches"
   }

@@ -20,11 +20,14 @@ that:
 
 1. **The receipt.** Every verdict is a card with a label, the amount, the
    contract's sentence, and the facts under it.
-2. **The stop.** The wordmark ends in a small square in the refusal colour.
-   The same square closes the "spent today" gauge, marks a refused receipt,
-   and marks "Never" on the permissions card.
+2. **The stop.** The mark (`web/src/components/logo.tsx`, no lettering) is a
+   gold ring for the vault door, a bolt across it, and a block in the refusal
+   colour that the bolt runs into. On hover the bolt slides home and the
+   wheel turns a quarter. The same mark, in fixed colours, is the site icon
+   (`web/src/app/icon.svg`). The red square closes the "spent today" gauge,
+   marks a refused receipt, and marks "Never" on the permissions card.
 3. **The door.** The home hero is a vault door with a bar across it, drawn
-   in dithered gold dots.
+   in dithered gold dots, and moving where the browser has a graphics card.
 
 The page is dark only. There is no light theme; `color-scheme: dark` makes
 the browser's own controls (select lists, scrollbars) match.
@@ -37,7 +40,7 @@ Content-Security-Policy allows fonts from its own origin only).
 | Role | Face | Use |
 |---|---|---|
 | Display | Instrument Serif 400 | h1 to h3, legends, money figures |
-| Text and UI | Outfit 400 to 600 | everything else, including the wordmark and receipt labels |
+| Text and UI | Outfit 400 to 600 | everything else, including receipt labels |
 | Technical | IBM Plex Mono 400 | only inside "Technical details", code blocks and inline code names |
 
 Instrument Serif has one weight, so display type is never bold; hierarchy
@@ -56,7 +59,7 @@ comes from size.
 
 Headings: letter-spacing -0.01em, `text-wrap: balance`. Two-line headlines
 use `.lines` (each `span` is a line). Measure is capped at 30 to 40rem.
-Labels are sentence case. The only capitals are the wordmark and the label on
+Labels are sentence case. The only capitals are the eyebrows over sections ("BUILT WITH", "THE PROBLEM") and the label on
 a receipt (PAID, BLOCKED, REJECTED), where the owner asked for them.
 
 ## Colour
@@ -139,11 +142,20 @@ Named distances: `--gap-hair` 0.375rem, `--gap-line` 0.75rem,
 - **Practice notice**: a slim band at the very top of every page, "Practice
   mode." in gold, in normal flow.
 - **Top bar** (`.topbar`): 76px, `rgb(12 12 13 / 0.72)` with
-  `backdrop-filter: blur(18px)` and a hairline under it; wordmark left, links
-  and the white "Protect my AI" pill right. From 56rem up it is sticky.
-  `scroll-padding-top` keeps anything focused or jumped to clear of it.
-- **Footer**: wordmark, the unaudited / practice-only line, and links to How
+  `backdrop-filter: blur(18px)` and a hairline under it; the mark left (its
+  link is named "HARDSTOP home"), links and the white "Protect my AI" pill
+  right. From 56rem up it is sticky. `scroll-padding-top` keeps anything
+  focused or jumped to clear of it.
+- **Footer**: the mark, the unaudited / practice-only line, and links to How
   it works, Developers, GitHub and the licence.
+- **Built with** (home, under the hero): the real logos of what HARDSTOP is
+  made with and runs on, each with its name under it: Fe (the contract),
+  Ethereum Sepolia and Base Sepolia (the test networks), MetaMask (standing
+  for any browser wallet; the connection is the standard one), Next.js and
+  Vercel (the site). Grey until passed over, then each takes its own colour.
+  Sources: Fe's own logo file from fe-lang.org; Ethereum, Next.js and Vercel
+  from Simple Icons; Base and MetaMask from web3icons. They are facts about
+  the project, not endorsements, and the component says so.
 
 ## The hero backdrop
 
@@ -165,10 +177,32 @@ pixel behind where it sits, at 1152, 1280, 1440 and 1920px and at 1280px with
 125% text: secondary text is at least 8.36:1 and white at least 17.93:1.
 axe cannot judge text over a canvas and reports those nodes as undecided, so
 that measurement is the evidence. Below 72rem the picture is a 240px band
-under the copy and no text overlaps it. It is drawn once and fades in over
+under the copy (272px since the moving door was added) and no text overlaps it. It is drawn once and fades in over
 900ms; with reduced motion it is simply there. On a wide screen a glow runs
 along the bar (see Motion). It starts right of the door's centre line, at
 60% of the hero's width or further right, so it is never behind the copy.
+
+### The moving door
+
+Once the page is idle, `hero-backdrop.tsx` loads `vault-scene.ts` (three.js,
+in its own chunk) and, if it starts, lays a second canvas over the still
+picture and opens it with a `clip-path` iris while the still one fades out.
+The door underneath is a lit 3D model (lathe-turned rim, face, fourteen
+bolts, a four-spoke wheel, the bar and its bracket), built in code; nothing
+is fetched. Each frame it is rendered at one pixel per 4px cell, and a
+second pass turns each pixel's brightness into a gold dot with the same 8x8
+Bayer threshold, so it is the same dot drawing as the still one, moving: the
+door swings shut over 1.6s, the bar slides in from the right and settles in
+its bracket, the wheel turns a quarter, and afterwards the door breathes a
+little, leans toward the mouse, and turns, rises and spins its wheel as the
+hero scrolls away.
+
+It is not loaded under reduced motion, and the browser is asked for a
+graphics context that refuses a software-only path
+(`failIfMajorPerformanceCaveat`), so a machine without a graphics card keeps
+the still picture. After the opening it draws at most 30 frames a second,
+and none while the hero is off screen or the tab is hidden. If the graphics
+context is lost, the still picture comes back.
 
 ## Motion
 
@@ -207,15 +241,34 @@ along the bar (see Motion). It starts right of the door's centre line, at
   the vault to the recipient, $80 is stopped at it. It is labelled an
   illustration and is hidden from screen readers; its caption carries the
   meaning. A row from 640px, a column below.
+- The home page has its own twelve-second diagram ("Every request meets the
+  same checks", `vault-diagram.tsx`, `styles/diagram.css`) built from the
+  practice vault's rules: $4.00 passes the four checks one after another
+  (each open ring fills with a green dot) and is paid; $80.00 stops at the
+  first check (a red square), a bar drops across the vault's door and it
+  is blocked; a request to raise the limit is rejected at the door, which
+  outlines in red. The verdict for each is written under the checks. It
+  plays only while on screen, is hidden from screen readers, and its caption
+  lists the three outcomes in words. A row from 52rem, a column below.
+- Tied to the scroll, not the clock (`styles/scroll.css`, in browsers with
+  scroll-driven animations): the hero copy drifts up as it leaves; section
+  openers rise 36px into place as they arrive; the two figures from other
+  tests, and the two paths, move at different speeds (parallax); the loss
+  bars and payment bars grow as they are scrolled to; the worst-case chart
+  and the home diagram lift 48px into place (never scaled, so their buttons keep their full size). Only `transform`, and
+  only vertically, so nothing can stick out sideways. Nothing is hidden at
+  any scroll position.
 
-Motion is `transform` and `clip-path` only, apart from the backdrop's one
-fade (a picture, not text) and the colour of the
-diagram's tokens and rings.
+Motion is `transform` and `clip-path` only, apart from the backdrop's
+fades (a picture, not text), the colour of the diagram's tokens and rings,
+and the opacity of the home diagram's verdict lines and door outline.
 
 Under `prefers-reduced-motion: reduce` every animation and transition is
 off, `ScrollReveal` does nothing, figures change without counting, the
-backdrop has no glow, and the diagram shows its end state: $80 stopped at
-the vault, $4 arrived.
+backdrop is the still picture with no glow and the moving door is never
+loaded, the scroll-tied motion is off, the "How it works" diagram shows its
+end state ($80 stopped at the vault, $4 arrived), and the home diagram shows
+the three parties and the four checks, with its caption.
 
 ## Components and states
 

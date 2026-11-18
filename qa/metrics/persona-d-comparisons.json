@@ -90,8 +90,14 @@
     "judgement": "Wording: reads the PolicyProposed event the contract emitted to say \"Scheduled\" or \"in force at once\". The contract decided which."
   },
   {
+    "file": "lib/live/launch.ts",
+    "line": 58,
+    "text": "if (balance < network.gasMoney) {",
+    "judgement": "Plumbing: before launching, checks the owner's wallet holds enough test ETH to forward the agent's gas money. Compares ETH for network fees, not an amount against a vault limit."
+  },
+  {
     "file": "lib/live/wallet.ts",
-    "line": 52,
+    "line": 55,
     "text": "if (depth > 4 || value === null || seen.has(value)) return null",
     "judgement": "Plumbing: how deep to look for revert bytes in a wallet error. Compares a search depth, not an amount."
   },

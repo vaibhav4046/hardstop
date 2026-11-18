@@ -62,6 +62,9 @@ export function EvidencePath() {
     setStep(Math.max(0, Math.min(LAST, to)))
   }
 
+  // `aria-disabled`, not `disabled`: the steps also move by themselves, and a
+  // button that became `disabled` while it had keyboard focus would drop that
+  // focus on the floor. `go` already keeps the step in range.
   return (
     <div ref={ref} className="paths">
       <div className="paths-lanes">
@@ -69,13 +72,13 @@ export function EvidencePath() {
         <Lane title="With a HARDSTOP vault" steps={VAULT} step={step} ending="good" />
       </div>
       <div className="paths-controls">
-        <button type="button" className="btn" onClick={() => go(step - 1)} disabled={step === 0}>
+        <button type="button" className="btn" onClick={() => go(step - 1)} aria-disabled={step === 0}>
           Back
         </button>
         <p aria-live="polite">
           Step {step + 1} of {TESTED.length}
         </p>
-        <button type="button" className="btn" onClick={() => go(step + 1)} disabled={step === LAST}>
+        <button type="button" className="btn" onClick={() => go(step + 1)} aria-disabled={step === LAST}>
           Next
         </button>
         <button

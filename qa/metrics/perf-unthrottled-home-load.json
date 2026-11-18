@@ -7,51 +7,52 @@
   "cache": "empty for every run",
   "firstContentfulPaintMs": {
     "runs": 5,
-    "median": 140,
-    "max": 620,
-    "min": 132,
+    "median": 180,
+    "max": 224,
+    "min": 172,
     "all": [
-      620,
-      136,
-      140,
-      132,
-      144
+      224,
+      172,
+      192,
+      180,
+      172
     ]
   },
   "largestContentfulPaintMs": {
     "runs": 5,
-    "median": 140,
-    "max": 620,
-    "min": 132,
+    "median": 180,
+    "max": 224,
+    "min": 172,
     "all": [
-      620,
-      136,
-      140,
-      132,
-      144
+      224,
+      172,
+      192,
+      180,
+      172
     ]
   },
-  "largestContentfulPaintElement": "p.lede mt-7",
+  "largestContentfulPaintElement": "span.",
   "exampleVaultReadyMs": {
     "runs": 5,
-    "median": 352,
-    "max": 357,
-    "min": 288,
+    "median": 412,
+    "max": 460,
+    "min": 383,
     "all": [
-      288,
-      319,
-      353,
-      357,
-      352
+      460,
+      388,
+      412,
+      383,
+      414
     ],
     "note": "navigation start until the home example shows its balance, i.e. the EVM chunk has loaded and the vault is deployed"
   },
   "javascript": {
-    "files": 10,
-    "transferred": 324263,
-    "decoded": 1080847,
+    "files": 12,
+    "transferred": 464892,
+    "decoded": 1641046,
     "encodings": [
-      "gzip"
+      "gzip",
+      "none"
     ],
     "note": "all script responses until network idle, including the EVM chunk the home example loads and anything Next.js prefetches"
   }

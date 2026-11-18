@@ -3,6 +3,8 @@
 @import "./styles/home.css";
 @import "./styles/flow.css";
 @import "./styles/evidence.css";
+@import "./styles/diagram.css";
+@import "./styles/scroll.css";
 
 /* HARDSTOP design tokens. See DESIGN.md for the reasoning and contrast figures. */
 @theme {
@@ -199,24 +201,59 @@
 
   .wordmark {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     min-height: 2.75rem;
-    padding-block: 0.625rem;
+    padding-block: 0.375rem;
     margin-right: auto;
-    font-weight: 600;
-    font-size: var(--text-lg);
-    letter-spacing: 0.16em;
+    color: var(--color-ink);
     text-decoration: none;
   }
 
-  /* The full stop is the mark: a hard stop. It is the one place the refusal
-     colour is used that is not a verdict. */
-  .fullstop {
-    display: inline-block;
-    width: 0.44em;
-    height: 0.44em;
-    margin-left: 0.06em;
-    background: var(--color-stop);
+  /* The mark (components/logo.tsx). Its red block is the one place the
+     refusal colour is used that is not a verdict. On hover the bolt slides
+     home against the block. */
+  .logo {
+    display: block;
+    width: 2.75rem;
+    height: auto;
+    overflow: visible;
+  }
+
+  .logo-door,
+  .logo-wheel {
+    fill: none;
+    stroke: var(--color-gold);
+  }
+
+  .logo-door {
+    stroke-width: 3;
+  }
+
+  .logo-wheel {
+    stroke-width: 1.75;
+    stroke-opacity: 0.6;
+    transform-origin: 15px 16px;
+    transition: transform 600ms var(--ease-out-expo);
+  }
+
+  .logo-bolt {
+    fill: currentColor;
+    transform: translateX(-3px);
+    transition: transform 380ms var(--ease-out-expo);
+  }
+
+  .logo-stop {
+    fill: var(--color-stop);
+  }
+
+  a:hover > .logo .logo-bolt,
+  a:focus-visible > .logo .logo-bolt {
+    transform: none;
+  }
+
+  a:hover > .logo .logo-wheel,
+  a:focus-visible > .logo .logo-wheel {
+    transform: rotate(90deg);
   }
 
   .nav {

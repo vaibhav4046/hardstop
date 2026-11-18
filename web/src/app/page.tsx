@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BuiltWith } from '@/components/built-with'
 import { Adoption, Incidents, OtherTests } from '@/components/evidence-field'
 import { EvidenceModels } from '@/components/evidence-models'
 import { EvidencePath } from '@/components/evidence-path'
@@ -8,6 +9,7 @@ import { HeroBackdrop } from '@/components/hero-backdrop'
 import { HomeDemo } from '@/components/home-demo'
 import { AskPanel, OwnerPanel, RulesPanel } from '@/components/home-steps'
 import { HomeVaultProvider } from '@/components/home-vault'
+import { VaultDiagram } from '@/components/vault-diagram'
 
 export default function Home() {
   return (
@@ -18,9 +20,8 @@ export default function Home() {
             <span>Your agent can spend.</span> <span>It cannot raise the limit.</span>
           </h1>
           <p className="lede mt-7">
-            Put a budget in a vault. Your agent can ask the vault to pay, and nothing else. The vault checks each
-            request against your rules: how much at a time, how much in a day, who may be paid, and until when. A
-            request outside them is refused, with the reason.
+            Put a budget in a vault. Your agent can ask it to pay, and nothing else. Outside your rules, the answer is
+            no.
           </p>
           <p className="mt-9 flex flex-wrap items-center gap-3">
             <Link href="/protect" className="btn btn-primary btn-large">
@@ -34,6 +35,8 @@ export default function Home() {
         <HeroBackdrop />
         <div className="hero-scrim" aria-hidden="true" />
       </div>
+
+      <BuiltWith />
 
       <section className="wrap band" aria-labelledby="problem-title">
         <p className="eyebrow">The problem</p>
@@ -65,6 +68,18 @@ export default function Home() {
           A limit that can be raised at once is only as strong as whoever can raise it
         </h2>
         <EvidencePath />
+      </section>
+
+      <section className="wrap band" aria-labelledby="checks-title">
+        <p className="eyebrow">Inside the vault</p>
+        <h2 id="checks-title" className="section-title mt-4 max-w-[40rem]">
+          Every request meets the same checks
+        </h2>
+        <p className="section-lede">
+          The agent can only ask. The vault checks each payment against your rules, in the same order, every time, and
+          a request to change a rule never reaches them.
+        </p>
+        <VaultDiagram />
       </section>
 
       <HomeDemo />

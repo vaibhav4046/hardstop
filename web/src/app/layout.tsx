@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { IBM_Plex_Mono, Instrument_Serif, Outfit } from 'next/font/google'
 import Link from 'next/link'
+import { Logo } from '@/components/logo'
 import { Nav } from '@/components/nav'
 import { ScrollReveal } from '@/components/scroll-reveal'
 import { GITHUB } from '@/lib/links'
@@ -33,8 +34,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <header className="topbar">
           <div className="wrap topbar-row">
             <Link href="/" className="wordmark" aria-label="HARDSTOP home">
-              HARDSTOP
-              <span className="fullstop" aria-hidden="true" />
+              <Logo />
             </Link>
             <Nav />
           </div>
@@ -47,9 +47,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <footer className="wrap">
           <div className="colophon grid gap-x-16 gap-y-6 md:grid-cols-[minmax(0,1fr)_auto]">
             <div>
-              <p className="wordmark" aria-hidden="true">
-                HARDSTOP
-                <span className="fullstop" />
+              <p className="wordmark">
+                <Logo />
+                <span className="sr-only">HARDSTOP</span>
               </p>
               <p className="mt-1 max-w-[36rem]">
                 HARDSTOP is an unaudited prototype built for the Fe Builders Challenge 2026. Vaults opened here are on

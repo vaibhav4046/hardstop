@@ -1,6 +1,6 @@
 {
   "note": "Scripted journey including the two example clicks on the home page. Wall time includes Playwright overhead but not the two evidence screenshots.",
-  "screenshotMsExcluded": 1750,
+  "screenshotMsExcluded": 2866,
   "clicksToFirstVerdictOnOwnVault": 6,
-  "wallMsToFirstVerdictOnOwnVault": 2598
+  "wallMsToFirstVerdictOnOwnVault": 15125
 }

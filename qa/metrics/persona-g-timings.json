@@ -7,11 +7,11 @@
   },
   "viewport": "375x667",
   "note": "Wall time from navigation start, including Playwright overhead.",
-  "landingHeadingVisibleMs": 5761,
-  "homeLoadingIndicatorVisibleMs": 5812,
-  "policyEditedMs": 8472,
-  "reviewVisibleMs": 11091,
-  "vaultReadyMs": 11576,
-  "firstVerdictMs": 12027,
-  "secondVerdictMs": 12471
+  "landingHeadingVisibleMs": 6059,
+  "homeLoadingIndicatorVisibleMs": 6125,
+  "policyEditedMs": 9537,
+  "reviewVisibleMs": 14401,
+  "vaultReadyMs": 14867,
+  "firstVerdictMs": 15308,
+  "secondVerdictMs": 15888
 }

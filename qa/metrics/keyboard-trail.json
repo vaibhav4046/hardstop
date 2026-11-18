@@ -1,5 +1,5 @@
 {
-  "stops": 72,
+  "stops": 73,
   "trail": [
     {
       "what": "a \"Skip to content\"",
@@ -153,6 +153,11 @@
     },
     {
       "what": "button \"Next\"",
+      "outline": "solid 3px rgb(227, 176, 75)",
+      "ring": true
+    },
+    {
+      "what": "button \"Back\"",
       "outline": "solid 3px rgb(227, 176, 75)",
       "ring": true
     },
