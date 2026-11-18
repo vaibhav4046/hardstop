@@ -226,6 +226,75 @@
     letter-spacing: 0.02em;
   }
 
+  /* --- connect your AI ---------------------------------------------------- */
+
+  .connect-clients {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.5rem 0.75rem;
+    max-width: 56rem;
+    margin-top: clamp(2rem, 1.5rem + 2vw, 3rem);
+  }
+
+  @media (min-width: 48rem) {
+    .connect-clients {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+  }
+
+  .connect-clients li {
+    display: grid;
+    justify-items: center;
+    gap: 0.625rem;
+    color: var(--color-ink-soft);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
+  .connect-clients img {
+    width: 1.75rem;
+    height: 1.75rem;
+    opacity: 0.85;
+    transition:
+      opacity 300ms ease-out,
+      transform 400ms var(--ease-out-expo);
+  }
+
+  .connect-clients li:hover img {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+
+  .connect-install {
+    max-width: 44rem;
+  }
+
+  /* The install line scrolls sideways inside its own box on a narrow screen;
+     the page itself never does. */
+  .connect-line {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .connect-line code {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: var(--radius-field);
+    background: rgb(0 0 0 / 0.35);
+    color: var(--color-gold);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+  }
+
+  .connect-line .btn {
+    flex: none;
+  }
+
   /* --- sections --------------------------------------------------------- */
 
   .section {

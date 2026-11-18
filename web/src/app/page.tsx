@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { BuiltWith } from '@/components/built-with'
+import { ConnectAI } from '@/components/connect-ai'
 import { Adoption, Incidents, OtherTests } from '@/components/evidence-field'
 import { EvidenceModels } from '@/components/evidence-models'
 import { EvidencePath } from '@/components/evidence-path'
@@ -149,6 +150,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <ConnectAI />
 
       <section className="wrap band" aria-labelledby="boundary-title">
         <h2 id="boundary-title" className="section-title max-w-[36rem]">

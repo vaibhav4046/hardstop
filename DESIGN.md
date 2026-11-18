@@ -186,6 +186,25 @@ Named distances: `--gap-hair` 0.375rem, `--gap-line` 0.75rem,
   Sources: Fe's own logo file from fe-lang.org; Ethereum, Next.js and Vercel
   from Simple Icons; Base and MetaMask from web3icons. They are facts about
   the project, not endorsements, and the component says so.
+- **Connect your AI** (home, after the three steps; `connect-ai.tsx`): what
+  installing HARDSTOP in an assistant does (it pays only through your vault
+  and cannot raise its own limit), the logos of the assistants it works with
+  (Claude, ChatGPT, Cursor, VS Code + Copilot, Windsurf, Hermes, Python), one
+  install line with a Copy button (announced in a polite live region; the
+  line scrolls inside its own box on a phone and can be reached by keyboard),
+  and a link to `web/mcp/README.md` for the rest. "Works with" wording only;
+  the section says none of the makers has reviewed or endorses HARDSTOP. The
+  install line is one constant, `INSTALL_COMMAND`, at the top of the file.
+  Logos are self-hosted in `web/public/logos/` as light-filled SVGs: Claude,
+  Cursor, GitHub Copilot, Windsurf and Python from Simple Icons (CC0 icon
+  data); OpenAI and Hermes (the Nous Research mark) from LobeHub icons (MIT).
+  Neither set has a VS Code logo, so that entry shows GitHub Copilot.
+- **Icons and link previews**: `web/src/app/icon.svg` (vector, the mark on a
+  dark tile) is what browsers show. `favicon.ico` (16, 32, 48px) and
+  `apple-icon.png` (180px) are rendered from that vector for browsers and
+  home screens that only take pixels, and `opengraph-image.png` (1200x630, the
+  mark and the headline) is the picture in link previews, which also only
+  take pixels. `metadataBase` makes its URL absolute.
 
 ## The hero backdrop
 

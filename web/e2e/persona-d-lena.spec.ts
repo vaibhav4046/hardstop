@@ -55,7 +55,7 @@ test.describe('Persona D: Lena, security engineer', () => {
       }
     }
     expect([...paths].sort()).toEqual(
-      ['LICENSE', 'fe/src/adversary.fe', 'fe/src/cli.fe', 'fe/src/kernel.fe', 'fe/src/launcher.fe', 'fe/src/vault.fe', 'web/src/lib/hardstop/sim.ts'].sort(),
+      ['LICENSE', 'fe/src/adversary.fe', 'fe/src/cli.fe', 'fe/src/kernel.fe', 'fe/src/launcher.fe', 'fe/src/vault.fe', 'web/mcp/README.md', 'web/src/lib/hardstop/sim.ts'].sort(),
     )
     for (const file of paths) expect(existsSync(path.join(REPO, file)), `${file} exists on disk`).toBe(true)
   })
