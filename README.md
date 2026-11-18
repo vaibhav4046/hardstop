@@ -75,6 +75,23 @@ The kernel and the adversary have no `#[cfg]` and no `uses` clause, so they
 compile for the EVM and natively from one source and cannot perform effects
 on either.
 
+## Why not a timelock, or a plain allowance?
+
+| | Plain allowance or spending cap | Timelock | HARDSTOP |
+|---|---|---|---|
+| Lowering a limit or pausing takes effect | at once | only after the delay | at once |
+| Raising a limit takes effect | at once | only after the delay | only after the cooling period |
+| A later tightening cancels a waiting raise | no waiting raise exists | no; each change waits on its own | yes (`amend` in `kernel.fe`) |
+| Most the agent can spend over a span, answered by the contract | no | no | yes (`exposure`) |
+| An agent's toolset can loosen its own limits | depends on the integration | depends on the integration | no: the MCP server has no owner tools and no owner key |
+
+A plain allowance makes a raise instant, so an owner tricked into approving
+one loses money at once. A timelock delays every change, including the
+emergency stop. HARDSTOP delays only loosening, so stopping an agent is
+never slowed down, and that one-way rule is what lets the contract state
+the worst case in advance. Products in each column, and how other entries in
+this contest compare, are in [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
+
 ## Fe highlight
 
 The agent's entire authority is one handler signature. This is `Pay` in
@@ -333,11 +350,12 @@ approved recipient):
   to be requested from MetaMask. Until then a visitor has to click past it.
 - **One vault, one token, one agent, three recipients at creation.** No Safe
   integration, no calldata rules, no multi-token caps.
-- **The site warns about a pending change only while it is open.** Every
-  page shows a waiting loosening with a cancel button, and a vault on a
-  network links to its explorer page, where the owner can add the address to
-  a watch list for email alerts. HARDSTOP itself sends nothing: it has no
-  server. The ratchet still only helps an owner who looks.
+- **Alerts need the watcher running.** The site has no server and sends
+  nothing: every page shows a waiting loosening with a cancel button while
+  it is open. The optional, self-hosted watcher (`web/mcp/watch.ts`) checks
+  the vault around the clock and alerts by webhook or desktop notification,
+  but only while someone runs it. Without it, the ratchet only helps an
+  owner who looks.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
 - **A stolen owner key is out of scope**, as is a malicious token.
