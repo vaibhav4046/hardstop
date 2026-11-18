@@ -77,7 +77,8 @@ export type State = {
 /** Addresses are compared and shown in lower case throughout. */
 const lower = (address: Hex): Hex => address.toLowerCase() as Hex
 
-function decodeEvents(receipt: Receipt, vault: Hex): VaultEvent[] {
+/** The vault's own events among a receipt's logs. Exported for the watcher (mcp/watch.ts). */
+export function decodeEvents(receipt: Receipt, vault: Hex): VaultEvent[] {
   const events: VaultEvent[] = []
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== vault.toLowerCase()) continue

@@ -1,0 +1,210 @@
+// The MCP server (mcp/server.ts) driven by a real MCP client from the SDK,
+// connected in memory, against a vault launched on the stand-in network
+// (tests/fake-network.ts) that runs the compiled Fe contracts.
+
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type { Hex } from 'viem'
+import { createServer } from '../mcp/server.ts'
+import { attach, launchVault } from '../src/lib/live/launch.ts'
+import { NETWORKS } from '../src/lib/live/wallet.ts'
+import { USD } from '../src/lib/money.ts'
+import type { Setup } from '../src/lib/hardstop/sim.ts'
+import { FAKE_CHAIN_ID, FakeNetwork } from './fake-network.ts'
+
+const OWNER: Hex = '0x00000000000000000000000000000000000a11ce'
+const PAYEE: Hex = '0x0000000000000000000000000000000000005109'
+const STRANGER: Hex = '0x0000000000000000000000000000000000000bad'
+const NOW = 1_800_000_000n
+const DAY = 86_400n
+const NETWORK = NETWORKS.find((network) => network.chainId === FAKE_CHAIN_ID)!
+
+const SETUP: Setup = {
+  owner: OWNER,
+  agent: OWNER,
+  perPayment: 10n * USD,
+  perWindow: 20n * USD,
+  validUntil: NOW + 30n * DAY,
+  windowSecs: DAY,
+  coolingSecs: DAY,
+  payees: [PAYEE],
+  funding: 100n * USD,
+  now: NOW,
+}
+
+const TOOLS = ['hardstop_pay', 'hardstop_preview_payment', 'hardstop_recipients', 'hardstop_request_more', 'hardstop_status']
+
+async function connected(env: Record<string, string | undefined>, network: FakeNetwork) {
+  const server = createServer({ env, wallet: network })
+  const client = new Client({ name: 'test', version: '0.0.0' })
+  const [a, b] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(a), client.connect(b)])
+  const call = async (name: string, args: Record<string, unknown> = {}) => (await client.callTool({ name, arguments: args })) as CallToolResult
+  return { client, call }
+}
+
+async function setUp(extra: Record<string, string> = {}) {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, 1)
+  const owner = await attach(network, live, 1) // the owner's own view, used only to check what the server did
+  const env = {
+    HARDSTOP_AGENT_KEY: live.agentKey,
+    HARDSTOP_VAULT: live.vault,
+    HARDSTOP_CHAIN_ID: String(FAKE_CHAIN_ID),
+    HARDSTOP_RECIPIENTS: `Cloud hosting=${PAYEE},Stranger=${STRANGER}`,
+    ...extra,
+  }
+  return { network, live, owner, env, ...(await connected(env, network)) }
+}
+
+const text = (result: CallToolResult) =>
+  result.content.map((part) => (part.type === 'text' ? part.text : '')).join('\n')
+const data = (result: CallToolResult) => result.structuredContent as Record<string, unknown>
+
+test('the server offers exactly the five agent tools and the status resource, and no owner power', async () => {
+  const { client } = await setUp()
+  const { tools } = await client.listTools()
+  assert.deepEqual(tools.map((tool) => tool.name).sort(), TOOLS)
+  for (const tool of tools) {
+    assert.ok((tool.description ?? '').length > 80, `${tool.name} has a description written for a model`)
+    assert.doesNotMatch(tool.name, /propose|cancel|pause|recipient_(add|remove)|set_?recipient|withdraw|owner/i)
+  }
+  const { resources } = await client.listResources()
+  assert.deepEqual(resources.map((r) => r.uri), ['hardstop://status'])
+  const missing = (await client.callTool({ name: 'hardstop_propose', arguments: {} })) as CallToolResult
+  assert.equal(missing.isError, true)
+  assert.match(text(missing), /not found/i)
+})
+
+test('status, a paid payment, refusals over the limit and to a stranger, and status again', async () => {
+  const { call, network, owner, client } = await setUp()
+  const approvedAtLaunch = network.approved.length
+
+  const before = await call('hardstop_status')
+  assert.equal(before.isError, undefined, text(before))
+  assert.match(text(before), /\$10\.00 per payment and \$20\.00 per day/)
+  assert.match(text(before), /\$0\.00 spent, \$20\.00 left/)
+  assert.equal(data(before).vault_balance_usd, '100.00')
+  assert.equal(data(before).left_today_usd, '20.00')
+  assert.equal(data(before).waiting_change, null)
+  assert.equal(data(before).agent_gas_eth, '0.00003')
+  assert.equal(data(before).next_nonce, '0')
+
+  const preview = await call('hardstop_preview_payment', { to: 'Cloud hosting', amount_usd: 4 })
+  assert.equal(data(preview).would_pay, true)
+  assert.match(text(preview), /Nothing was sent/)
+  assert.equal(network.relayed.length, 0, 'a preview sends nothing')
+
+  const paid = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: '4' })
+  assert.equal(paid.isError, undefined, text(paid))
+  assert.equal(data(paid).result, 'paid')
+  assert.equal(data(paid).left_today_usd, '16.00')
+  assert.match(String(data(paid).explorer), /^https:\/\/sepolia\.basescan\.org\/tx\/0x[0-9a-f]{64}$/)
+  assert.equal(await owner.sim.balanceOf(PAYEE), 4n * USD)
+
+  const tooBig = await call('hardstop_pay', { to: PAYEE, amount_usd: 12.5 })
+  assert.equal(data(tooBig).result, 'refused')
+  assert.equal(data(tooBig).reason, 'OverPaymentLimit')
+  assert.match(text(tooBig), /^Refused: \$12\.50 .*at most \$10\.00/)
+
+  const stranger = await call('hardstop_pay', { to: STRANGER, amount_usd: 1 })
+  assert.equal(data(stranger).result, 'refused')
+  assert.equal(data(stranger).reason, 'RecipientNotApproved')
+  assert.equal(await owner.sim.balanceOf(STRANGER), 0n)
+
+  // Three requests, each signed by the agent's key; the owner's wallet was asked for nothing after the launch.
+  assert.deepEqual(
+    network.relayed.map((tx) => tx.from),
+    [owner.chain.agent, owner.chain.agent, owner.chain.agent],
+  )
+  assert.equal(network.approved.length, approvedAtLaunch)
+
+  const after = await call('hardstop_status')
+  assert.match(text(after), /\$4\.00 spent, \$16\.00 left/)
+  assert.equal(data(after).vault_balance_usd, '96.00')
+  assert.equal(data(after).next_nonce, '1', 'refusals do not use up a request number')
+
+  const resource = await client.readResource({ uri: 'hardstop://status' })
+  const first = resource.contents[0]
+  assert.ok('text' in first)
+  assert.equal(first.text, text(after).split('\n{')[0])
+})
+
+test('recipients are checked on chain; a waiting loosening shows in status', async () => {
+  const { call, owner } = await setUp()
+  const recipients = await call('hardstop_recipients')
+  assert.deepEqual(
+    (data(recipients).recipients as { name: string; state: string }[]).map((r) => [r.name, r.state]),
+    [
+      ['Cloud hosting', 'approved'],
+      ['Stranger', 'not_approved'],
+    ],
+  )
+
+  await owner.sim.propose({ perPayment: 10n * USD, perWindow: 50n * USD, validUntil: SETUP.validUntil, paused: false })
+  const status = await call('hardstop_status')
+  assert.deepEqual(data(status).waiting_change, {
+    per_payment_usd: '10.00',
+    per_day_usd: '50.00',
+    valid_until: new Date(Number(SETUP.validUntil) * 1000).toISOString(),
+    paused: false,
+    takes_effect_at: new Date(Number(NOW + DAY) * 1000).toISOString(),
+  })
+  assert.match(text(status), /A change is waiting: .*\$50\.00 per day/)
+})
+
+test('asking for more drafts a request for the owner and changes nothing', async () => {
+  const { call, network, owner } = await setUp()
+  const approved = network.approved.length
+  const before = await owner.sim.state()
+  const result = await call('hardstop_request_more', { reason: 'The monthly hosting bill is $35.', per_payment_usd: 40, per_day_usd: '40' })
+  assert.equal(result.isError, undefined, text(result))
+  assert.match(text(result), /per payment: from \$10\.00 to \$40\.00/)
+  assert.match(text(result), /per day: from \$20\.00 to \$40\.00/)
+  assert.match(text(result), /https:\/\/hardstop-omega\.vercel\.app\/activity/)
+  assert.match(text(result), /Nothing has been changed or sent/)
+  assert.equal(data(result).changed, false)
+  assert.equal(network.relayed.length, 0)
+  assert.equal(network.approved.length, approved)
+  assert.deepEqual(await owner.sim.state(), before)
+})
+
+test('configuration problems come back as plain sentences', async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, 1)
+  const base = { HARDSTOP_AGENT_KEY: live.agentKey, HARDSTOP_VAULT: live.vault }
+
+  const cases: [Record<string, string | undefined>, RegExp][] = [
+    [{ ...base, HARDSTOP_CHAIN_ID: '1' }, /HARDSTOP_CHAIN_ID is "1", which is not a test network.*84532 \(Base Sepolia\)/],
+    [{ ...base, HARDSTOP_AGENT_KEY: undefined }, /HARDSTOP_AGENT_KEY is not set\. .*Never use the owner's key/],
+    [{ ...base, HARDSTOP_AGENT_KEY: 'not-a-key' }, /HARDSTOP_AGENT_KEY is not a private key/],
+    [{ ...base, HARDSTOP_VAULT: undefined }, /HARDSTOP_VAULT is not set/],
+    [{ ...base, HARDSTOP_CHAIN_ID: '11155111' }, /The RPC is on chain 84532, not Sepolia/],
+    [{ ...base, HARDSTOP_AGENT_KEY: `0x${'11'.repeat(32)}` }, /HARDSTOP_AGENT_KEY belongs to 0x[0-9a-f]{40}, but the agent of vault/],
+    [{ ...base, HARDSTOP_VAULT: STRANGER }, /There is no vault at 0x0000000000000000000000000000000000000bad/],
+  ]
+  for (const [env, expected] of cases) {
+    const { call } = await connected(env, network)
+    for (const tool of ['hardstop_status', 'hardstop_pay']) {
+      const result = await call(tool, { to: PAYEE, amount_usd: 1 })
+      assert.equal(result.isError, true, `${tool} with ${JSON.stringify(env)}`)
+      assert.match(text(result), expected)
+      assert.doesNotMatch(text(result), /\[object Object\]/)
+      assert.ok(!text(result).includes(live.agentKey.slice(2)), 'the key is never echoed')
+    }
+  }
+  assert.equal(network.relayed.length, 0)
+})
+
+test('bad arguments are refused in plain words before anything is sent', async () => {
+  const { call, network } = await setUp()
+  const nowhere = await call('hardstop_pay', { to: 'my landlord', amount_usd: 1 })
+  assert.equal(nowhere.isError, true)
+  assert.match(text(nowhere), /neither an address .* nor a recipient name/)
+  const odd = await call('hardstop_pay', { to: PAYEE, amount_usd: '1.234' })
+  assert.match(text(odd), /amount_usd must be a dollar amount/)
+  assert.equal(network.relayed.length, 0)
+})

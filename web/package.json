@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "node --test tests/*.test.ts src/lib/*.test.ts",
     "e2e": "playwright test",
-    "sync:artifacts": "node ../scripts/sync-artifacts.mjs"
+    "sync:artifacts": "node ../scripts/sync-artifacts.mjs",
+    "mcp": "node mcp/server.ts",
+    "mcp:watch": "node mcp/watch.ts"
   },
   "dependencies": {
     "@ethereumjs/block": "^10.1.3",
@@ -18,11 +20,13 @@
     "@ethereumjs/tx": "^10.1.3",
     "@ethereumjs/util": "^10.1.3",
     "@ethereumjs/vm": "^10.1.3",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "^0.187.0",
-    "viem": "^2.58.0"
+    "viem": "^2.58.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
