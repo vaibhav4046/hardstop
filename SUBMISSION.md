@@ -54,10 +54,12 @@ command-line program. Details in the README's "Fe highlight".
 
 ## Evidence it works
 
-- `fe test`: 77 passed on the EVM; 44 passed natively.
-- Web: 37 unit tests, 55 browser tests (Chromium, production build), all
-  passing at the time of writing; CI runs them on every push.
-- On Base Sepolia (public test network): the launcher, two vaults (one
+- `fe test`: 81 passed on the EVM; 45 passed natively.
+- Web: 37 unit tests and 55 browser tests (Chromium, production build).
+  CI runs the Fe tests, the native campaign, the compile-refusal check and
+  the unit tests on every push; the browser suite runs locally
+  (`npm run e2e`).
+- On Base Sepolia (public test network): the launcher, three vaults (one
   opened by clicking through MetaMask on the live site), paid and refused
   payments, and measured gas for every call, each with its transaction link,
   in the README.

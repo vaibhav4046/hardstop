@@ -391,3 +391,37 @@ with the stand-in wallet refusing the account until asked again. The cause is
 inferred from the fix working once; it was seen in Comet only. Also: the
 Activity page title and live receipts no longer say "practice".
 
+
+**Contract upgrades from the review (2026-11-18).** Approved by the owner.
+
+- `vault.fe`: `init` reverts with a new `ZeroAddress()` (0xd92e233d) for a
+  zero owner, agent or token; three new tests.
+- `kernel.fe`: typed time units, written by an AI agent in a separate
+  worktree and merged. `Instant` (a Unix second) and `Seconds` (a length)
+  with `core::ops` traits: `Instant + Seconds` and `Instant - Instant`
+  saturate, `Seconds / Seconds` is the window index and is 0 for a zero
+  divisor. Amounts, nonces and the window index stay bare. The agent's
+  checks, re-run here after the merge:
+
+```
+$ fe fmt --check && fe test                    -> 81 passed, 0 failed
+$ (WSL) scripts/native.sh                      -> 45 passed; both_targets_reach_the_same_verdicts PASS
+$ scripts/pay-cannot-loosen.sh                 -> control ok, 3 edits refused
+ABI files (fe/out/*.abi.json) vs the base build -> identical, all 7 (agent's check)
+native tool vs the previous one on 417 decide/exposure lines -> identical output (agent's check)
+$ npm test                                     -> 37 passed
+```
+
+- Site: every page shows a waiting loosening with a cancel button
+  (`components/waiting-change.tsx`), checked in a browser and in
+  `persona-b-arjun.spec.ts`.
+- Browser suite on the merged code: three full runs each had 1 to 3 tests
+  time out (90 s) or abort a page load, a different set each time, while
+  Windows Defender was busy; each of those files passed when run alone
+  (accessibility 10/10, live 4/4, performance 8/8). No assertion failed.
+- Base Sepolia, throwaway test key: launcher
+  `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` installed (2,315,301 gas),
+  vault `0x6b075068dc0619678b52fbce571dcb6e90c3ca2c` created (1,865,936),
+  paid twice, refused $80 (code 10), self-raise reverted `NotOwner`, owner
+  proposed, cancelled and paused; vault left with 92 test dollars; runtime
+  code 7,955 bytes. Gas and transactions in the README.
