@@ -213,10 +213,12 @@ export class Sim {
     )
     const outcome = this.outcome(receipt)
     if (!receipt.ok) return outcome
-    const code = decodeFunctionResult({ abi: vaultAbi, functionName: 'pay', data: receipt.data })
+    // The verdict is what the vault recorded. On a real network `receipt.data` is a
+    // rehearsal run just before sending, and the state can change in between.
     const event = outcome.events.find((e) => e.name === 'Paid' || e.name === 'Blocked')
-    const detail = event?.name === 'Paid' ? event.leftInWindow : event?.name === 'Blocked' ? event.detail : undefined
-    return { ...outcome, code, detail }
+    if (event?.name === 'Paid') return { ...outcome, code: 0, detail: event.leftInWindow }
+    if (event?.name === 'Blocked') return { ...outcome, code: event.code, detail: event.detail }
+    return { ...outcome, code: decodeFunctionResult({ abi: vaultAbi, functionName: 'pay', data: receipt.data }) }
   }
 
   /** What `pay` would answer right now. Changes nothing. */
