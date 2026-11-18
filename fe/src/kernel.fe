@@ -15,6 +15,9 @@
 //!    loosening waits out a cooling period and can be cancelled meanwhile.
 //! 3. `exposure`: the most that can leave through the agent between two
 //!    moments, whatever the agent does.
+//!
+//! Every function that changes the rules takes an `OwnerProof`, and
+//! `authorize` is the only way to get one.
 
 /// A moment, in Unix seconds.
 pub struct Instant { secs: u64 }
@@ -104,6 +107,26 @@ impl core::ops::Ord for Instant {
 impl core::ops::Eq for Seconds {
     fn eq(self, _ other: Seconds) -> bool {
         self.secs == other.secs
+    }
+}
+
+/// Evidence that the caller was checked against the owner.
+///
+/// `granted` is not `pub`, so no code outside this module can write
+/// `OwnerProof { .. }`: the compiler refuses it as "not visible". The only
+/// way to hold one is `authorize`, which hands it out only when the caller
+/// is the owner. A rule-changing function that asks for a proof therefore
+/// cannot be reached from a path that skipped the owner check.
+pub struct OwnerProof { granted: bool }
+
+impl Copy for OwnerProof {}
+
+/// An `OwnerProof` when `caller` is `owner`, nothing otherwise.
+pub fn authorize<T: core::ops::Eq>(owner: T, caller: T) -> Option<OwnerProof> {
+    if caller == owner {
+        Option::Some(OwnerProof { granted: true })
+    } else {
+        Option::None
     }
 }
 
@@ -398,7 +421,7 @@ pub fn meet(_ a: Policy, _ b: Policy) -> Policy {
 /// takes effect `cooling_secs` later; a proposal with nothing looser clears
 /// the queue. So a limit can drop in one step but can only rise after the
 /// cooling period, and any later tightening cancels a pending rise.
-pub fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
+pub fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
     let in_force = rules.current(now)
     let active = meet(in_force, proposed)
     let queued = if loosens(active, to: proposed) {
@@ -411,8 +434,30 @@ pub fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
 
 /// Drop a queued loosening that has not taken effect yet. One that already
 /// has is the policy in force and stays.
-pub fn cancel(rules: Rules, now: Instant) -> Rules {
+pub fn cancel(_ proof: OwnerProof, rules: Rules, now: Instant) -> Rules {
     Rules { schedule: rules.schedule, active: rules.current(now), queued: Queued::none() }
+}
+
+/// The owner approves or removes a recipient at `now`; the result is the
+/// moment from which it may be paid. `current` is what is stored for it now.
+///
+/// Removing stores second zero ("not approved"). Approving one that is
+/// already approved or already cooling keeps its moment, so asking again
+/// does not restart the wait. Anything else waits out the cooling period.
+pub fn approve_from(
+    _ proof: OwnerProof,
+    _ schedule: Schedule,
+    current: Instant,
+    approved: bool,
+    now: Instant,
+) -> Instant {
+    if !approved {
+        NOT_SET
+    } else if current != NOT_SET {
+        current
+    } else {
+        matures_at(schedule, now)
+    }
 }
 
 /// When something loosened at `now` takes effect: `now + cooling_secs`,

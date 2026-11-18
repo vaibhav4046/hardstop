@@ -3,6 +3,8 @@
 
 use ingot::kernel::{
     amend,
+    approve_from,
+    authorize,
     cancel,
     decide,
     exposure,
@@ -11,6 +13,7 @@ use ingot::kernel::{
     Decision,
     Instant,
     Ledger,
+    OwnerProof,
     Policy,
     Queued,
     Reason,
@@ -35,6 +38,15 @@ fn secs(_ secs: u64) -> Seconds {
 
 fn policy() -> Policy {
     Policy { per_payment: 10, per_window: 20, valid_until: at(T0 + 30 * DAY), paused: false }
+}
+
+/// The owner the tests act as, and a stranger.
+const OWNER: u64 = 1
+const STRANGER: u64 = 2
+
+/// A proof for the owner, obtained the only way there is.
+fn owner() -> OwnerProof {
+    authorize(owner: OWNER, caller: OWNER).unwrap()
 }
 
 fn rules() -> Rules {
@@ -252,7 +264,7 @@ fn extreme_inputs_never_panic() {
                 until: at(MAX_U64),
             ) == MAX_U256,
     )
-    let amended = amend(rules: wide, proposed: policy(), now: at(MAX_U64))
+    let amended = amend(owner(), rules: wide, proposed: policy(), now: at(MAX_U64))
     assert!(!amended.queued.is_some())
 }
 
@@ -271,6 +283,81 @@ fn time_arithmetic_is_total() {
     )
 }
 
+// --- owner proof ----------------------------------------------------------
+
+#[test]
+fn only_the_owner_is_authorized() {
+    assert!(authorize(owner: OWNER, caller: OWNER).is_some())
+    assert!(authorize(owner: OWNER, caller: STRANGER).is_none())
+    assert!(authorize(owner: at(5), caller: at(6)).is_none())
+}
+
+// --- approve_from ---------------------------------------------------------
+
+#[test]
+fn a_new_recipient_waits_out_the_cooling_period() {
+    let s = rules().schedule
+    let from = approve_from(
+        owner(),
+        s,
+        current: at(0),
+        approved: true,
+        now: at(T0 + 7),
+    )
+    assert!(from == at(T0 + 7 + DAY))
+}
+
+#[test]
+fn asking_again_does_not_restart_the_wait() {
+    let s = rules().schedule
+    // Still cooling.
+    let cooling = at(T0 + DAY)
+    assert!(
+        approve_from(
+                owner(),
+                s,
+                current: cooling,
+                approved: true,
+                now: at(T0 + 50),
+            ) == cooling,
+    )
+    // Already approved.
+    let approved = at(T0)
+    assert!(
+        approve_from(
+                owner(),
+                s,
+                current: approved,
+                approved: true,
+                now: at(T0 + 9 * DAY),
+            )
+            == approved,
+    )
+}
+
+#[test]
+fn removing_a_recipient_stores_not_approved() {
+    let s = rules().schedule
+    assert!(
+        approve_from(
+                owner(),
+                s,
+                current: at(T0),
+                approved: false,
+                now: at(T0 + 1),
+            ) == at(0),
+    )
+    assert!(
+        approve_from(
+                owner(),
+                s,
+                current: at(0),
+                approved: false,
+                now: at(T0 + 1),
+            ) == at(0),
+    )
+}
+
 // --- amend ----------------------------------------------------------------
 
 #[test]
@@ -281,7 +368,12 @@ fn lowering_a_limit_applies_at_once() {
         valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: lower, now: at(T0 + 100))
+    let r = amend(
+        owner(),
+        rules: rules(),
+        proposed: lower,
+        now: at(T0 + 100),
+    )
     assert!(r.active.per_payment == 3)
     assert!(!r.queued.is_some())
     assert!(
@@ -297,7 +389,12 @@ fn raising_a_limit_waits_out_the_cooling_period() {
         valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: higher, now: at(T0 + 100))
+    let r = amend(
+        owner(),
+        rules: rules(),
+        proposed: higher,
+        now: at(T0 + 100),
+    )
     assert!(r.active.per_payment == 10)
     assert!(r.active.per_window == 20)
     assert!(r.queued.effective_at == at(T0 + 100 + DAY))
@@ -323,7 +420,7 @@ fn a_mixed_change_tightens_now_and_loosens_later() {
         valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: mixed, now: at(T0))
+    let r = amend(owner(), rules: rules(), proposed: mixed, now: at(T0))
     assert!(r.active.per_payment == 2)
     assert!(r.active.per_window == 20)
     assert!(r.queued.is_some())
@@ -338,8 +435,8 @@ fn a_queued_raise_can_be_cancelled() {
         valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let queued = amend(rules: rules(), proposed: higher, now: at(T0))
-    let r = cancel(rules: queued, now: at(T0 + 50))
+    let queued = amend(owner(), rules: rules(), proposed: higher, now: at(T0))
+    let r = cancel(owner(), rules: queued, now: at(T0 + 50))
     assert!(!r.queued.is_some())
     assert!(
         code(r, fresh(), ask(amount: 500, nonce: 0), now: T0 + 2 * DAY) == 10,
@@ -354,10 +451,10 @@ fn pausing_is_instant_and_cancels_a_queued_raise() {
         valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let queued = amend(rules: rules(), proposed: higher, now: at(T0))
+    let queued = amend(owner(), rules: rules(), proposed: higher, now: at(T0))
     var stop = queued.active
     stop.paused = true
-    let r = amend(rules: queued, proposed: stop, now: at(T0 + 10))
+    let r = amend(owner(), rules: queued, proposed: stop, now: at(T0 + 10))
     assert!(r.active.paused)
     assert!(!r.queued.is_some())
     assert!(
@@ -372,7 +469,7 @@ fn pausing_is_instant_and_cancels_a_queued_raise() {
 fn resuming_waits_out_the_cooling_period() {
     var paused = rules()
     paused.active.paused = true
-    let r = amend(rules: paused, proposed: policy(), now: at(T0))
+    let r = amend(owner(), rules: paused, proposed: policy(), now: at(T0))
     assert!(r.active.paused)
     assert!(
         code(r, fresh(), ask(amount: 1, nonce: 0), now: T0 + DAY - 1) == 2,
@@ -483,7 +580,7 @@ fn exposure_includes_a_raise_that_matures_in_time() {
         valid_until: at(T0 + 30 * DAY),
         paused: false,
     }
-    let r = amend(rules: rules(), proposed: higher, now: at(T0))
+    let r = amend(owner(), rules: rules(), proposed: higher, now: at(T0))
     // Inside the cooling period the raise changes nothing.
     assert!(
         exposure(
@@ -514,11 +611,16 @@ fn higher() -> Policy {
 
 #[test]
 fn proposing_again_restarts_the_wait() {
-    let first = amend(rules: rules(), proposed: higher(), now: at(T0))
+    let first = amend(owner(), rules: rules(), proposed: higher(), now: at(T0))
     var bigger = higher()
     bigger.per_payment = 100000
     bigger.per_window = 100000
-    let second = amend(rules: first, proposed: bigger, now: at(T0 + DAY - 1))
+    let second = amend(
+        owner(),
+        rules: first,
+        proposed: bigger,
+        now: at(T0 + DAY - 1),
+    )
     // The bigger raise waits its own full cooling period.
     assert!(second.queued.effective_at == at(T0 + 2 * DAY - 1))
     // And the smaller one it replaced does not arrive on its old schedule.
@@ -529,24 +631,29 @@ fn proposing_again_restarts_the_wait() {
 
 #[test]
 fn a_matured_raise_is_the_baseline_for_the_next_proposal() {
-    let first = amend(rules: rules(), proposed: higher(), now: at(T0))
+    let first = amend(owner(), rules: rules(), proposed: higher(), now: at(T0))
     // Two days later the raise is in force. Lowering one field of it is a
     // tightening, so it applies at once and nothing is queued.
     var lower = higher()
     lower.per_payment = 50
-    let second = amend(rules: first, proposed: lower, now: at(T0 + 2 * DAY))
+    let second = amend(
+        owner(),
+        rules: first,
+        proposed: lower,
+        now: at(T0 + 2 * DAY),
+    )
     assert!(
         second.active.per_payment == 50 && second.active.per_window == 1000,
     )
     assert!(!second.queued.is_some())
     // Cancelling after the raise took effect keeps it: there is nothing left to cancel.
-    let kept = cancel(rules: first, now: at(T0 + 2 * DAY))
+    let kept = cancel(owner(), rules: first, now: at(T0 + 2 * DAY))
     assert!(kept.active.per_payment == 500 && !kept.queued.is_some())
 }
 
 #[test]
 fn exposure_uses_a_raise_that_already_took_effect() {
-    let raised = amend(rules: rules(), proposed: higher(), now: at(T0))
+    let raised = amend(owner(), rules: rules(), proposed: higher(), now: at(T0))
     assert!(
         exposure(
                 rules: raised,
@@ -609,7 +716,12 @@ fn a_raise_that_would_mature_past_the_end_of_time_never_does() {
         until: at(MAX_U64),
     )
     assert!(bound == 20)
-    let r = amend(rules: late, proposed: forever, now: at(MAX_U64 - 5))
+    let r = amend(
+        owner(),
+        rules: late,
+        proposed: forever,
+        now: at(MAX_U64 - 5),
+    )
     assert!(r.queued.effective_at == at(MAX_U64))
     assert!(
         code(r, fresh(), ask(amount: 500, nonce: 0), now: MAX_U64) == 10,
@@ -622,7 +734,7 @@ fn a_raise_that_would_mature_past_the_end_of_time_never_does() {
                 until: at(MAX_U64),
             ) == 20,
     )
-    let at_the_end = amend(rules: late, proposed: forever, now: at(MAX_U64))
+    let at_the_end = amend(owner(), rules: late, proposed: forever, now: at(MAX_U64))
     assert!(
         code(
                 at_the_end,
@@ -666,7 +778,7 @@ fn exposure_owner_promise_needs_a_queue_built_by_amend() {
     assert!(
         exposure(rules: by_hand, ledger: fresh(), now: at(T0), until) == 20,
     )
-    let after_cancel = cancel(rules: by_hand, now: at(T0 + 5))
+    let after_cancel = cancel(owner(), rules: by_hand, now: at(T0 + 5))
     assert!(
         exposure(
                 rules: after_cancel,
@@ -676,6 +788,6 @@ fn exposure_owner_promise_needs_a_queue_built_by_amend() {
             ) == 480,
     )
     // Whereas after any `amend`, the active policy is never looser than the queue.
-    let amended = amend(rules: rules(), proposed: higher(), now: at(T0))
+    let amended = amend(owner(), rules: rules(), proposed: higher(), now: at(T0))
     assert!(!loosens(amended.queued.policy, to: amended.active))
 }

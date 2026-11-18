@@ -10,21 +10,28 @@
 //! cannot change its own limits or its own recipients; the compiler rejects
 //! a `Pay` that tries. `owner`, `agent`, `token` and `schedule` are
 //! immutable: no handler can list them `mut`.
+//!
+//! The owner handlers change the rules through kernel functions that each
+//! demand an `OwnerProof`, and the only proof a handler can get is the one
+//! `only` returns after checking the caller. Drop the check and the handler
+//! has no proof to pass, so it does not compile.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Ctx, Log, StorageMap, revert_error}
 use std::evm::erc20::safe_transfer
 use ingot::kernel::{
     amend,
+    approve_from,
+    authorize,
     cancel,
     cooled,
     decide,
     exposure,
     left_in_window,
-    matures_at,
     Decision,
     Instant,
     Ledger,
+    OwnerProof,
     Policy,
     Queued,
     Reason,
@@ -144,10 +151,21 @@ pub struct InvalidPolicy {}
 #[error]
 pub struct ZeroAddress {}
 
-fn only(_ allowed: Address, caller: Address) {
-    if caller != allowed {
-        revert_error(NotOwner {})
+/// Reverts with `NotOwner` unless `caller` is `allowed`; otherwise the
+/// proof every rule-changing kernel function asks for.
+fn only(_ allowed: Address, caller: Address) -> OwnerProof {
+    match authorize(owner: allowed, caller) {
+        Option::Some(proof) => proof,
+        Option::None => revert_error(NotOwner {}),
     }
+}
+
+/// Sends `amount` of `token` to the owner. Takes a proof so that `Withdraw`
+/// cannot move money without having checked its caller.
+fn pay_owner(_ proof: OwnerProof, token: Address, owner: Address, amount: u256)
+uses (ctx: Ctx, call: mut Call)
+{
+    safe_transfer(token, receiver: owner, amount)
 }
 
 fn seconds(_ at: Timestamp) -> Instant {
@@ -310,7 +328,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         Propose { per_payment, per_window, valid_until, paused }
         uses (ctx, owner, schedule, mut active, mut queued, mut log)
         {
-            only(owner, caller: ctx.caller())
+            let proof = only(owner, caller: ctx.caller())
             let proposed = Policy {
                 per_payment,
                 per_window,
@@ -318,6 +336,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 paused,
             }
             let next = amend(
+                proof,
                 rules: Rules { schedule, active, queued },
                 proposed,
                 now: seconds(ctx.timestamp()),
@@ -336,8 +355,9 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         CancelQueued uses (ctx, owner, schedule, mut active, mut queued, mut log) {
-            only(owner, caller: ctx.caller())
+            let proof = only(owner, caller: ctx.caller())
             let next = cancel(
+                proof,
                 rules: Rules { schedule, active, queued },
                 now: seconds(ctx.timestamp()),
             )
@@ -347,12 +367,12 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         Pause uses (ctx, owner, schedule, mut active, mut queued, mut log) {
-            only(owner, caller: ctx.caller())
+            let proof = only(owner, caller: ctx.caller())
             let now = seconds(ctx.timestamp())
             let rules = Rules { schedule, active, queued }
             var stopped = rules.current(now)
             stopped.paused = true
-            let next = amend(rules, proposed: stopped, now)
+            let next = amend(proof, rules, proposed: stopped, now)
             active = next.active
             queued = next.queued
             log.emit(
@@ -367,22 +387,21 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         SetRecipient { who, approved } uses (ctx, owner, schedule, mut approved_from, mut log) {
-            only(owner, caller: ctx.caller())
-            let from = if !approved {
-                Instant::at(0)
-            } else if approved_from.get(key: who) != Instant::at(0) {
-                // Already approved or already cooling: asking again does not restart the wait.
-                approved_from.get(key: who)
-            } else {
-                matures_at(schedule, now: seconds(ctx.timestamp()))
-            }
+            let proof = only(owner, caller: ctx.caller())
+            let from = approve_from(
+                proof,
+                schedule,
+                current: approved_from.get(key: who),
+                approved,
+                now: seconds(ctx.timestamp()),
+            )
             approved_from.set(key: who, value: from)
             log.emit(RecipientChanged { who, approved_from: from.secs() })
         }
 
         Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
-            only(owner, caller: ctx.caller())
-            safe_transfer(token, receiver: owner, amount)
+            let proof = only(owner, caller: ctx.caller())
+            pay_owner(proof, token, owner, amount)
             log.emit(Withdrawn { amount })
         }
 

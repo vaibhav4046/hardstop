@@ -108,6 +108,22 @@ requires the compiler to refuse each (errors 8-0018 and 8-0066), while a
 control edit to the `mut` ledger still compiles. And `decide` has no `uses` clause at all, so the function that
 makes the decision provably cannot read storage, call out, or log.
 
+The owner's side is a type, not only a runtime `onlyOwner`. The kernel
+functions that change the rules (`amend`, `cancel`, `approve_from`) and the
+vault's `pay_owner` each take an `OwnerProof`. Its one field is private to
+the kernel, so `OwnerProof { .. }` does not compile anywhere else, and the
+only way to get one is `authorize(owner, caller)`, which returns it only when
+the two match. The vault's `only` calls `authorize` with the stored owner and
+`ctx.caller()` and reverts `NotOwner` otherwise. The same script deletes the
+`only(...)` line from each of `Propose`, `CancelQueued`, `Pause`,
+`SetRecipient` and `Withdraw` and requires each build to fail with "undefined
+variable `proof`" (8-0012), and requires a hand-made `OwnerProof` to fail as
+"not visible". What this does not prove: that the proof was made from the
+real caller (`authorize` is public, so `authorize(owner, owner)` in a handler
+would compile; `only` is the one place that binds it to `ctx.caller()`), or
+that a handler which lists `mut active` goes through `amend` at all. Such a
+handler can still assign a hand-built `Policy` directly.
+
 The other half is that the same `decide` is the body of a native program:
 
 ```fe
@@ -174,8 +190,8 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 81 tests on the EVM
-fe test --backend native          # the 45 kernel + adversary tests again, natively
+fe test                           # 85 tests on the EVM
+fe test --backend native          # the 49 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
 ./out/hardstop campaign 5206533097626292048 20000 40
@@ -198,8 +214,8 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 81 passed, 0 failed |
-| `fe test --backend native` | 45 passed, 0 failed |
+| `fe test` (EVM) | 85 passed, 0 failed |
+| `fe test --backend native` | 49 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 14 of 14 mutants caught, on both targets |
 | Exposure promise under attack | taken 2,938 times in 200 games: 347 with a raise waiting, 565 with money already spent, reached exactly 100 times, never exceeded |

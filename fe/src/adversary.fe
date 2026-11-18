@@ -24,12 +24,14 @@
 
 use ingot::kernel::{
     amend,
+    authorize,
     cancel,
     decide,
     exposure,
     Decision,
     Instant,
     Ledger,
+    OwnerProof,
     Policy,
     Queued,
     Request,
@@ -44,13 +46,22 @@ use ingot::kernel::{
 pub trait Engine {
     fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision
 
-    fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
-        amend(rules, proposed, now)
+    fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
+        amend(proof, rules, proposed, now)
     }
 
     fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
         exposure(rules, ledger, now, until)
     }
+}
+
+/// The one owner the games model.
+const OWNER: u64 = 1
+
+/// The owner's proof, for its own amendments: the owner checked against
+/// itself.
+fn as_owner() -> OwnerProof {
+    authorize(owner: OWNER, caller: OWNER).unwrap()
 }
 
 /// The real kernel.
@@ -327,19 +338,20 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
             let owner = rng.below(12)
             if owner == 0 {
                 rules = E::amend(
+                    as_owner(),
                     rules,
                     proposed: pick_policy(mut rng, around: now, window_secs),
                     now: at,
                 )
             } else if owner == 1 {
-                rules = cancel(rules, now: at)
+                rules = cancel(as_owner(), rules, now: at)
             } else if owner == 2 && rules.queued.is_some() && !rules.queued.matured(now: at) {
                 // Not content with the raise that is waiting, the owner asks
                 // for a bigger one.
                 var bigger = rules.queued.policy
                 bigger.per_payment = bigger.per_payment + (1 + rng.below(50)) as u256
                 bigger.per_window = bigger.per_window + (1 + rng.below(100)) as u256
-                rules = E::amend(rules, proposed: bigger, now: at)
+                rules = E::amend(as_owner(), rules, proposed: bigger, now: at)
             }
 
             let policy = rules.current(now: at)

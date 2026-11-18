@@ -21,6 +21,7 @@ use ingot::kernel::{
     Decision,
     Instant,
     Ledger,
+    OwnerProof,
     Policy,
     Queued,
     Reason,
@@ -302,11 +303,11 @@ impl Engine for AmendSkipsCooling {
         decide(rules, ledger, request, now)
     }
 
-    fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
+    fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
         if loosens(rules.current(now), to: proposed) {
             Rules { schedule: rules.schedule, active: proposed, queued: Queued::none() }
         } else {
-            amend(rules, proposed, now)
+            amend(proof, rules, proposed, now)
         }
     }
 }
@@ -320,8 +321,8 @@ impl Engine for AmendKeepsOldMaturity {
         decide(rules, ledger, request, now)
     }
 
-    fn amend(rules: Rules, proposed: Policy, now: Instant) -> Rules {
-        var next = amend(rules, proposed, now)
+    fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
+        var next = amend(proof, rules, proposed, now)
         if rules.queued.is_some() && !rules.queued.matured(now) && next.queued.is_some() {
             next.queued.effective_at = rules.queued.effective_at
         }
