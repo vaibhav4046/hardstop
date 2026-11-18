@@ -456,3 +456,5 @@ Base Sepolia, throwaway test key: launcher
 refused $80 (code 10), self-raise reverted `NotOwner`, owner proposed,
 cancelled and paused; vault left with 92 test dollars; runtime code 7,941
 bytes. Run-time gas within 2 units of the previous contracts.
+
+Browser suite on the owner-capability code (`npm run e2e`, one full run): 55 passed, 0 failed (4.5m).
