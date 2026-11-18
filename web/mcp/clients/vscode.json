@@ -1,0 +1,27 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "hardstop-agent-key",
+      "description": "HARDSTOP agent private key (hex). Never the owner key.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "hardstop-vault",
+      "description": "HARDSTOP vault address (0x...)"
+    }
+  ],
+  "servers": {
+    "hardstop": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts"],
+      "env": {
+        "HARDSTOP_AGENT_KEY": "${input:hardstop-agent-key}",
+        "HARDSTOP_VAULT": "${input:hardstop-vault}",
+        "HARDSTOP_CHAIN_ID": "84532"
+      }
+    }
+  }
+}

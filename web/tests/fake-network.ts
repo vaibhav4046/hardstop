@@ -19,7 +19,8 @@ const PROXY_CODE: Hex =
 const GAS_LIMIT = 10_000_000n
 
 type Call = { from?: Hex; to?: Hex; data?: Hex; value?: Hex }
-type StoredReceipt = { status: Hex; gasUsed: Hex; blockNumber: Hex; logs: { address: Hex; topics: Hex[]; data: Hex }[] }
+type StoredLog = { address: Hex; topics: Hex[]; data: Hex; blockNumber: Hex; transactionHash: Hex }
+type StoredReceipt = { status: Hex; gasUsed: Hex; blockNumber: Hex; logs: StoredLog[] }
 
 export class FakeNetwork {
   /** Block timestamp, Unix seconds. Tests may move it. */
@@ -43,6 +44,7 @@ export class FakeNetwork {
   private block = 1n
   private readonly receipts = new Map<Hex, StoredReceipt>()
   private readonly nonces = new Map<string, number>()
+  private readonly logs: StoredLog[] = []
 
   private constructor(evm: EVM, common: Common, account: Hex, now: bigint) {
     this.evm = evm
@@ -81,6 +83,19 @@ export class FakeNetwork {
       }
       case 'eth_getTransactionCount':
         return toHex(this.nonces.get((params[0] as string).toLowerCase()) ?? 0)
+      case 'eth_blockNumber':
+        return toHex(this.block)
+      case 'eth_getLogs': {
+        const filter = params[0] as { address?: Hex; fromBlock?: Hex; toBlock?: Hex }
+        const from = BigInt(filter.fromBlock ?? '0x0')
+        const to = BigInt(filter.toBlock ?? toHex(this.block))
+        return this.logs.filter(
+          (log) =>
+            (!filter.address || log.address === filter.address.toLowerCase()) &&
+            BigInt(log.blockNumber) >= from &&
+            BigInt(log.blockNumber) <= to,
+        )
+      }
       case 'eth_getTransactionReceipt':
         return this.receipts.get(params[0] as Hex) ?? null
       case 'eth_call': {
@@ -161,16 +176,21 @@ export class FakeNetwork {
     this.nonces.set(from, (this.nonces.get(from) ?? 0) + 1)
     const { execResult } = await this.run(from, to, data, value, gasLimit)
     const hash = keccak256(toHex(`${this.block}:${from}`))
+    const blockNumber = toHex(this.block)
+    const logs = (execResult.logs ?? []).map(([address, topics, payload]) => ({
+      address: bytesToHex(address),
+      topics: topics.map((topic) => bytesToHex(topic)),
+      data: bytesToHex(payload),
+      blockNumber,
+      transactionHash: hash,
+    }))
     this.receipts.set(hash, {
       status: execResult.exceptionError === undefined ? '0x1' : '0x0',
       gasUsed: toHex(execResult.executionGasUsed + 21_000n),
-      blockNumber: toHex(this.block),
-      logs: (execResult.logs ?? []).map(([address, topics, payload]) => ({
-        address: bytesToHex(address),
-        topics: topics.map((topic) => bytesToHex(topic)),
-        data: bytesToHex(payload),
-      })),
+      blockNumber,
+      logs,
     })
+    if (execResult.exceptionError === undefined) this.logs.push(...logs)
     return hash
   }
 }

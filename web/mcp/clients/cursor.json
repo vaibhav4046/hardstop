@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "hardstop": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts"],
+      "env": {
+        "HARDSTOP_AGENT_KEY": "0xYOUR_AGENT_KEY",
+        "HARDSTOP_VAULT": "0xYOUR_VAULT_ADDRESS",
+        "HARDSTOP_CHAIN_ID": "84532"
+      }
+    }
+  }
+}

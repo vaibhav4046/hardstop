@@ -1,0 +1,29 @@
+{
+  "//": [
+    "Example .mcp.json for Claude Code (project scope). Copy it to your project root as .mcp.json.",
+    "No secrets here: ${VAR} is expanded by Claude Code from your environment, so set HARDSTOP_AGENT_KEY and HARDSTOP_VAULT in your shell.",
+    "HARDSTOP_AGENT_KEY is the AGENT's key. Never put the owner's key anywhere near an AI.",
+    "Replace /ABSOLUTE/PATH/TO/hardstop with where you cloned the repository, and run `npm ci` in web/ once.",
+    "HARDSTOP_CHAIN_ID: 84532 (Base Sepolia, default) or 11155111 (Sepolia). Other chains are refused.",
+    "The second server, hardstop-demo, needs nothing: an in-memory network with a freshly launched vault."
+  ],
+  "mcpServers": {
+    "hardstop": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts"],
+      "env": {
+        "HARDSTOP_AGENT_KEY": "${HARDSTOP_AGENT_KEY}",
+        "HARDSTOP_VAULT": "${HARDSTOP_VAULT}",
+        "HARDSTOP_CHAIN_ID": "84532",
+        "HARDSTOP_RECIPIENTS": "Cloud hosting=0x0000000000000000000000000000000000005109"
+      }
+    },
+    "hardstop-demo": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts"],
+      "env": { "HARDSTOP_FAKE": "1" }
+    }
+  }
+}

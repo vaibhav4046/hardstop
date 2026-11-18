@@ -275,6 +275,10 @@ substitute for the second.
   console error.
 - **Locally:** `cd web && npm run dev`, then open http://localhost:3000.
 
+## Connect your AI
+
+Any assistant that speaks MCP can become a vault's agent: Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code, or Python agents. `web/mcp/server.ts` gives it five tools: status, preview, pay, recipients, and asking the owner for more. There are no owner tools, and the server never holds the owner's key, so the AI cannot loosen its own limits. `web/mcp/watch.ts` watches the vault 24/7 for the owner and alerts on waiting loosenings, payments, refusals, pauses and the end date. To try it with nothing set up, run `cd web && HARDSTOP_FAKE=1 node mcp/server.ts`. Setup for each client is in [`web/mcp/README.md`](web/mcp/README.md).
+
 ## Limitations
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
