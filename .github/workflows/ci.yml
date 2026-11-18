@@ -33,6 +33,8 @@ jobs:
       - name: Build the contracts
         working-directory: fe
         run: fe build --emit bytecode,runtime-bytecode,abi
+      - name: Pay cannot be edited to change the rules (the compiler refuses)
+        run: bash scripts/pay-cannot-loosen.sh
       - name: Build the native tool
         working-directory: fe
         run: fe build --backend native

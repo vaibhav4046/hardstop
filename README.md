@@ -101,7 +101,10 @@ Pay { to, amount, nonce } -> u8
 `active`, `queued` and `approved_from` appear without `mut`. "The agent
 cannot raise its own limit or approve its own recipient" is therefore not
 only a tested behaviour: a `Pay` that assigned to any of them would not
-compile. And `decide` has no `uses` clause at all, so the function that
+compile. CI proves it on every push: [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)
+edits a copy of `Pay` to write `active`, `queued` or `approved_from` and
+requires the compiler to refuse each (errors 8-0018 and 8-0066), while a
+control edit to the `mut` ledger still compiles. And `decide` has no `uses` clause at all, so the function that
 makes the decision provably cannot read storage, call out, or log.
 
 The other half is that the same `decide` is the body of a native program:
