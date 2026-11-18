@@ -85,7 +85,7 @@ Pay { to, amount, nonce } -> u8
         amount,
         nonce,
         from_agent: ctx.caller() == agent,
-        to_approved: is_approved(from: approved_from.get(key: to), now),
+        to_approved: cooled(at: approved_from.get(key: to), now),
     }
     match decide(rules, ledger, request, now) {
         Decision::Allow(next) => {
@@ -170,7 +170,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 15 tests on the compiled contract + the differential test
+npm test                          # 20 tests: 15 on the compiled contract, the differential test, 4 on the app's session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 51 browser tests against the production build
@@ -182,7 +182,7 @@ Every command above except the browser suite runs in
 
 ### Results
 
-Measured on 2026-11-17; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
+Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
 
 | What | Result |
 |---|---|
@@ -196,8 +196,8 @@ Measured on 2026-11-17; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
 | Vault runtime size | 7,539 bytes |
 | Browser suite (`npm run e2e`, Chromium, production build) | 51 passed, 0 failed: seven scripted personas, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
-| Click "Agent pays $4" to receipt on screen | median 15 ms, max 22 ms (local EVM simulation, not on-chain latency) |
-| First and largest contentful paint, home page | median 100 ms unthrottled; 2,104 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
+| Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
+| First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
 
 The personas are scripts, not people: no human participant, screen
 reader, Firefox, Safari or physical device was tested. Method, steps,

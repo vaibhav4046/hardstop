@@ -7,49 +7,49 @@
   "cache": "empty for every run",
   "firstContentfulPaintMs": {
     "runs": 5,
-    "median": 108,
-    "max": 156,
-    "min": 92,
+    "median": 120,
+    "max": 140,
+    "min": 100,
     "all": [
+      140,
       120,
-      92,
-      156,
-      100,
-      108
+      128,
+      112,
+      100
     ]
   },
   "largestContentfulPaintMs": {
     "runs": 5,
-    "median": 108,
-    "max": 156,
-    "min": 92,
+    "median": 120,
+    "max": 140,
+    "min": 100,
     "all": [
+      140,
       120,
-      92,
-      156,
-      100,
-      108
+      128,
+      112,
+      100
     ]
   },
   "largestContentfulPaintElement": "p.lede mt-7",
   "exampleVaultReadyMs": {
     "runs": 5,
-    "median": 334,
-    "max": 395,
-    "min": 329,
+    "median": 370,
+    "max": 607,
+    "min": 341,
     "all": [
-      395,
-      334,
-      334,
-      329,
-      337
+      607,
+      370,
+      378,
+      342,
+      341
     ],
     "note": "navigation start until the home example shows its balance, i.e. the EVM chunk has loaded and the vault is deployed"
   },
   "javascript": {
     "files": 10,
-    "transferred": 312410,
-    "decoded": 1028385,
+    "transferred": 313109,
+    "decoded": 1030195,
     "encodings": [
       "gzip"
     ],

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { note, verdict } from '@/lib/describe'
 import { formatDuration, formatTime, formatUsd, USD } from '@/lib/money'
 import { AGENT_RAISE, UNAPPROVED, type Entry } from '@/lib/session'
+import { Amount } from './amount'
 import { useHomeVault } from './home-vault'
 
 const RAISED_DAY = 50n * USD
@@ -58,7 +59,9 @@ export function RulesPanel() {
       </dl>
       <div className="tile">
         <p className="panel-title">The most the rules let this agent take before {formatTime(view.worstCaseUntil)}</p>
-        <p className="figure figure-gold mt-3">{formatUsd(view.worstCase)}</p>
+        <p className="figure figure-gold mt-3">
+          <Amount value={view.worstCase} />
+        </p>
         <p className="small soft mt-3">
           Worked out by the vault itself. No change made from now on, by anyone, can raise it before then.
         </p>

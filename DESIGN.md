@@ -165,8 +165,10 @@ pixel behind where it sits, at 1152, 1280, 1440 and 1920px and at 1280px with
 125% text: secondary text is at least 8.36:1 and white at least 17.93:1.
 axe cannot judge text over a canvas and reports those nodes as undecided, so
 that measurement is the evidence. Below 72rem the picture is a 240px band
-under the copy and no text overlaps it. It fades in once over 900ms; with
-reduced motion it is simply there.
+under the copy and no text overlaps it. It is drawn once and fades in over
+900ms; with reduced motion it is simply there. On a wide screen a glow runs
+along the bar (see Motion). It starts right of the door's centre line, at
+60% of the hero's width or further right, so it is never behind the copy.
 
 ## Motion
 
@@ -181,10 +183,39 @@ reduced motion it is simply there.
   screen at the moment the visitor first scrolls with a wheel or a finger, so
   a page that is read, printed or captured without scrolling shows
   everything.
-- The hero backdrop fades in once.
+  The working panel in a revealed section follows its text 80ms behind, and
+  a gold rule draws out from each step's number.
+- The hero backdrop fades in once. On a wide screen a glow crosses the bar
+  every 5.2s. The glow is a strip of CSS laid over the bar's bright dots and
+  cut to the same 4px dot grid, with a soft light sliding through it
+  (`transform` only); the canvas itself is never redrawn. A first version
+  redrew the canvas many times a second, and measured a whole processor core
+  for an idle home page in a browser without a graphics card; this version
+  measures 5% (see `EVIDENCE_LOG.md`).
+- The first lines of each page are wiped in from below over 700ms
+  (`clip-path` and `translateY`, staggered 90ms). Never by opacity: text has
+  full contrast in every frame.
+- Money figures that a payment changes (in the vault, spent today, left
+  today, worst case) count to the new value over 450ms. React always renders
+  the true value; only the text on screen is run through the count.
+- A blocked receipt shakes its head once (420ms, 6px). A paid receipt gets
+  one pass of light (900ms).
+- Buttons lift 1px on hover.
+- On a wide screen a gold hairline along the bar's lower edge shows how far
+  down the page you are, in browsers that support scroll-driven animation.
+- "How it works" opens with a looping nine-second diagram: $4 passes through
+  the vault to the recipient, $80 is stopped at it. It is labelled an
+  illustration and is hidden from screen readers; its caption carries the
+  meaning. A row from 640px, a column below.
+
+Motion is `transform` and `clip-path` only, apart from the backdrop's one
+fade (a picture, not text) and the colour of the
+diagram's tokens and rings.
 
 Under `prefers-reduced-motion: reduce` every animation and transition is
-off, `ScrollReveal` does nothing, and the backdrop is static.
+off, `ScrollReveal` does nothing, figures change without counting, the
+backdrop has no glow, and the diagram shows its end state: $80 stopped at
+the vault, $4 arrived.
 
 ## Components and states
 

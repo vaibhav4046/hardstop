@@ -180,39 +180,41 @@ new browser context with an empty cache. Times are milliseconds.
 
 | Measurement | Unthrottled median | max | runs | Throttled median | max | runs |
 |---|---|---|---|---|---|---|
-| First Contentful Paint, `/` | 100 | 520 | 5 | 2,104 | 2,164 | 3 |
-| Largest Contentful Paint, `/` (element: the `h1`) | 100 | 520 | 5 | 2,104 | 2,164 | 3 |
-| Navigation start until the home example is ready (contract code downloaded, vault deployed) | 298 | 347 | 5 | 10,870 | 10,934 | 3 |
-| Click "Agent pays $4" until the receipt is in the page and a frame is produced | 15 | 22 | 10 | 58 | 76 | 10 |
-| Create a vault: "Start with an example vault" on `/activity`, cold (includes downloading the contract code) | 96 | 164 | 5 | 3,698 | 3,803 | 3 |
-| Create a vault: "Create vault" on the `/protect` review until `/activity` shows it (contract code already loaded) | 29 | 42 | 5 | 830 | 875 | 3 |
-| First Contentful Paint, `/activity` | 80 | | 1 | 1,936 | | 1 |
-| Largest Contentful Paint, `/activity` | 80 | | 1 | 6,216 | | 1 |
+| First Contentful Paint, `/` | 120 | 140 | 5 | 2,348 | 2,372 | 3 |
+| Largest Contentful Paint, `/` (element: the opening paragraph under the `h1`) | 120 | 140 | 5 | 2,348 | 2,372 | 3 |
+| Navigation start until the home example is ready (contract code downloaded, vault deployed) | 370 | 607 | 5 | 10,452 | 10,462 | 3 |
+| Click "Agent pays $4" until the receipt is in the page and a frame is produced | 26 | 33 | 10 | 86 | 100 | 10 |
+| Create a vault: "Start with an example vault" on `/activity`, cold (includes downloading the contract code) | 121 | 137 | 5 | 3,666 | 3,677 | 3 |
+| Create a vault: "Create vault" on the `/protect` review until `/activity` shows it (contract code already loaded) | 42 | 58 | 5 | 1,236 | 1,251 | 3 |
+| First Contentful Paint, `/activity` | 136 | | 1 | 2,280 | | 1 |
+| Largest Contentful Paint, `/activity` | 136 | | 1 | 5,752 | | 1 |
 
 All individual values:
 
 ```
-unthrottled  FCP /            [520, 72, 68, 100, 128]      (LCP identical)
-unthrottled  example ready    [259, 298, 277, 347, 323]
-unthrottled  pay click        [15, 22, 10, 17, 12, 12, 19, 16, 16, 12]
-unthrottled  example vault    [94, 96, 164, 102, 95]
-unthrottled  own vault        [24, 30, 42, 29, 29]
-throttled    FCP /            [1960, 2104, 2164]           (LCP identical)
-throttled    example ready    [10868, 10870, 10934]
-throttled    pay click        [76, 63, 57, 53, 60, 65, 56, 52, 54, 75]
-throttled    example vault    [3698, 3803, 3543]
-throttled    own vault        [875, 820, 830]
+unthrottled  FCP /            [140, 120, 128, 112, 100]           (LCP identical)
+unthrottled  example ready    [607, 370, 378, 342, 341]
+unthrottled  pay click        [25, 27, 33, 33, 13, 15, 28, 23, 26, 17]
+unthrottled  example vault    [113, 107, 137, 121, 132]
+unthrottled  own vault        [47, 35, 58, 38, 42]
+throttled    FCP /            [2304, 2348, 2372]           (LCP identical)
+throttled    example ready    [10321, 10462, 10452]
+throttled    pay click        [86, 93, 85, 77, 100, 91, 82, 97, 84, 81]
+throttled    example vault    [3677, 3650, 3666]
+throttled    own vault        [1236, 1251, 1224]
 ```
 
 Notes on reading these:
 
-- The first unthrottled load (520 ms) was the first page load of the
-  performance project; the other four are 68 to 128 ms. Median is the better
-  summary.
+- These figures were re-measured on 2026-11-18, after motion was added. The
+  home page's first lines are now wiped in, so the largest element is counted
+  when the opening paragraph appears rather than the `h1`. Before that change
+  the same measurements were: paint 100 ms unthrottled and 2,104 ms throttled,
+  click to receipt 15 ms and 58 ms.
 - Paint times come from `PerformanceObserver` (`paint`,
   `largest-contentful-paint`) inside the page. LCP is the last candidate
   reported once the network was idle.
-- On `/activity` under throttling, LCP (6.2 s) is much later than FCP (1.9 s)
+- On `/activity` under throttling, LCP (5.8 s) is much later than FCP (2.3 s)
   because the first HTML says "Starting your practice vault…" and the real
   content replaces it only after the page's JavaScript has arrived. Single
   run each.

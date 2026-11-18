@@ -10,7 +10,7 @@ export default function Home() {
     <HomeVaultProvider>
       <div className="hero">
         <div className="wrap hero-copy">
-          <p className="chip">Practice mode: the real contract runs in your browser</p>
+          <p className="chip">Try it below. No sign-up, nothing to install.</p>
           <h1 className="hero-title lines mt-7">
             <span>Your agent can spend.</span> <span>It cannot raise the limit.</span>
           </h1>

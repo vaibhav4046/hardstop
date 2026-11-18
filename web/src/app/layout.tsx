@@ -32,8 +32,11 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         </a>
         <aside className="practice" aria-label="Practice mode">
           <p className="wrap">
-            <strong>Practice mode.</strong> The real contract runs here in your browser, on a private simulated chain,
-            with test dollars. No wallet, no network, no real money.
+            <strong>Practice mode.</strong>{' '}
+            <span className="practice-more">
+              The real contract runs here in your browser, on a private simulated chain, with test dollars.{' '}
+            </span>
+            No wallet, no network, no real money.
           </p>
         </aside>
         <header className="topbar">

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./styles/pieces.css";
 @import "./styles/home.css";
+@import "./styles/flow.css";
 
 /* HARDSTOP design tokens. See DESIGN.md for the reasoning and contrast figures. */
 @theme {
@@ -153,7 +154,7 @@
 
   .practice {
     border-bottom: 1px solid var(--color-rule);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     line-height: 1.45;
     color: var(--color-ink-soft);
     padding-block: 0.625rem;
@@ -162,6 +163,21 @@
   .practice strong {
     color: var(--color-gold);
     font-weight: 600;
+  }
+
+  /* The longer explanation, left out on a phone so the notice stays short. */
+  .practice-more {
+    display: none;
+  }
+
+  @media (min-width: 48rem) {
+    .practice {
+      font-size: var(--text-sm);
+    }
+
+    .practice-more {
+      display: inline;
+    }
   }
 
   .topbar {
@@ -259,6 +275,21 @@
 
     .topbar-row > .nav-cta {
       display: none;
+    }
+
+    /* How far down the page you are, as a gold hairline along the bar's lower
+       edge. Drawn only by browsers that can tie an animation to scrolling. */
+    @supports (animation-timeline: scroll()) {
+      .topbar::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 -1px;
+        height: 1px;
+        background: var(--color-gold);
+        transform-origin: left;
+        animation: page-progress linear both;
+        animation-timeline: scroll(root);
+      }
     }
   }
 
@@ -407,12 +438,13 @@
       background-color var(--duration-hover) ease-out,
       border-color var(--duration-hover) ease-out,
       color var(--duration-hover) ease-out,
-      transform 80ms ease-out;
+      transform 160ms var(--ease-out-expo);
   }
 
   .btn:hover {
     border-color: rgb(255 255 255 / 0.42);
     background: rgb(255 255 255 / 0.12);
+    transform: translateY(-1px);
   }
 
   .btn:active {
@@ -630,12 +662,111 @@
   }
 }
 
+/* The light crosses the bar in the first half of each loop and is away for the rest. */
+@keyframes glow-pass {
+  from {
+    transform: translateX(-100%);
+  }
+  46%,
+  to {
+    transform: translateX(100cqw);
+  }
+}
+
+/* A refusal shakes its head once. */
+@keyframes refuse {
+  20% {
+    transform: translateX(-0.375rem);
+  }
+  45% {
+    transform: translateX(0.3125rem);
+  }
+  70% {
+    transform: translateX(-0.1875rem);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* A payment gets one pass of light across its receipt. */
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+/* Copy at the top of a page arriving: wiped in from below, never faded. */
+@keyframes rise-in {
+  from {
+    transform: translateY(0.9rem);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    transform: none;
+    /* Wider than the box, so a focus ring round a button is never cut off. */
+    clip-path: inset(-1rem);
+  }
+}
+
+@keyframes page-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .is-new {
   animation: print-out var(--duration-print) var(--ease-out-expo) both;
 }
 
 .is-new .stamp {
   animation: stamp-down var(--duration-stamp) var(--ease-out-expo) 160ms both;
+}
+
+.is-new .slip-head:has(.stamp-blocked) {
+  animation: refuse 420ms ease-out 260ms both;
+}
+
+.slip.is-new:has(.stamp-paid) {
+  overflow: hidden;
+}
+
+.slip.is-new:has(.stamp-paid)::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgb(124 214 166 / 0.14), transparent);
+  pointer-events: none;
+  transform: translateX(-120%);
+  animation: sheen 900ms ease-out 200ms both;
+}
+
+/* The heading and opening lines of each page. */
+.page > .page-title,
+.page > .lede,
+.hero-copy > :not(.hero-title),
+.hero-title span {
+  animation: rise-in 700ms var(--ease-out-expo) both;
+}
+
+.hero-title span:nth-child(2),
+.page > .lede {
+  animation-delay: 90ms;
+}
+
+.hero-copy > .lede {
+  animation-delay: 180ms;
+}
+
+.hero-copy > .lede + p {
+  animation-delay: 260ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

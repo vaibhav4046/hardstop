@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Flow } from '@/components/flow'
 import { source } from '@/lib/links'
 
 export const metadata: Metadata = {
@@ -15,6 +16,10 @@ export default function HowItWorks() {
         A HARDSTOP vault holds money for one AI agent. The agent and you are treated as two different people, and the
         vault gives each a different, fixed set of things it will accept from them.
       </p>
+
+      <div className="mt-10">
+        <Flow />
+      </div>
 
       <section className="mt-[var(--gap-section)]" aria-labelledby="who-title">
         <h2 id="who-title" className="section-title">

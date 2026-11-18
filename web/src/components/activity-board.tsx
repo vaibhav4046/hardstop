@@ -6,6 +6,7 @@ import { formatDuration, formatTime, formatUsd } from '@/lib/money'
 import { exampleSetup, namedRecipients, today, UNAPPROVED, type Action, type Entry, type Session, type View } from '@/lib/session'
 import { useVault } from '@/lib/vault-store'
 import { AgentPanel } from './agent-panel'
+import { Amount } from './amount'
 import { OwnerControls } from './owner-controls'
 import { announcement, Slip } from './slip'
 
@@ -108,7 +109,9 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
         <h2 id="vault-title" className="label">
           In the vault
         </h2>
-        <p className="figure mt-2">{formatUsd(vaultBalance)}</p>
+        <p className="figure mt-2">
+          <Amount value={vaultBalance} />
+        </p>
         <p className="small soft mt-1">Test dollars</p>
 
         <div className="mt-7">
@@ -128,11 +131,15 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
           <dl className="mt-3 flex flex-wrap justify-between gap-x-6 gap-y-1">
             <div>
               <dt className="small soft">Spent today</dt>
-              <dd className="text-xl font-medium">{formatUsd(day.spent)}</dd>
+              <dd className="text-xl font-medium">
+                <Amount value={day.spent} />
+              </dd>
             </div>
             <div className="text-right">
               <dt className="small soft">Left today</dt>
-              <dd className="text-xl font-medium">{formatUsd(view.leftToday)}</dd>
+              <dd className="text-xl font-medium">
+                <Amount value={view.leftToday} />
+              </dd>
             </div>
           </dl>
           <p className="small soft mt-2">
@@ -178,7 +185,9 @@ function Board({ view, session, entries, isBusy, isSaved }: BoardProps) {
           <h2 id="worst-title" className="label">
             Worst case if your agent goes rogue
           </h2>
-          <p className="figure figure-gold mt-2">{formatUsd(worstShown)}</p>
+          <p className="figure figure-gold mt-2">
+            <Amount value={worstShown} />
+          </p>
           <p className="soft mt-3">
             The most it could take from this vault between now and {formatTime(view.worstCaseUntil)}. No change made
             from now on, by anyone, can raise that before then.

@@ -1,6 +1,6 @@
 # Progress
 
-Updated 2026-11-17. Submission deadline: 2026-11-24 23:59 UTC.
+Updated 2026-11-18. Submission deadline: 2026-11-24 23:59 UTC.
 
 ## Done and verified
 
@@ -21,11 +21,31 @@ Updated 2026-11-17. Submission deadline: 2026-11-24 23:59 UTC.
 | CI | Green on Linux for Fe, native, differential, artifact reproducibility and type-check |
 | Deployment | https://hardstop-omega.vercel.app; live journey verified by `web/e2e/live-check.mjs` |
 
-## In progress
+## Where it stands against other entries
 
-- Launch film.
+An independent review on 2026-11-18 (an AI reviewer acting as a sceptical
+judge, not a person) found 22 public entries, read six in detail, and put
+HARDSTOP at about 63 of 100 and roughly sixth. Its reasons: five entries
+are agent spending limits, several others have more Fe code, the kernel
+uses bare integers where typed units would show more of the language, there
+are no gas figures, and the app is practice mode only. Its scores for other
+entries rest on their READMEs and were not run. The work it recommends is
+listed under "Not started".
+
+## On hold
+
+- Launch film. Stopped by the owner; working files are in `film/work/`
+  (not committed). Not restarted.
 
 ## Not started
+
+- Typed units in `kernel.fe` (seconds, amounts, nonces) instead of bare
+  integers.
+- Gas figures for `pay` (allowed and refused) and `propose`.
+- Reject a zero owner or token address when a vault is created.
+- A CI step proving that a `Pay` handler which assigns to the rules does
+  not compile.
+- Something that tells the owner a raise is waiting.
 
 - Optional: policy drafting from plain language (needs an LLM API key on the server).
 - Optional: wallet mode against a public test network (needs a funded test key).
@@ -43,3 +63,5 @@ Updated 2026-11-17. Submission deadline: 2026-11-24 23:59 UTC.
 | 9f0bd4f | Practice-mode web app |
 | da1bd31 | Persona, accessibility and performance suite; fixes it found |
 | e0058cc | Deployment and live check |
+| 88ac30d | Frontend rebuilt in the dark, serif-and-gold direction |
+| 33169e0 | Git-triggered Vercel builds turned off |

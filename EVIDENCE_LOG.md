@@ -226,3 +226,51 @@ Vercel had also been starting a build from the repository root on every
 push, which failed because the app lives in `web/`; those never replaced the
 live site. `vercel.json` at the root now turns Git-triggered builds off, and
 deployment is done with `npx vercel deploy --prod` from `web/`.
+
+**Motion added (2026-11-18), and a mistake in it found by measurement.**
+Requested by the owner. First version: the hero picture redrawn on the
+canvas about 24 times a second. The browser suite then failed with 90-second
+timeouts. Measured cause, in headless Chromium (no graphics card), whole
+browser, home page left idle for 6 s:
+
+```
+before the change (picture drawn once)            0.00 CPU-s   0% of one core
+all dots as one path, redrawn                     6.33 CPU-s 105%
+dots filled one by one, moving parts redrawn      3.02 CPU-s  50%
+  ... wheel 6 times a second, bar only in its glow 2.02 CPU-s  34%
+picture drawn once + a CSS glow strip (shipped)    0.30 CPU-s   5%
+/how-it-works with its looping diagram             0.41 CPU-s   7%
+```
+
+Same 15 tests (accessibility, navigation, persona A), six browsers at once:
+before the change 45.9 s and 48.2 s; redrawn canvas 66 to 78 s; shipped
+version 55.4 s. The remaining difference is tests waiting for entrance
+animations and counting figures to settle.
+
+```
+$ npx tsc --noEmit        -> clean
+$ npx eslint src          -> clean
+$ npm test                -> 20 passed
+$ npm run e2e             -> runs 1-4 (redrawn canvas): 40 or 41 passed,
+                             2 or 3 failed, 8 did not run. Failures: the new
+                             diagram wider than a 360px screen (fixed: it is
+                             a column below 640px), a source-scan test that
+                             flags any new comparison near an amount (fixed
+                             by rewording the line), and navigation timeouts
+                             (the processor cost above)
+                          -> shipped version: 51 passed (4.4m)
+```
+
+Speed figures in the README and `qa/TEST_RESULTS.md` were re-measured by that
+last run. Paint moved from 100 to 120 ms unthrottled and from 2,104 to
+2,348 ms throttled; click to receipt from 15 to 26 ms.
+
+**Independent review as a contest judge (2026-11-18).** An AI reviewer, not a
+person. It found 22 public entries by search, read six READMEs and file
+trees without running them, and ran this repository's own commands
+(`fe test` 68 passed, `npm test` 20 passed, native `decide` and a 200-game
+campaign matching the README). Its estimate: about 63 of 100, roughly sixth.
+It found two errors in the README, both fixed: the `Pay` excerpt showed
+`is_approved(...)` where the source has `cooled(at: ...)`, and `npm test`
+was described as 15 tests where it runs 20. Its other recommendations are
+listed in `PROGRESS.md` and are not done.

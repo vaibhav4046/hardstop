@@ -1,31 +1,31 @@
 [
   {
     "file": "components/activity-board.tsx",
-    "line": 97,
+    "line": 98,
     "text": "const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)",
     "judgement": "Display: how full to draw the gauge. Decides nothing."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 98,
+    "line": 99,
     "text": "const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance",
     "judgement": "Display: caps the worst-case figure at the balance, and the page says so. Both numbers are read from the contract."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 186,
+    "line": 195,
     "text": "{worstShown < view.worstCase && (",
     "judgement": "Display: whether to show the \"capped at what the vault holds\" note."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 191,
+    "line": 200,
     "text": "{view.worstCaseUntil >= day.resetsAt && !policy.paused && (",
     "judgement": "Display: whether to show the \"more than one day\" note."
   },
   {
     "file": "components/activity-board.tsx",
-    "line": 197,
+    "line": 206,
     "text": "{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (",
     "judgement": "Display: whether to show the \"upper limit\" note."
   },

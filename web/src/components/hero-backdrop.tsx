@@ -3,6 +3,11 @@
 // The picture behind the home headline: a vault door with a bar across it,
 // worked out from a few circles and lines and drawn as gold dots with ordered
 // dithering. It is generated here; there is no image file. Decorative only.
+//
+// The picture is drawn once. The one thing that moves is a glow along the
+// bar, and that is a strip of CSS laid over the bar's dots (see home.css), not
+// a redraw: redrawing the canvas many times a second cost a whole processor
+// core on a machine without a graphics card.
 
 import { useEffect, useRef } from 'react'
 
@@ -26,6 +31,7 @@ const BAYER = [
 const BOLTS = 14
 const SPOKES = 4
 const LIGHT = -0.9 // radians: light falls from the upper right
+const BAR = 0.062 // half the height of the bright part of the bar, in door radii
 
 /** Brightness, 0 to 1, of the door at a point. `dx`, `dy` are measured from its centre in door radii. */
 function brightness(dx: number, dy: number): number {
@@ -34,7 +40,7 @@ function brightness(dx: number, dy: number): number {
   const lit = 0.5 + 0.5 * Math.cos(angle - LIGHT)
 
   // The stop: a bar lying across the door and on past its right edge.
-  if (dx > -1.3 && Math.abs(dy) < 0.085) return Math.abs(dy) > 0.062 ? 0.03 : 0.9 + 0.1 * lit
+  if (dx > -1.3 && Math.abs(dy) < 0.085) return Math.abs(dy) > BAR ? 0.03 : 0.9 + 0.1 * lit
   if (dx > -1.3 && Math.abs(dy) < 0.115) return 0.04
 
   if (d > 1.14) return 0.11 * Math.exp(-(d - 1.14) * 2.4)
@@ -58,7 +64,8 @@ function brightness(dx: number, dy: number): number {
   return 0.12 + 0.24 * lit * d + 0.035 * Math.cos(d * 46)
 }
 
-function paint(canvas: HTMLCanvasElement): void {
+/** Draws the picture, and tells the glow where the bar's dots are. */
+function paint(canvas: HTMLCanvasElement, glow: HTMLElement | null): void {
   const width = canvas.clientWidth
   const height = canvas.clientHeight
   const context = canvas.getContext('2d')
@@ -75,6 +82,17 @@ function paint(canvas: HTMLCanvasElement): void {
   const centreX = isBehind ? width * 0.75 : width * 0.5
   const centreY = height * 0.5
 
+  // The glow covers the bright rows of the bar, from just left of the door's
+  // centre (clear of the copy) to the right edge, on the same grid as the dots.
+  if (glow) {
+    const firstRow = Math.ceil((centreY - BAR * radius) / CELL)
+    const lastRow = Math.floor((centreY + BAR * radius) / CELL)
+    glow.hidden = !isBehind
+    glow.style.top = `${firstRow * CELL}px`
+    glow.style.height = `${(lastRow - firstRow) * CELL + DOT}px`
+    glow.style.left = `${Math.ceil((centreX - 0.5 * radius) / CELL) * CELL}px`
+  }
+
   for (let row = 0; row * CELL < height; row++) {
     for (let column = 0; column * CELL < width; column++) {
       const level = brightness((column * CELL - centreX) / radius, (row * CELL - centreY) / radius)
@@ -87,15 +105,23 @@ function paint(canvas: HTMLCanvasElement): void {
 
 export function HeroBackdrop() {
   const ref = useRef<HTMLCanvasElement>(null)
+  const glow = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     const canvas = ref.current
     if (!canvas) return
     // Also draws it the first time: an observer reports the size it starts with.
-    const observer = new ResizeObserver(() => paint(canvas))
+    const observer = new ResizeObserver(() => paint(canvas, glow.current))
     observer.observe(canvas)
     return () => observer.disconnect()
   }, [])
 
-  return <canvas ref={ref} className="hero-backdrop" aria-hidden="true" />
+  return (
+    <>
+      <canvas ref={ref} className="hero-backdrop" aria-hidden="true" />
+      <span ref={glow} className="hero-glow" aria-hidden="true" hidden>
+        <span />
+      </span>
+    </>
+  )
 }
