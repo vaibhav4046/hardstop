@@ -53,7 +53,14 @@
     .incidents-bar {
       animation: grow-right linear both;
       animation-timeline: view();
-      animation-range: entry 30% cover 45%;
+      animation-range: entry 30% cover 40%;
+    }
+
+    /* The faded range follows on from the solid part, just behind it. */
+    .incidents-range {
+      animation: grow-right linear both;
+      animation-timeline: view();
+      animation-range: cover 30% cover 45%;
     }
 
     .adoption-track span {

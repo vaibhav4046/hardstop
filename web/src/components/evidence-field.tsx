@@ -71,6 +71,15 @@ export function Incidents() {
   const top = Math.max(...INCIDENTS.map((incident) => incident.high));
   return (
     <figure className="incidents reveal">
+      {/* A key to the bars, which are hidden from screen readers; the amounts beside them say the same in words. */}
+      <p className="incidents-key small soft" aria-hidden="true">
+        <span>
+          <span className="incidents-key-low" /> Amount reported
+        </span>
+        <span>
+          <span className="incidents-key-range" /> Where a source gives a range, up to its higher figure
+        </span>
+      </p>
       <ol>
         {INCIDENTS.map((incident, index) => (
           <li key={incident.id}>
@@ -92,6 +101,7 @@ export function Incidents() {
                     style={{
                       left: `${(incident.low / top) * 100}%`,
                       width: `${((incident.high - incident.low) / top) * 100}%`,
+                      animationDelay: `${index * 120 + 300}ms`,
                     }}
                   />
                 )}

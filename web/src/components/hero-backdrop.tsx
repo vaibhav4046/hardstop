@@ -142,7 +142,9 @@ export function HeroBackdrop() {
         .catch(() => set3d(false))
     }
     const hasIdle = 'requestIdleCallback' in window
-    const idle = hasIdle ? requestIdleCallback(start, { timeout: 2500 }) : window.setTimeout(start, 1200)
+    // Soon: the still picture waits 1.6s before showing (home.css) so that
+    // normally the moving one is there first and the visitor sees one door.
+    const idle = hasIdle ? requestIdleCallback(start, { timeout: 600 }) : window.setTimeout(start, 300)
     const quit = () => {
       isCancelled = true
       stop?.()

@@ -186,16 +186,18 @@ along the bar (see Motion). It starts right of the door's centre line, at
 
 Once the page is idle, `hero-backdrop.tsx` loads `vault-scene.ts` (three.js,
 in its own chunk) and, if it starts, lays a second canvas over the still
-picture and opens it with a `clip-path` iris while the still one fades out.
-The door underneath is a lit 3D model (lathe-turned rim, face, fourteen
+picture and fades it in over 600ms. Where motion is allowed the still picture waits 1.6s before it shows, and the moving door is asked for within 0.6s, so normally only one door is ever seen; without WebGL the still one then fades in as before. The door underneath is a lit 3D model (lathe-turned rim, face, fourteen
 bolts, a four-spoke wheel, the bar and its bracket), built in code; nothing
 is fetched. Each frame it is rendered at one pixel per 4px cell, and a
 second pass turns each pixel's brightness into a gold dot with the same 8x8
-Bayer threshold, so it is the same dot drawing as the still one, moving: the
-door swings shut over 1.6s, the bar slides in from the right and settles in
-its bracket, the wheel turns a quarter, and afterwards the door breathes a
-little, leans toward the mouse, and turns, rises and spins its wheel as the
-hero scrolls away.
+Bayer threshold, so it is the same dot drawing as the still one, moving.
+It starts in the still picture's exact place, size and pose (door square on,
+bar home; the same radius formula and the same masks), so it never jumps,
+and it has no opening move: it appears where it stays. A slow sway eases in
+from nothing over four seconds; otherwise it leans toward the mouse, and
+turns, rises and spins its wheel as the hero scrolls away. (A first version
+swung the door shut and slid the bar in on arrival; the owner saw that as
+the picture changing position, so it was removed.)
 
 It is not loaded under reduced motion, and the browser is asked for a
 graphics context that refuses a software-only path
@@ -254,7 +256,10 @@ context is lost, the still picture comes back.
   scroll-driven animations): the hero copy drifts up as it leaves; section
   openers rise 36px into place as they arrive; the two figures from other
   tests, and the two paths, move at different speeds (parallax); the loss
-  bars and payment bars grow as they are scrolled to; the worst-case chart
+  bars and payment bars grow as they are scrolled to (a loss bar's faded
+  range, where a source gives one, grows on from its solid part, so the two
+  never come apart; a key above the list says what solid and faded mean);
+  the worst-case chart
   and the home diagram lift 48px into place (never scaled, so their buttons keep their full size). Only `transform`, and
   only vertically, so nothing can stick out sideways. Nothing is hidden at
   any scroll position.

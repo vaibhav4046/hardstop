@@ -471,13 +471,45 @@
     animation: grow-right 900ms var(--ease-out-expo) both;
   }
 
-  /* Where a source gives a range, its upper part is drawn as an outline. */
+  /* Where a source gives a range, its upper part is the same red, faded, with
+     a red edge: one bar whose end is uncertain. It grows on from the solid
+     part, a beat later. */
   .incidents-range {
     position: absolute;
     top: 0;
     bottom: 0;
     border: 1px solid var(--color-stop);
     border-left: 0;
+    background: rgb(248 113 113 / 0.3);
+    transform-origin: left;
+    animation: grow-right 900ms var(--ease-out-expo) both;
+  }
+
+  /* The key above the bars: a swatch for each part. */
+  .incidents-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.5rem;
+  }
+
+  /* Each swatch stays on the line of its own words. */
+  .incidents-key > span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .incidents-key-low,
+  .incidents-key-range {
+    flex: none;
+    width: 1.5rem;
+    height: 0.625rem;
+    background: var(--color-stop);
+  }
+
+  .incidents-key-range {
+    border: 1px solid var(--color-stop);
+    background: rgb(248 113 113 / 0.3);
   }
 
   .incidents-amount {

@@ -4,9 +4,9 @@
 // It looks like the still picture it replaces: gold dots on a 4px grid, set
 // by ordered (Bayer) dithering. The door underneath is a 3D model built with
 // three.js; each frame it is lit and rendered small, one pixel per dot, and a
-// second pass turns that brightness into dots. So the picture can move (the
-// door swings shut, the bar slides home, the wheel turns, and it answers the
-// pointer and the scroll) while staying the same drawing.
+// second pass turns that brightness into dots. It starts in exactly the still
+// picture's pose and size, so it takes over without a jump, and stays put;
+// it only answers the pointer and the scroll, still the same drawing.
 //
 // Everything is built from shapes in code: no model, texture or image file is
 // fetched, so the site's Content-Security-Policy needs nothing new.
@@ -14,7 +14,7 @@
 // Cost is kept low. The renderer refuses a software-only graphics path
 // (`failIfMajorPerformanceCaveat`), so a machine without a graphics card
 // keeps the still picture. The model is drawn at a sixteenth of the canvas's
-// pixels, at most 30 frames a second once the door has closed, and nothing
+// pixels, at most 30 frames a second, and nothing
 // at all while the hero is off screen or the tab is hidden.
 
 import {
@@ -51,8 +51,7 @@ const GOLD = [227, 176, 75].map((channel) => channel / 255)
 const GOLD_LIGHT = [246, 214, 140].map((channel) => channel / 255)
 
 const BOLTS = 14
-const IDLE_FRAME_MS = 1000 / 30
-const INTRO_S = 2.6 // door swings shut, the bar slides home, the wheel turns
+const FRAME_MS = 1000 / 30
 
 type Options = {
   /** Called once the first frame is on the canvas. */
@@ -63,8 +62,6 @@ type Options = {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 const easeOut = (progress: number) => 1 - (1 - progress) ** 3
-/** Overshoots a little and settles: the bar landing in its bracket. */
-const easeBack = (progress: number) => 1 + 2.2 * (progress - 1) ** 3 + 1.2 * (progress - 1) ** 2
 
 /** Faint machined rings on the face of the door, and a glow fading out past the rim, drawn once. */
 function radialTexture(stops: [number, string][], rings: boolean): Texture {
@@ -275,7 +272,7 @@ function run(canvas: HTMLCanvasElement, renderer: WebGLRenderer, { onReady, onLo
     ],
     false,
   )
-  const { door, wheel, bar, barHome, materials } = buildDoor(face, halo)
+  const { door, wheel, materials } = buildDoor(face, halo)
   scene.add(door)
 
   // One pixel of this per dot on screen. Eight bits a channel is enough for a
@@ -294,11 +291,13 @@ function run(canvas: HTMLCanvasElement, renderer: WebGLRenderer, { onReady, onLo
     dither.material.uniforms.size.value = new Vector2(width, height)
     dither.material.uniforms.ratio.value = renderer.getPixelRatio()
     camera.aspect = width / height
-    // The door's radius takes most of the half-height, and always fits across.
+    // The same size as the door in the still picture (hero-backdrop.tsx), so
+    // one can replace the other without the door moving. Behind the copy this
+    // canvas is the right half of the hero, so the hero's width is twice its own.
+    const isBehind = matchMedia('(min-width: 72rem)').matches
+    const radius = isBehind ? Math.min(height * 0.47, width * 2 * 0.3) : Math.max(height * 0.72, width * 0.36)
     const tan = Math.tan((camera.fov * Math.PI) / 360)
-    const byHeight = 1 / (0.94 * tan)
-    const byWidth = 1.3 / (tan * camera.aspect)
-    camera.position.set(0, 0, Math.max(byHeight, byWidth))
+    camera.position.set(0, 0, height / (2 * radius * tan))
     camera.updateProjectionMatrix()
   }
   fit()
@@ -328,25 +327,25 @@ function run(canvas: HTMLCanvasElement, renderer: WebGLRenderer, { onReady, onLo
   const draw = (now: number) => {
     frame = 0
     const t = (now - started) / 1000
-    const isIntro = t < INTRO_S
-    if (!isIntro && now - last < IDLE_FRAME_MS) {
+    if (last && now - last < FRAME_MS) {
       schedule()
       return
     }
     last = now
 
-    const swing = easeOut(clamp01(t / 1.6))
-    const slide = clamp01((t - 0.7) / 0.9)
-    const turn = easeOut(clamp01((t - 1.5) / 1.1))
+    // It appears exactly as the still picture is drawn, door square on and
+    // bar home, and stays there: no opening move. The slow sway eases in
+    // from nothing over the first few seconds; the rest is the pointer and
+    // the scroll.
+    const settle = easeOut(clamp01(t / 4))
 
     tilt.x += (pointer.y * 0.12 - tilt.x) * 0.06
     tilt.y += (pointer.x * 0.18 - tilt.y) * 0.06
 
-    door.rotation.y = -0.85 * (1 - swing) + 0.08 * Math.sin(t * 0.35) + tilt.y + scrolled * 0.7
-    door.rotation.x = 0.05 * Math.sin(t * 0.27) + tilt.x - scrolled * 0.25
+    door.rotation.y = settle * 0.08 * Math.sin(t * 0.35) + tilt.y + scrolled * 0.7
+    door.rotation.x = settle * 0.05 * Math.sin(t * 0.27) + tilt.x - scrolled * 0.25
     door.position.y = scrolled * 0.9
-    bar.position.x = barHome + 8 * (1 - easeBack(slide))
-    wheel.rotation.z = turn * (Math.PI / 2) + scrolled * Math.PI
+    wheel.rotation.z = scrolled * Math.PI
 
     renderer.setRenderTarget(target)
     renderer.clear()
