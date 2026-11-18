@@ -35,15 +35,22 @@ listed under "Not started".
 ## Done since the review
 
 - Real vaults on Base Sepolia and Sepolia through the visitor's wallet, with
-  a new Fe contract, `launcher.fe`. Tested against a stand-in wallet only.
+  a new Fe contract, `launcher.fe`. Run on Base Sepolia on 2026-11-18 with
+  a throwaway test key: launcher installed, vault created, agent paid $4,
+  refused $80, refused a self-raise (transactions in the README).
+- Wallet errors read plainly (they showed `[object Object]`), the balance is
+  checked before the wallet is asked, and the agent's gas money on Base
+  Sepolia is 0.00003 ETH so one faucet claim covers a launch.
 - The landing page shows the evidence: the ten-model test, two other lab
   tests, four recorded losses and agent payment traffic, each with its
   source and what it does not show.
 
 ## Needs the owner
 
-- Open one vault on Base Sepolia with a wallet that holds test ETH, to
-  confirm the path on a public network.
+- Finish one launch through MetaMask (the owner's account now holds 0.0001
+  test ETH on Base Sepolia; the last attempt stopped at MetaMask's approval).
+- Ask MetaMask to review `hardstop-omega.vercel.app`: its scanner warns
+  "Continue at your own risk" on connect. Draft in `qa/metamask-review-request.md`.
 
 ## On hold
 

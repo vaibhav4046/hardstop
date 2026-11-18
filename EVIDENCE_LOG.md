@@ -315,3 +315,52 @@ $ npm run e2e                         -> first run 37 passed, 10 failed, 8 did n
 
 Not done: no vault has been opened on a public network. That needs a wallet
 with test ETH, which only the owner can provide.
+
+**First run on a public test network (2026-11-18).** The owner connected
+MetaMask in the Comet browser and hit three problems:
+
+- MetaMask's site scanner showed "Continue at your own risk ... signs of
+  phishing or wallet-draining activity" before connecting. The site is not
+  in MetaMask's public blocklist: `src/config.json` of
+  `MetaMask/eth-phishing-detect` was downloaded and has no `hardstop` entry
+  and no bare `vercel.app` entry (it does list 1,964 other `vercel.app`
+  sites). The scanner gives no reason. Not fixed; needs a review by MetaMask.
+- The page said "That did not go through: [object Object]". Wallets report
+  failures as plain `{ code, message }` objects, not `Error`s. Fixed in
+  `vault-store.tsx`; `launch.ts` now checks the owner's balance first and
+  says "Your wallet has no test ETH on Base Sepolia to pay for this". Checked
+  on the live site with the owner's empty account.
+- The account had no test ETH. Alchemy's faucet needs 0.001 mainnet ETH and
+  mainnet history; Coinbase's developer faucet gives 0.0001 per claim. The
+  agent's gas money on Base Sepolia went from 0.0003 to 0.00003 ETH so one
+  claim covers a launch.
+
+The owner then left and asked for the rest to be handled without them. A
+MetaMask approval is theirs to give, so instead a throwaway test key (two
+0.0001 test ETH faucet claims, key kept outside the repo) signed as the
+owner from a script that calls the site's own `launchVault` and `attach`
+from `web/src/lib/live`, with the same `apply` the page uses:
+
+```
+owner    0x9f5bcc5c31e246Eb13fB11b0841FAea5Fa510B90 (throwaway)
+launcher 0x956fbbde5fcb981e5a8507b369c79105815d562d   9,464 bytes of code
+vault    0xb74aa9f441c677439094f56afb237b92cbfa404f   7,667 bytes
+token    0x4ded6d01a665d04ce956d9e85ac2b9d7007f4950   521 bytes
+agent    0x9c5da4c89525a1ac35d6dce2a0c4c3ec8a4357d7
+
+install launcher  0x3dd92270...8099  status 1  gas 2,245,239  fee 0.0000135 ETH
+launch vault      0xc663ffe1...2e62  status 1  gas 1,808,063  fee 0.0000108 ETH (+0.00003 to the agent)
+agent pays $4     0x5e7e7a1e...bc5a  status 1  gas   122,096  fee 0.00000088 ETH  verdict 0 (paid)
+agent pays $80    0xa95cc234...2967  status 1  gas    49,740  fee 0.00000036 ETH  verdict 10 (over per-payment limit)
+agent raises own limit: reverted NotOwner in the rehearsal, nothing sent
+test dollars after: vault 96.000000, recipient 4.000000; limit per day still 20
+```
+
+Read back independently with `eth_getCode`, `eth_getTransactionReceipt` and
+`balanceOf` against `https://sepolia.base.org`. The comment that 0.00003 ETH
+covers "thousands" of agent payments was wrong; at the measured fee it is
+about 34, and the comment now says so.
+
+Still not done: a launch clicked through MetaMask. The owner's account holds
+0.0001 test ETH; the last attempt stopped at MetaMask ("The requested account
+and/or method has not been authorized by the user").
