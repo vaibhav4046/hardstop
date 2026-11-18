@@ -65,7 +65,8 @@ offline, and the app shows it as "worst case in the next 24 hours".
 against the kernel: over the cap, one unit over, replayed, from a stranger,
 to an unapproved recipient, zero, enormous, with time jumping around window
 edges and the owner amending the rules mid-game. Every verdict is checked
-against a second, independently written statement of the rules and against
+against a second statement of the rules that shares no code with the kernel
+(written separately, though by the same author and AI) and against
 the exposure bound, which it re-takes many times per game. The same
 campaign is pointed at fourteen deliberately broken kernels and must catch
 each one.
@@ -157,7 +158,7 @@ web/
 ```
 
 Design decisions and their costs: [`DECISIONS.md`](DECISIONS.md).
-An independent adversarial review, what it found and what was fixed:
+An adversarial review by an AI reviewer, what it found and what was fixed:
 [`security/AUDIT.md`](security/AUDIT.md).
 Trust boundaries and what is not defended: [`security/THREAT_MODEL.md`](security/THREAT_MODEL.md),
 [`security/ASSUMPTIONS.md`](security/ASSUMPTIONS.md).
@@ -174,7 +175,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 cd fe
 fe fmt --check
 fe test                           # 81 tests on the EVM
-fe test --backend native          # the 44 kernel + adversary tests again, natively
+fe test --backend native          # the 45 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
 ./out/hardstop campaign 5206533097626292048 20000 40

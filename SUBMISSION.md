@@ -40,17 +40,20 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
   rule would not compile.
 - `fe/src/adversary.fe`: a seeded attacker written in Fe; it catches 14 of
   14 deliberately broken kernels on both targets.
-- `fe/src/launcher.fe`: creates a vault in one transaction, installed
-  through the deterministic deployment proxy, so it has one address on
-  every network.
+- `fe/src/launcher.fe`: creates a vault in one transaction. It is installed
+  through the deterministic deployment proxy, so on any network where it is
+  installed it has the same address (installed on Base Sepolia; on Sepolia it
+  installs itself on first use).
 
 ## Fe highlight
 
 `Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, schedule, active,
 queued, approved_from, mut ledger, mut call, mut log)`: the rules appear
-without `mut`, so "the agent cannot raise its own limit" is enforced by the
-compiler, not only by tests. The same pure `decide` also runs as a native
-command-line program. Details in the README's "Fe highlight".
+without `mut`, so the agent's only handler cannot change them. A `Pay` that
+wrote to them would not compile, and CI proves it on every push. The other
+handlers that change the rules are guarded by an ordinary runtime owner
+check. The same pure `decide` also runs as a native command-line program.
+Details in the README's "Fe highlight".
 
 ## Evidence it works
 
