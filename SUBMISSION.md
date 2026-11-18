@@ -52,15 +52,23 @@ queued, approved_from, mut ledger, mut call, mut log)`: the rules appear
 without `mut`, so the agent's only handler cannot change them. Owner
 authority is a type: `amend`, `cancel`, recipient approval and withdrawal
 each need an `OwnerProof`, which only `authorize(owner, caller)` can make
-(its field is private to the kernel). CI proves both on every push: a `Pay`
-that writes the rules, an owner handler with its owner check deleted, and a
-hand-made `OwnerProof` all fail to compile. The same pure `decide` also runs
-as a native command-line program.
+(its field is private to the kernel). A proof is spent by its first use and
+cannot be dropped unused. CI proves these on every push: a `Pay` that writes
+the rules, an owner handler with its owner check deleted, a hand-made
+`OwnerProof`, a proof used twice and a proof dropped all fail to compile.
+The limits: `authorize` is public, so the compiler would accept a handler
+that passes the caller as both arguments and proves anyone is the owner.
+Proofs are bound to the stored owner and the real caller only by the vault's
+`only` function, and a CI source check (not the compiler) requires that
+`only` is the one place the vault calls `authorize`. And a proof guards only
+the kernel calls: a handler that lists `mut active` can still assign a
+`Policy` directly. The same pure `decide` also runs as a native
+command-line program.
 Details in the README's "Fe highlight".
 
 ## Evidence it works
 
-- `fe test`: 85 passed on the EVM; 49 passed natively.
+- `fe test`: 88 passed on the EVM; 49 passed natively.
 - Web: 52 unit tests (including the MCP server and watcher) and 57 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check and

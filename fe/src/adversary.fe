@@ -46,7 +46,7 @@ use ingot::kernel::{
 pub trait Engine {
     fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision
 
-    fn amend(_ proof: OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
+    fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
         amend(proof, rules, proposed, now)
     }
 

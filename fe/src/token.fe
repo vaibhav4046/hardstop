@@ -1,8 +1,18 @@
 //! TestDollar: a 6-decimal test token for local chains and the demo.
-//! Anyone can mint. It has no value and must never be treated as money.
+//! Anyone can mint, up to `MAX_MINT` at a time. It has no value and must
+//! never be treated as money.
 #![cfg(target = "evm")]
 
-use std::evm::{Address, Ctx, Log, StorageMap}
+use std::evm::{Address, Ctx, Log, StorageMap, revert_error}
+
+/// The most one `mint` may create: $1,000,000 in 6-decimal base units.
+///
+/// Minting is open to anyone, so without a cap one mint of
+/// `2^256 - 1 - supply` would make every later mint overflow and revert,
+/// and with it every launch that mints a deposit. At this cap, overflowing
+/// the supply (or any balance, which never exceeds it) takes about 10^65
+/// mints.
+pub const MAX_MINT: u256 = 1000000000000
 
 pub msg TokenMsg {
     #[selector = sol("mint(address,uint256)")]
@@ -16,6 +26,10 @@ pub msg TokenMsg {
     #[selector = sol("decimals()")]
     Decimals -> u8,
 }
+
+/// A `mint` asked for more than `MAX_MINT`.
+#[error]
+pub struct MintAboveCap {}
 
 #[event]
 pub struct Transfer {
@@ -32,6 +46,9 @@ pub contract TestDollar uses (ctx: Ctx, log: mut Log) {
 
     recv TokenMsg {
         Mint { to, amount } uses (mut supply, mut balances, mut log) {
+            if amount > MAX_MINT {
+                revert_error(MintAboveCap {})
+            }
             supply = supply + amount
             balances.set(key: to, value: balances.get(key: to) + amount)
             log.emit(Transfer { from: Address::zero(), to, value: amount })

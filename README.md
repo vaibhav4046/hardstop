@@ -131,15 +131,29 @@ vault's `pay_owner` each take an `OwnerProof`. Its one field is private to
 the kernel, so `OwnerProof { .. }` does not compile anywhere else, and the
 only way to get one is `authorize(owner, caller)`, which returns it only when
 the two match. The vault's `only` calls `authorize` with the stored owner and
-`ctx.caller()` and reverts `NotOwner` otherwise. The same script deletes the
-`only(...)` line from each of `Propose`, `CancelQueued`, `Pause`,
+`ctx.caller()` and reverts `NotOwner` otherwise. A proof is not `Copy` and
+every function that takes one takes it `own`, so its first use spends it; it
+is also `#[must_use]`, so one cannot be made and dropped. The same script
+deletes the `only(...)` line from each of `Propose`, `CancelQueued`, `Pause`,
 `SetRecipient` and `Withdraw` and requires each build to fail with "undefined
-variable `proof`" (8-0012), and requires a hand-made `OwnerProof` to fail as
-"not visible". What this does not prove: that the proof was made from the
-real caller (`authorize` is public, so `authorize(owner, owner)` in a handler
-would compile; `only` is the one place that binds it to `ctx.caller()`), or
-that a handler which lists `mut active` goes through `amend` at all. Such a
-handler can still assign a hand-built `Policy` directly.
+variable `proof`" (8-0012), requires a hand-made `OwnerProof` to fail as "not
+visible", one proof passed to `pay_owner` twice to fail with "cannot use a
+value after it was moved" (16-0002), and a proof made and dropped to fail
+with "unused value of type `OwnerProof`" (8-0082).
+
+What the compiler does not prove: that the proof was made from the real
+caller. `authorize` is public, so
+`authorize(owner: ctx.caller(), caller: ctx.caller())` in a handler compiles
+and proves anyone is the owner. The kernel is pure, so it cannot see the
+real caller itself. So the script also runs a source check, a text check of
+`vault.fe` and not a compiler guarantee: `authorize` must be called exactly
+once, inside `fn only`, and every `only(...)` call must be in a handler and
+pass the stored `owner` and `ctx.caller()`, neither of them rebound. It then
+shows that two forgeries it rejects (the line above, and `owner` rebound to
+the caller) do compile, so the source check is what catches them. A helper in
+another module that hands out proofs would get past it. Nor does a proof
+force a handler to go through `amend`: one that lists `mut active` can still
+assign a hand-built `Policy` directly.
 
 The verdict codes are checked at compile time too. `Reason::code` returns
 named constants (`CODE_PAUSED`, `CODE_OVER_PAYMENT_LIMIT`, ...), and a chain

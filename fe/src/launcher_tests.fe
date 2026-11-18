@@ -12,7 +12,7 @@
 
 use std::evm::{Address, Call, Evm}
 use ingot::launcher::{Launcher, LauncherMsg}
-use ingot::token::{TestDollar, TokenMsg}
+use ingot::token::{MAX_MINT, TestDollar, TokenMsg}
 use ingot::vault::VaultMsg
 
 const USD: u256 = 1000000
@@ -262,6 +262,53 @@ fn a_custom_token_with_a_deposit_is_rejected() uses (evm: mut Evm) {
             value: Wei::zero(),
             message: order(agent: key(), token: custom, deposit: 1, salt: 7),
         )
+}
+
+// --- the test token's faucet cap --------------------------------------------
+// Anyone may mint, so one mint is capped: a mint that took the supply to
+// the top of `u256` would make every later mint, and so every launch with a
+// deposit, revert.
+
+fn mint(token: Address, to: Address, amount: u256) uses (evm: mut Evm) {
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::Mint { to, amount },
+    )
+}
+
+#[test]
+fn a_mint_at_the_cap_works() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 3)
+    mint(token, to: shop(), amount: MAX_MINT)
+    assert!(MAX_MINT == 1000000 * USD)
+    assert!(balance(token, of: shop()) == MAX_MINT)
+}
+
+// 0x325084c6 MintAboveCap()
+#[test(should_revert, selector = 0x325084c6)]
+fn a_mint_above_the_cap_is_refused() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 3)
+    mint(token, to: shop(), amount: MAX_MINT + 1)
+}
+
+#[test]
+fn the_launcher_still_launches_after_the_largest_mints() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let token = test_dollar(launcher)
+    mint(token, to: shop(), amount: MAX_MINT)
+    mint(token, to: evm.address(), amount: MAX_MINT)
+    let vault = launch(launcher, agent: key(), salt: 7)
+    assert!(balance(token, of: vault) == 100 * USD)
+    let supply: u256 = evm
+        .call(
+            addr: token,
+            gas: GAS,
+            value: Wei::zero(),
+            message: TokenMsg::TotalSupply {},
+        )
+    assert!(supply == 2 * MAX_MINT + 100 * USD)
 }
 
 // --- the vault's own checks still apply ---------------------------------------

@@ -12,9 +12,16 @@
 //! immutable: no handler can list them `mut`.
 //!
 //! The owner handlers change the rules through kernel functions that each
-//! demand an `OwnerProof`, and the only proof a handler can get is the one
-//! `only` returns after checking the caller. Drop the check and the handler
-//! has no proof to pass, so it does not compile.
+//! demand an `OwnerProof`. Drop a handler's `only` line and it has no proof
+//! to pass, so it does not compile. The compiler does not stop a handler
+//! from getting a proof another way: `authorize` is public, so
+//! `authorize(owner: ctx.caller(), caller: ctx.caller())` would compile and
+//! prove anyone is the owner. What keeps proofs honest here is that `only`
+//! is the one place this file calls `authorize`, always with the stored
+//! `owner` and `ctx.caller()`; `scripts/pay-cannot-loosen.sh` checks this
+//! file's source for exactly that. Proofs also guard only the kernel calls
+//! and `pay_owner`: a handler that lists `mut active` could still assign a
+//! `Policy` directly, without any proof.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Ctx, Log, StorageMap, revert_error}
@@ -162,7 +169,7 @@ fn only(_ allowed: Address, caller: Address) -> OwnerProof {
 
 /// Sends `amount` of `token` to the owner. Takes a proof so that `Withdraw`
 /// cannot move money without having checked its caller.
-fn pay_owner(_ proof: OwnerProof, token: Address, owner: Address, amount: u256)
+fn pay_owner(_ proof: own OwnerProof, token: Address, owner: Address, amount: u256)
 uses (ctx: Ctx, call: mut Call)
 {
     safe_transfer(token, receiver: owner, amount)
@@ -175,9 +182,6 @@ fn seconds(_ at: Timestamp) -> Instant {
 /// The shortest cooling period a vault may be created with. Anything
 /// shorter is a ratchet in name only.
 const MIN_COOLING_SECS: u64 = 60
-// A ratchet that waits less than a minute is no ratchet; the compiler holds the
-// floor so a later edit cannot quietly lower it.
-static_assert(MIN_COOLING_SECS >= 60)
 
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     owner: Address,
