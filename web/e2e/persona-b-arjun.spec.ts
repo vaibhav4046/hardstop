@@ -96,10 +96,13 @@ test.describe('Persona B: Arjun, SaaS founder', () => {
     // The waiting raise is announced on every page, not only here.
     const waiting = page.getByRole('status', { name: /loosens your vault.s rules is waiting/ })
     await expect(waiting).toContainText('$40.00 at a time')
+    const kept = await receipts(page).count()
     await page.goto('/how-it-works')
     await expect(waiting).toBeVisible()
     await expect(waiting.getByRole('link', { name: 'See it on your vault' })).toBeVisible()
     await page.goto('/activity')
+    // Back on the vault: wait until its receipts are read back before acting again.
+    await expect(receipts(page)).toHaveCount(kept)
 
     // Cancel it: the panel disappears and the rules are unchanged.
     line = await press(page, 'Cancel scheduled change')

@@ -489,3 +489,50 @@ with a 24/7 watcher, and test it with real AI agents.
   agent keys to the throwaway key, to open the fresh vault without a faucet.
 - `web/.vercelignore` and `.gitignore` now exclude `scratch-*`: a temporary
   bridge script (no key in it) had been uploaded with a deploy.
+
+**Three-judge panel, and the fixes it led to (2026-11-18).** Three AI judges
+(an Fe language expert, a security auditor, an AI-agent product judge) each
+read the code and the rivals; two ran HARDSTOP's tests. Scores: 80, 84, 86.
+The Fe expert reported that fe-zk (11 errors) and fevm-replay (84 errors) do
+not build on Fe 26.6 as shipped, and the security auditor confirmed a
+daily-cap bypass in one same-space rival through approvals. These are their
+claims about other entries, not checked further here. Findings about
+HARDSTOP, and what was done:
+
+- `OwnerProof` could be forged inside the vault with
+  `authorize(owner: ctx.caller(), caller: ctx.caller())`, which compiles
+  (Fe expert, reproduced in a scratch copy). Fixed as far as Fe allows: the
+  proof is no longer `Copy` and is taken `own` (reuse fails with 16-0002),
+  `#[must_use]` (dropping fails with 8-0082), and a CI source check requires
+  `authorize` to be called once, inside `only`, with the stored owner and
+  `ctx.caller()`; it rejects both forgeries. The source check is text, not
+  the compiler, and the docs say so.
+- `static_assert(MIN_COOLING_SECS >= 60)` could never fail; removed.
+- Payment verdicts came from the rehearsal, not the transaction (security
+  auditor). Now taken from the on-chain `Paid`/`Blocked` event; two tests
+  change the state between rehearsal and inclusion, both ways, and failed on
+  the old code. A gas-limit floor (200,000) keeps a payment the rehearsal
+  refused but the chain pays from running out of gas.
+- Anyone could brick the test token by minting to the maximum (security
+  auditor). Each mint is now capped at 1,000,000 test dollars
+  (`MintAboveCap`); three tests. New launcher
+  `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` installed on Base Sepolia and
+  exercised (transactions in the README).
+- MCP HTTP mode trusted the `Host` header (security auditor). It now also
+  checks the socket's address, refuses to bind beyond loopback without a
+  token, requires tokens of 32+ characters, and turns on the SDK's DNS
+  rebinding checks.
+- Product judge: demo-mode transactions linked to an explorer that cannot
+  show them (removed); the 24-hour worst case is labelled as possibly
+  crossing the reset; the owner's site panel now fills in the MCP setup (no
+  developer console); the "no alerts" text contradicted the watcher (fixed);
+  a comparison with timelocks and plain allowances, AI agent run reports in
+  `qa/agent-runs/`, and a one-screen table for judges were added.
+
+```
+$ fe fmt --check && fe test                   -> 88 passed, 0 failed
+$ (WSL) scripts/native.sh                     -> 49 passed; both_targets_reach_the_same_verdicts PASS
+$ scripts/pay-cannot-loosen.sh                -> 16 ok
+artifacts.ts vs a fresh build                 -> no difference
+$ npm test                                    -> 58 passed
+```
