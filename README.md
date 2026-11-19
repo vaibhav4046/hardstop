@@ -5,6 +5,11 @@ are enforced by a Fe contract the agent cannot talk its way past, raising a
 limit takes a waiting period that the owner can cancel, and the worst-case
 loss is a number you can read before anything goes wrong.
 
+**Demo video (2 min 28 s, silent, captioned):**
+[`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)
+
+[![HARDSTOP demo video: the problem, the idea, the live site, an AI agent through MCP, and Fe](web/public/demo/hardstop-demo.jpg)](web/public/demo/hardstop-demo.mp4)
+
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
 > Unaudited contest prototype. Do not put real money in it.
