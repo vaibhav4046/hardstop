@@ -21,7 +21,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The whole site, in a browser | `cd web && npm run e2e` | 58 tests (see the note in the results table) |
 | It runs on a public network | Base Sepolia transactions in the gas table below | each one `status 1` |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | a purchasing agent and a hostile agent, $0 past the limits |
-| CI runs the Fe tests, the native campaign, the refusal script and the web tests on every push | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | green |
+| CI runs the Fe tests, the native campaign, the refusal script and the web tests on every push, and now the browser suite (`e2e` job, Playwright on Chromium) too | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | green |
 
 ## The problem
 
