@@ -3,7 +3,7 @@
 
 /** kernel.fe: what counts as loosening. */
 export const LOOSENS = `/// Whether \`to\` lets the agent do anything \`from\` does not.
-pub fn loosens(_ from: Policy, to: Policy) -> bool {
+pub const fn loosens(_ from: Policy, to: Policy) -> bool {
     to.per_payment > from.per_payment
         || to.per_window > from.per_window
         || to.valid_until > from.valid_until

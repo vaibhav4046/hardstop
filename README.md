@@ -15,7 +15,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 |---|---|---|
 | The kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `90 passed; 0 failed` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux / macOS / WSL) | `49 passed`, incl. `both_targets_reach_the_same_verdicts` |
-| The agent's `Pay` cannot change the rules or recipients; no handler can store rules the kernel did not make (no instant raise); owner handlers cannot skip the owner check, and a proof can only come from the stored owner and the real caller; a proof cannot be hand-made or reused, or dropped as a bare statement (`let _ =` still compiles); the verdict-code constants stay distinct. Not covered by the compiler: which address `init` makes the owner (a source check), and a handler writing the recipient map directly (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 22 lines starting `ok` |
+| The agent's `Pay` cannot change the rules or recipients; no handler can store rules the kernel did not make (no instant raise); owner handlers cannot skip the owner check, and a proof can only come from the stored owner and the real caller; a proof cannot be hand-made or reused, or dropped as a bare statement (`let _ =` still compiles); the verdict-code constants stay distinct; the ratchet's laws hold, at compile time, on representative cases (`meet` keeping the larger cap fails to build). Not covered by the compiler: which address `init` makes the owner (a source check), a handler writing the recipient map directly, and the laws on inputs the asserts do not list (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 23 lines starting `ok` |
 | The attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` (after the native build) | `violation 0` |
 | The web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `69` pass |
 | The whole site, in a browser | `cd web && npm run e2e` | 58 tests (see the note in the results table) |
@@ -208,8 +208,35 @@ duplicate would mislabel every receipt; instead the build fails ("static
 assertion failed", 8-0081), and the same CI script proves it. What this does
 not check: that each `Reason` maps to its own constant. Pointing two
 reasons at the same constant still compiles; the tests that assert each
-reason's code catch that, not the compiler. These checks add no bytecode: the compiled contracts are
-byte-identical with or without them.
+reason's code catch that, not the compiler.
+
+**The ratchet's laws are checked when the kernel compiles.** Fe 26.6
+evaluates `const fn`s inside `static_assert`, operator methods included
+(`impl core::ops::Add<Seconds> for Instant { const fn add(..) }` makes `+`
+usable there). `loosens`, `meet`, `cooled`, `Rules::current` and the
+`Instant` and `Seconds` operators are `const fn`, and the end of
+[`fe/src/kernel.fe`](fe/src/kernel.fe) runs them on fixed values: the
+tightest policy, the loosest (every limit at its maximum, valid until
+`NEVER`), ordinary ones, and one changed in a single field at a time. The
+asserts state that no policy loosens itself; that `meet` is idempotent and
+never looser than either input; that `NOT_SET` and `NEVER` never take
+effect and a queued policy is in force only from its moment on; that `+`
+saturates at `NEVER`; and, for a raise, a tightening and a mixed proposal,
+the rule `amend` applies (the active policy becomes `meet(in force,
+proposed)`, and the proposal is queued exactly when it loosens that). Every
+law-breaking edit tried fails the build: `meet` keeping the larger cap or
+the later end, or dropping a pause; `loosens` ignoring any one field;
+`cooled` letting `NEVER` through or firing a second early; `current`
+ignoring the queue ("static assertion failed", 8-0081); and `+` wrapping
+instead of saturating ("arithmetic overflow in const context", 3-0034). CI
+checks the first. What this does not cover: the asserts check those cases,
+not every input (breadth comes from `fe test` and the seeded adversary). And
+`amend`, `cancel` and `matures_at` are not `const fn`, so their own code is
+tested, not asserted. Making them `const` changes the compiled vault, and
+with it the launcher's deterministic address.
+
+None of this adds bytecode. All 24 compiled outputs are byte-identical with
+or without the asserts and the `const` markings.
 
 The other half is that the same `decide` is the body of a native program:
 
