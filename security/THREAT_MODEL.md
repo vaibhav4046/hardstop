@@ -100,8 +100,13 @@ none.
 2. **An owner who does not look.** The ratchet turns "the agent got a cap
    raise approved" from an instant loss into a waiting period. It is only
    worth something if the owner sees the pending change. The contract emits
-   `PolicyProposed` and the app shows the queue, but nothing here sends an
-   alert. This is the main gap between the prototype and a product.
+   `PolicyProposed` and the app shows the queue. `web/mcp/watch.ts` turns
+   that into alerts (stdout, a webhook, a desktop notification), but only
+   while someone runs it: it is a process the owner keeps alive, not a
+   hosted service, and an alert that nobody reads protects nothing. After a
+   restart it reads back one cooling period of events, or from where it
+   stopped if `HARDSTOP_WATCH_CURSOR` is set, so a change made while it was
+   down and still cancellable is reported.
 3. **A dishonest approved recipient.** The cap is the protection, not the
    list. An approved recipient can be paid up to the cap for nothing.
 4. **Window-edge bursts.** Windows are fixed. An agent can spend one window's

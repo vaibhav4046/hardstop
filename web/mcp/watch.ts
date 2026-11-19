@@ -17,6 +17,7 @@
 // Run: node mcp/watch.ts   (from web/; see mcp/README.md)
 
 import { execFile } from 'node:child_process'
+import { readFile, writeFile } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import type { Hex } from 'viem'
@@ -45,8 +46,10 @@ import {
 
 export type Alert = { kind: string; at: string; vault: Hex; message: string } & Record<string, unknown>
 
-/** Most blocks asked for in one eth_getLogs; public RPCs limit the range. A watcher that fell behind catches up over several checks. */
+/** Most blocks asked for in one eth_getLogs; public RPCs limit the range. A watcher that fell behind asks several times in one check. */
 const MAX_BLOCKS = 1_000n
+/** Seconds per block, to turn the cooling period into a number of blocks to look back at start. Unknown chains (the test network) count one second. */
+const BLOCK_SECS: Record<number, bigint> = { 84532: 2n, 11155111: 12n }
 /** Longest wait between attempts while the network is failing; never more than half the vault's cooling period either. */
 const MAX_BACKOFF_SECS = 600
 
@@ -67,17 +70,27 @@ export class Watcher {
   private readonly seen = new Set<string>()
   private readonly vault: Vault
   private readonly warnSecs: bigint
+  /** Where a previous run stopped (HARDSTOP_WATCH_CURSOR), if known. */
+  private readonly resumeAt: bigint | undefined
 
-  constructor(vault: Vault, warnSecs = 3n * DAY) {
+  constructor(vault: Vault, warnSecs = 3n * DAY, resumeAt?: bigint) {
     this.vault = vault
     this.warnSecs = warnSecs
+    this.resumeAt = resumeAt
+  }
+
+  /** The first block the next look will read: save it to resume there after a restart. */
+  get cursor(): bigint | undefined {
+    return this.nextBlock
   }
 
   /**
    * One look at the vault. Returns what is new since the last look; the first
-   * look reports what is already true (a waiting change, a near end date).
-   * Nothing is remembered unless the whole look succeeds, so a failed look is
-   * simply repeated.
+   * look reports what is already true (a waiting change, a near end date) and
+   * what happened while no watcher was running: the vault's events from one
+   * cooling period back, or from where the previous run stopped if that is
+   * earlier. Those are marked `catch_up`. Nothing is remembered unless the
+   * whole look succeeds, so a failed look is simply repeated.
    */
   async check(): Promise<Alert[]> {
     const { sim, chain, wallet } = this.vault
@@ -86,21 +99,29 @@ export class Watcher {
     const latest = BigInt((await wallet.request({ method: 'eth_blockNumber' })) as Hex)
 
     const alerts: Alert[] = []
-    let logs: RawLog[] = []
-    let next = latest + 1n
-    if (this.nextBlock === undefined) {
+    let from = this.nextBlock
+    if (from === undefined) {
       alerts.push(this.alert('watching', `Watching vault ${sim.vault} on ${this.vault.config.network.name}. Rules in force: ${this.describe(state.policy)}.`, { rules: policyJson(state.policy) }))
-    } else if (this.nextBlock <= latest) {
-      const to = latest < this.nextBlock + MAX_BLOCKS - 1n ? latest : this.nextBlock + MAX_BLOCKS - 1n
-      logs = (await wallet.request({
-        method: 'eth_getLogs',
-        params: [{ address: sim.vault, fromBlock: `0x${this.nextBlock.toString(16)}`, toBlock: `0x${to.toString(16)}` }],
-      })) as RawLog[]
+      const lookback = this.vault.schedule.coolingSecs / (BLOCK_SECS[this.vault.config.network.chainId] ?? 1n) + 1n
+      from = latest > lookback ? latest - lookback : 0n
+      if (this.resumeAt !== undefined && this.resumeAt < from) from = this.resumeAt
+    }
+    const catchUp = this.nextBlock === undefined
+    const logs: RawLog[] = []
+    let next = from
+    while (next <= latest) {
+      const to = latest < next + MAX_BLOCKS - 1n ? latest : next + MAX_BLOCKS - 1n
+      logs.push(
+        ...((await wallet.request({
+          method: 'eth_getLogs',
+          params: [{ address: sim.vault, fromBlock: `0x${next.toString(16)}`, toBlock: `0x${to.toString(16)}` }],
+        })) as RawLog[]),
+      )
       next = to + 1n
-    } else next = this.nextBlock
+    }
 
     const events = logs.flatMap((log) => this.decode(log))
-    for (const { event, tx } of events) alerts.push(...this.fromEvent(event, tx))
+    for (const { event, tx } of events) alerts.push(...this.fromEvent(event, catchUp ? { ...tx, catch_up: true } : tx))
     const seen: string[] = []
     const missed = this.fromProposals(events, state, seen)
     alerts.push(...missed.alerts)
@@ -344,6 +365,8 @@ export type WatchOptions = {
   warnSecs?: bigint
   /** Run even when checks are further apart than half the cooling period. Unsafe: see intervalProblem. */
   unsafeInterval?: boolean
+  /** A file holding the next block to read (HARDSTOP_WATCH_CURSOR), so a restart resumes where the last run stopped. */
+  cursorFile?: string
 }
 
 /**
@@ -363,7 +386,7 @@ export function intervalProblem(coolingSecs: bigint, everySecs: number): string 
  * period. A vault the watcher must not trust, or a check interval too slow for
  * it, stops it with an error instead.
  */
-export async function watch(config: Config, { everySecs, signal, deliver, wallet, warnSecs, unsafeInterval = false }: WatchOptions): Promise<void> {
+export async function watch(config: Config, { everySecs, signal, deliver, wallet, warnSecs, unsafeInterval = false, cursorFile }: WatchOptions): Promise<void> {
   const sleep = (secs: number) => delay(secs * 1000, undefined, { signal }).catch(() => undefined)
   let watcher: Watcher | undefined
   let maxBackoff = MAX_BACKOFF_SECS
@@ -376,10 +399,12 @@ export async function watch(config: Config, { everySecs, signal, deliver, wallet
         if (problem && !unsafeInterval) throw new Refused(problem)
         if (problem) warn(`UNSAFE (HARDSTOP_WATCH_UNSAFE=1): ${problem}`)
         maxBackoff = Math.min(MAX_BACKOFF_SECS, Math.floor(Number(vault.schedule.coolingSecs) / 2))
-        watcher = new Watcher(vault, warnSecs)
+        watcher = new Watcher(vault, warnSecs, cursorFile ? await readCursor(cursorFile) : undefined)
       }
       const alerts = await watcher.check()
       for (const alert of alerts) await deliver(alert)
+      if (cursorFile && watcher.cursor !== undefined) await writeFile(cursorFile, `${watcher.cursor}
+`)
       if (failures > 0) {
         await deliver({ kind: 'watch_recovered', at: new Date().toISOString(), vault: config.vault, message: 'The watcher can reach the vault again.' })
         failures = 0
@@ -402,6 +427,12 @@ export async function watch(config: Config, { everySecs, signal, deliver, wallet
       await sleep(wait)
     }
   }
+}
+
+/** The saved block, or undefined if there is no usable file yet. */
+async function readCursor(file: string): Promise<bigint | undefined> {
+  const text = await readFile(file, 'utf8').catch(() => '')
+  return /^d+$/.test(text.trim()) ? BigInt(text.trim()) : undefined
 }
 
 async function main(): Promise<void> {
@@ -431,6 +462,7 @@ async function main(): Promise<void> {
     signal: controller.signal,
     deliver: deliverer(process.env),
     unsafeInterval: process.env.HARDSTOP_WATCH_UNSAFE === '1',
+    cursorFile: process.env.HARDSTOP_WATCH_CURSOR?.trim() || undefined,
   })
 }
 

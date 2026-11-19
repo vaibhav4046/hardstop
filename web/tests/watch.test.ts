@@ -233,3 +233,47 @@ test('the watcher stops, instead of retrying, at an address that is not a HARDST
   )
   assert.deepEqual(seen, [])
 })
+
+test('a restarted watcher reports what happened while no watcher was running, marked as catch-up', async () => {
+  const { network, sim, config, watcher } = await setUp()
+  await watcher.check()
+  // The watcher stops; the owner's key approves a stranger and withdraws meanwhile.
+  await sim.setRecipient(STRANGER, true)
+  await sim.withdraw(5n * USD)
+  const restarted = new Watcher(await connect(config, network))
+  const alerts = await restarted.check()
+  assert.deepEqual(kinds(alerts), ['watching', 'recipient_approved', 'withdrawn'])
+  assert.equal(alerts[1].who, STRANGER)
+  assert.equal(alerts[1].catch_up, true)
+  assert.equal(alerts[2].catch_up, true)
+  assert.deepEqual(await restarted.check(), [], 'reported once')
+})
+
+test('with HARDSTOP_WATCH_CURSOR the loop saves where it stopped, and a restart resumes there', async () => {
+  const { mkdtemp, readFile } = await import('node:fs/promises')
+  const { join } = await import('node:path')
+  const { tmpdir } = await import('node:os')
+  const { network, sim, config } = await setUp()
+  const cursorFile = join(await mkdtemp(join(tmpdir(), 'hardstop-watch-')), 'cursor')
+  // One check through the loop, then stop: the file holds the next block to read.
+  const controller = new AbortController()
+  await watch(config, { everySecs: 0.001, signal: controller.signal, wallet: network, cursorFile, deliver: async () => controller.abort() })
+  const saved = BigInt((await readFile(cursorFile, 'utf8')).trim())
+  const latest = BigInt((await network.request({ method: 'eth_blockNumber' })) as Hex)
+  assert.equal(saved, latest + 1n)
+
+  await sim.setRecipient(STRANGER, true)
+  const again = new AbortController()
+  const seen: Alert[] = []
+  await watch(config, {
+    everySecs: 0.001,
+    signal: again.signal,
+    wallet: network,
+    cursorFile,
+    deliver: async (alert) => {
+      seen.push(alert)
+      if (alert.kind === 'recipient_approved') again.abort()
+    },
+  })
+  assert.deepEqual(kinds(seen), ['watching', 'recipient_approved'])
+})

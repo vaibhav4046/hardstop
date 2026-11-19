@@ -117,6 +117,8 @@ Each tool returns a plain-language answer first, then the same facts as JSON (`s
 
 Each alert is one line of JSON on stdout. It also goes as a POST to `HARDSTOP_ALERT_WEBHOOK` if that is set, and to a desktop notification if `HARDSTOP_DESKTOP_NOTIFY=1` (Windows toast, macOS `osascript`, Linux `notify-send`). If the network fails, the watcher says so once (`watch_error`), retries with doubling waits up to 10 minutes or half the cooling period, whichever is shorter, and says when it recovers (`watch_recovered`). SIGINT and SIGTERM stop it cleanly.
 
+**After a restart** the first check also reports what happened while no watcher was running: it reads the vault's events from one cooling period back (anything still cancellable), marked `catch_up: true`. Set `HARDSTOP_WATCH_CURSOR` to a file path and the watcher saves the next block to read after every check, then resumes from there, however long it was down; without it, events from the last cooling period that a previous run already reported are reported again.
+
 **The check interval must fit the vault.** A looser rule takes effect one cooling period after it is proposed, and a vault may have a cooling period as short as 60 seconds. At start the watcher reads the vault's cooling period and refuses to run if `HARDSTOP_WATCH_SECS` is more than half of it, saying what to set. `HARDSTOP_WATCH_UNSAFE=1` runs anyway; this is **unsafe**: a loosening can then take effect before you are warned. The watcher also refuses, and stops instead of retrying, at an address that is not a known vault build.
 
 ```bash
@@ -134,6 +136,8 @@ node mcp/watch.ts >> hardstop-alerts.jsonl
 WorkingDirectory=/ABSOLUTE/PATH/TO/hardstop/web
 Environment=HARDSTOP_VAULT=0xYOUR_VAULT_ADDRESS HARDSTOP_CHAIN_ID=84532
 Environment=HARDSTOP_ALERT_WEBHOOK=https://example.com/your-hook
+Environment=HARDSTOP_WATCH_CURSOR=/var/lib/hardstop-watch/cursor
+StateDirectory=hardstop-watch
 ExecStart=/usr/bin/node mcp/watch.ts
 Restart=always
 
