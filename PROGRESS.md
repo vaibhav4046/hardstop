@@ -32,7 +32,7 @@ the reference; this page only says where things stand.
   ran on Base Sepolia (transactions in the README).
 - MCP server for AI agents (five agent tools, no owner tools) and a 24/7
   watcher for the owner that catches up after a restart.
-- A 2 min 44 s captioned demo video.
+- A 2 min 1 s captioned demo video (1080p, built in HyperFrames from real site footage, compiler output and on-chain receipts).
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.
 - Six Fe compiler issues drafted with reproductions, and two tested compiler
