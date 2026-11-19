@@ -441,6 +441,103 @@ Version: `fe 26.6.0 (5b3f96a)`.
 
 ---
 
+## Draft 6: private traits are not visibility-checked, so std's sealed EVM capabilities can be forged
+
+**Title:** Private trait usable in `impl` and bounds from anywhere; `std::evm` capability seal can be implemented by user code
+
+**Suggested labels:** `type: bug`, `comp: analyzer`
+
+**Found:** 2026-11-19, while trying to make HARDSTOP's `Pay` handler unable to move tokens except
+through one function. Removing `mut call` from `Pay`'s `uses` did not stop a transfer: a
+user-defined type implementing `Call` made it. In `fe test` that edit moved 8 test dollars to the
+caller instead of 4 to the shop. HARDSTOP's refusal script keeps the edit as a control under "NOT
+covered by the compiler".
+
+**Duplicate search:** not yet done; search `visibility trait`, `sealed`, `EvmCapabilitySeal`,
+`2-0003` before posting.
+
+Reproduced on `fe 26.6.0 (5b3f96a)` and on a local build of `master` at `6cd57cc`
+(`fe 26.6.0 (427588afb)`, master plus one unrelated attribute-diagnostics commit). `trait
+EvmCapabilitySeal {}` is private in `ingots/std/src/evm/effects.fe` (line 201) in both.
+
+````markdown
+### What happened
+
+Private functions and structs are refused outside their module:
+
+```fe
+mod inner {
+    fn hidden() {}
+    struct HiddenStruct {}
+}
+fn call_it() {
+    inner::hidden()
+}
+fn use_it(_ s: inner::HiddenStruct) {}
+```
+
+```
+error[2-0003]: `hidden` is not visible
+error[2-0003]: `HiddenStruct` is not visible
+```
+
+A private trait is not. Each of these passes `fe check` with no diagnostic:
+
+```fe
+mod inner {
+    trait Hidden {}
+}
+pub struct S {}
+impl inner::Hidden for S {}
+```
+
+```fe
+fn bound<T: std::evm::effects::EvmCapabilitySeal>(_ x: T) {}
+```
+
+The second matters because `std::evm::effects` uses the private `EvmCapabilitySeal` as a seal:
+`pub trait Ctx: EvmCapabilitySeal`, and the same for `RawStorage`, `Log`, `Create` and `Call`.
+User code can implement the seal and then the capability. `Call`'s methods have default bodies, so
+the forged capability makes real calls:
+
+```fe
+use std::evm::{Call, Address}
+
+pub struct Forged {}
+impl std::evm::effects::EvmCapabilitySeal for Forged {}
+impl Call for Forged {}
+
+// No `Call` in this function's `uses`, yet it provides one to `reach`.
+pub fn no_call_effect_declared(target: Address) {
+    var forged = Forged {}
+    with (Call = mut forged) {
+        reach(target)
+    }
+}
+
+fn reach(_ target: Address) uses (call: mut Call) {}
+```
+
+`fe check`: no output, exit 0. Without the `impl ... EvmCapabilitySeal` line it fails with
+`error[6-0003]: trait bound is not satisfied`, so the seal is what is supposed to stop this.
+
+### Expected
+
+`2-0003` (`... is not visible`) for a private trait named in an `impl` header or a bound outside
+its module, as for private functions and structs.
+
+### Why it matters
+
+A handler's `uses` clause reads as the complete list of what it may do. If any function can mint
+its own `Call` (or `Log`, `Create`, `RawStorage`), a handler without `Call` in its `uses` can still
+make external calls, so "this handler declares no `Call`, therefore it cannot move tokens" does
+not hold. Contracts that rely on effects for authority get less than they appear to.
+
+Version: `fe 26.6.0 (5b3f96a)`; also on `master` at `6cd57cc`.
+````
+
+---
+
 ## Optional draft (from candidate a, reduced): `const fn` error points at the trait, not the impl
 
 Candidate a as stated did not reproduce: marking the impl method `const fn` makes the operator
