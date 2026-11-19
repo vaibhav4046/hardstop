@@ -58,3 +58,57 @@ jobs:
       - name: Type-check
         working-directory: web
         run: npx next typegen && npx tsc --noEmit
+
+  # The browser suite (web/e2e) against the production build. playwright.config.ts
+  # retries a failed test once when CI is set; one that passes on the retry is
+  # listed as "flaky" in the log, not hidden.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Install web dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build the site
+        run: npm run build
+      - name: Browser suite (personas, accessibility, navigation, live)
+        run: npx playwright test --project=suite
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/suite
+      - name: Performance, alone after the suite
+        id: perf
+        # The committed perf-*.json come from a local machine; remove them so the
+        # next step can only print numbers measured on this runner.
+        run: |
+          rm -f ../qa/metrics/perf-*.json
+          npx playwright test --project=perf --no-deps --output test-results/perf
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/perf
+      - name: Performance numbers measured on this runner
+        if: ${{ !cancelled() && steps.perf.outcome != 'skipped' }}
+        run: |
+          shopt -s nullglob
+          files=(../qa/metrics/perf-*.json)
+          if [ ${#files[@]} -eq 0 ]; then echo "No performance numbers were written."; exit 0; fi
+          { echo '## Performance on the GitHub runner'; echo; echo 'Measured by web/e2e/performance.spec.ts on this run, not the numbers committed in qa/metrics.'; } >> "$GITHUB_STEP_SUMMARY"
+          for f in "${files[@]}"; do
+            echo "== $(basename "$f")"; cat "$f"
+            { echo; echo "### $(basename "$f")"; echo '```json'; cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Upload the HTML report and traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 14
