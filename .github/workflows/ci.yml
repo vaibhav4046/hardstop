@@ -85,6 +85,14 @@ jobs:
           git checkout -q FETCH_HEAD
           git -c user.name=ci -c user.email=ci@localhost am -q ../research/fe-patches/*.patch
           git log --format='%h %s' -3
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: The tree-sitter CLI Fe's build runs (its own lockfile)
+        working-directory: fe-src/crates/tree-sitter-fe
+        run: |
+          npm ci
+          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: fe-src
