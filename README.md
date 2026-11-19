@@ -18,13 +18,13 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
 | Claim | Check it | Expect |
 |---|---|---|
-| The kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `90 passed; 0 failed` |
+| The kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `92 passed; 0 failed` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux / macOS / WSL) | `49 passed`, incl. `both_targets_reach_the_same_verdicts` |
-| The agent's `Pay` cannot change the rules or recipients; no handler can store rules the kernel did not make (no instant raise); owner handlers cannot skip the owner check, and a proof can only come from the stored owner and the real caller; a proof cannot be hand-made or reused, or dropped as a bare statement (`let _ =` still compiles); the verdict-code constants stay distinct; the ratchet's laws hold, at compile time, on representative cases (`meet` keeping the larger cap fails to build). Not covered by the compiler: which address `init` makes the owner (a source check), a handler writing the recipient map directly, and the laws on inputs the asserts do not list (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 23 lines starting `ok` |
+| The agent's `Pay` cannot change the rules or recipients; no handler can store rules or a recipient approval the kernel did not make (no instant raise; no instant recipient, though one copied under another address compiles and approves no one at run time); owner handlers cannot skip the owner check, and a proof can only come from the stored owner and the real caller; a proof cannot be hand-made or reused, or dropped as a bare statement (`let _ =` still compiles); the verdict-code constants stay distinct and each verdict answers with its own; the ratchet's laws hold, at compile time, on representative cases (`meet` keeping the larger cap fails to build). Not covered by the compiler: which address `init` makes the owner (a source check), where `Pay` sends the money a verdict allowed (an edit that pays the caller more compiles), and the laws on inputs the asserts do not list (see "Fe highlight") | `FE=fe bash scripts/pay-cannot-loosen.sh` | 28 lines starting `ok` |
 | The attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` (after the native build) | `violation 0` |
 | The web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `69` pass |
 | The whole site, in a browser | `cd web && npm run e2e` | 58 tests (see the note in the results table) |
-| It runs on a public network | Base Sepolia transactions in the gas table below | each one `status 1` |
+| It runs on a public network | Base Sepolia transactions in the gas table below (previous contracts) | each one `status 1` |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | a purchasing agent and a hostile agent, $0 past the limits |
 | CI runs the Fe tests, the native campaign, the refusal script and the web tests on every push, and now the browser suite (`e2e` job, Playwright on Chromium) too | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | green |
 
@@ -126,7 +126,7 @@ Pay { to, amount, nonce } -> u8
         amount,
         nonce,
         from_agent: ctx.caller() == agent,
-        to_approved: cooled(at: approved_from.get(key: to), now),
+        to_approved: cooled(at: approved_from.get(key: to).of(to), now),
     }
     match decide(rules, ledger, request, now) {
         Decision::Allow(next) => {
@@ -144,6 +144,18 @@ compiler to refuse each (errors 8-0018 and 8-0066), while a control edit to
 the `mut` ledger still compiles. And `decide` has no `uses` clause at all,
 so the function that makes the decision provably cannot read storage, call
 out, or log.
+
+What the compiler does not check here is the transfer. `decide` says
+whether `to` may receive `amount`; the `safe_transfer` after it is ordinary
+code, and an edit that sends the caller a thousand times `amount` compiles.
+Only the tests catch it. Taking `mut call` away from `Pay` would not change
+that in Fe 26.6: `Call`'s methods have default bodies and its seal trait is
+reachable as `std::evm::effects::EvmCapabilitySeal`, so any type can
+implement `Call`, and a function whose `uses` lists no `Call` can still
+transfer tokens (such an edit, in a `Pay` without `mut call`, moved money
+in a local `fe test`). A sealed payout value would bind only the path that
+uses it, not every path, so the vault does not have one. The script keeps
+both edits as controls that must compile.
 
 **The cooling period is enforced by the compiler for the rules.** The vault
 does not store the kernel's plain `Rules`. It stores `Terms`, from
@@ -167,11 +179,22 @@ terms, with a cooling period of zero; `amend`, `cancel`, `pause` and
 `approve_from` leave those unchanged, so a second, never-written `Terms`
 field cannot be used to raise a limit. `fe test` checks both
 (`open_works_only_while_deploying`, `zeroed_terms_cannot_be_raised`), and
-each test fails if its check is removed. Not covered: recipient approvals.
-Their cooling period comes from the kernel's `approve_from`, but the map is a
-plain `StorageMap`, so a handler that lists `mut approved_from` (only
-`SetRecipient` does) could write a date into it directly; the script shows
-that this compiles.
+each test fails if its check is removed.
+
+**Recipient approvals are sealed the same way.** The recipient map stores
+`Approval`s, also from `sealed.fe`, whose fields only that module can see.
+New ones come from `founding`, for the recipients named when the vault is
+created, and from `Terms::approve_from`, which takes an `OwnerCall` and runs
+the kernel's `approve_from`, so a new recipient waits out the cooling
+period. In `SetRecipient`, the one handler that lists `mut approved_from`,
+the script requires storing a date (8-0000, "expected `Approval`") and
+storing a hand-built `Approval` (2-0003) each to fail. Two parts are checked
+when the code runs: `founding` returns nothing once the contract has code,
+as `open` does; and copying an approval the kernel made under another
+address compiles, but an `Approval` names the address it was made for, so
+the copy approves no one. `fe test` checks both
+(`founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`),
+and each test fails if its check is removed.
 
 **The owner proof is bound to the real caller by the compiler.**
 `Terms::amend`, `cancel`, `pause` and `approve_from`, and the vault's
@@ -210,10 +233,11 @@ of `static_assert`s in `kernel.fe` makes 0 "allowed" and every refusal code
 the previous one plus one. The vault returns these codes, the native tool
 prints them and the web app names them, so a constant edited into a
 duplicate would mislabel every receipt; instead the build fails ("static
-assertion failed", 8-0081), and the same CI script proves it. What this does
-not check: that each `Reason` maps to its own constant. Pointing two
-reasons at the same constant still compiles; the tests that assert each
-reason's code catch that, not the compiler.
+assertion failed", 8-0081), and the same CI script proves it.
+`Reason::code` and `Decision::code` are `const fn` as well, and a
+`static_assert` for every verdict requires it to answer with its own
+constant, so pointing a reason at another reason's constant also fails the
+build (the script checks one such edit).
 
 **The ratchet's laws are checked when the kernel compiles.** Fe 26.6
 evaluates `const fn`s inside `static_assert`, operator methods included
@@ -309,7 +333,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 90 tests on the EVM
+fe test                           # 92 tests on the EVM
 fe test --backend native          # the 49 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
@@ -333,7 +357,7 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 90 passed, 0 failed |
+| `fe test` (EVM) | 92 passed, 0 failed |
 | `fe test --backend native` | 49 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 14 of 14 mutants caught, on both targets |
@@ -344,16 +368,19 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | The same wallet code on Base Sepolia, a public test network (2026-11-18, previous contracts) | launcher installed ([tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099)), vault created ([tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62)), agent paid $4 ([tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a)), agent refused $80 over its per-payment limit ([tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967)), agent's attempt to raise its own limit refused before sending. All four succeeded; vault left with $96, recipient $4 |
 | A vault opened by clicking through MetaMask on the live site (2026-11-18, previous contracts) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
-| Current contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions in the gas table below |
-| Vault runtime size | 7,958 bytes, read from Base Sepolia with `eth_getCode` |
+| Current contracts (adds sealed recipient approvals) | not installed on any network yet: launcher `0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b` is installed by the site on first use (one extra wallet approval) |
+| Previous contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint; recipient approvals not sealed) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions in the gas table below |
+| Vault runtime size | 7,958 bytes for the previous contracts, read from Base Sepolia with `eth_getCode`; the current build's runtime is 186 bytes larger (`fe/out/Vault.runtime.bin`: 8,048 against 7,862) |
 | Browser suite (`npm run e2e`, Chromium, production build) | 58 tests, all passing (55 of 55 in one full run on 2026-11-18, before 3 were added); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
 | First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
 
 **Gas, measured on Base Sepolia** (total `gasUsed` from each receipt,
-2026-11-18, current contracts; the same Fe bytecode costs the same on any
-EVM chain, the price per gas differs):
+2026-11-18, previous contracts: launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299`, before
+sealed recipient approvals. The current build has not been measured on
+chain. The same Fe bytecode costs the same on any EVM chain; the price per
+gas differs):
 
 | Call | Gas | Transaction |
 |---|---|---|
@@ -422,10 +449,13 @@ approved recipient):
 ## Limitations
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0xa5ecc8802db5520ab089d63b39bb4508d3794299`, is
-  installed on Base Sepolia; on Sepolia it installs itself on first use.
-  Earlier ones stay on Base Sepolia with the vaults opened through them
-  (`0x811e79d3bd786fb5701e0e66cc287fcaa24e558b`, before sealed `Terms`, and):
+  The current launcher, `0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b`, is
+  not installed on either yet: the site installs it on first use, which
+  takes one extra wallet approval. Earlier ones stay on Base Sepolia with
+  the vaults opened through them:
+  `0xa5ecc8802db5520ab089d63b39bb4508d3794299` (before sealed recipient
+  approvals; the gas table's transactions),
+  `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` (before sealed `Terms`),
   `0x956fbbde5fcb981e5a8507b369c79105815d562d` (the first contracts; two
   vaults, one opened through MetaMask on the live site),
   `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` (before `OwnerProof`) and

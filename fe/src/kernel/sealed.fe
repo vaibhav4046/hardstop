@@ -18,12 +18,18 @@
 //!   for. It comes only from `prove`, which compares an `Owner` with the
 //!   caller read from an `Evm`. `Evm` is a concrete type whose methods read
 //!   the EVM itself, so a stand-in that implements `Ctx` cannot be passed.
+//! - `Approval` is when a recipient may be paid. New ones come only from
+//!   `founding`, for the recipients a vault is created with, and from
+//!   `Terms::approve_from`, which runs the kernel's `approve_from`: a new
+//!   recipient waits out the cooling period.
 //!
-//! Two checks here run when the code runs, not when it compiles: `open`
-//! refuses unless the contract is still being deployed (its code size is
-//! zero), and a `Terms` or `Owner` read from storage nobody wrote (all
-//! zeros) does nothing: `prove` refuses the zero owner, and `amend`,
-//! `cancel` and `pause` leave zeroed terms as they are.
+//! Three checks here run when the code runs, not when it compiles: `open`
+//! and `founding` refuse unless the contract is still being deployed (its
+//! code size is zero); a `Terms` or `Owner` read from storage nobody wrote
+//! (all zeros) does nothing: `prove` refuses the zero owner, and `amend`,
+//! `cancel` and `pause` leave zeroed terms as they are; and an `Approval`
+//! names the address it was made for, so one copied under another address
+//! approves no one.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Evm}
@@ -32,6 +38,7 @@ use super::{
     approve_from,
     cancel,
     Instant,
+    NOT_SET,
     OwnerProof,
     Policy,
     Queued,
@@ -52,8 +59,21 @@ pub struct Terms { rules: Rules }
 #[must_use]
 pub struct OwnerCall { granted: bool }
 
+/// The moment from which `who` may be paid. Second zero, which is also
+/// what storage nobody wrote holds, means not approved.
+pub struct Approval { who: Address, from: Instant }
+
 impl Copy for Owner {}
 impl Copy for Terms {}
+impl Copy for Approval {}
+
+impl Approval {
+    /// The moment from which `who` may be paid: second zero (not approved)
+    /// unless this approval was made for `who`.
+    pub fn of(self, _ who: Address) -> Instant {
+        if self.who == who { self.from } else { NOT_SET }
+    }
+}
 
 impl Owner {
     pub fn address(self) -> Address {
@@ -75,6 +95,16 @@ pub fn open(_ ctx: Evm, owner: Address, schedule: Schedule, policy: Policy) -> O
     }
     let rules = Rules { schedule, active: policy, queued: Queued::none() }
     Option::Some((Owner { address: owner }, Terms { rules }))
+}
+
+/// `who` approved from now, for a recipient the vault is created with.
+/// `None` once the contract has code, as for `open`.
+pub fn founding(_ ctx: Evm, who: Address) -> Option<Approval> {
+    if ctx.extcodesize(ctx.address()) != 0 {
+        return Option::None
+    }
+    let now = Instant::at(ctx.timestamp().as_seconds().downcast_saturate())
+    Option::Some(Approval { who, from: now })
 }
 
 /// An `OwnerCall` when the caller of the current call is `owner`.
@@ -128,18 +158,27 @@ impl Terms {
         self.amend(proof, proposed: stopped, now)
     }
 
-    /// The kernel's `approve_from`, with this vault's schedule.
+    /// The kernel's `approve_from` for `who`, with this vault's schedule.
+    /// `current` is what is stored for `who` now.
     pub fn approve_from(
         self,
         _ proof: own OwnerCall,
-        current: Instant,
+        who: Address,
+        current: Approval,
         approved: bool,
         now: Instant,
-    ) -> Instant {
+    ) -> Approval {
         let proof = kernel_proof(proof)
         if self.blank() {
             return current
         }
-        approve_from(proof, self.rules.schedule, current, approved, now)
+        let from = approve_from(
+            proof,
+            self.rules.schedule,
+            current: current.of(who),
+            approved,
+            now,
+        )
+        Approval { who, from }
     }
 }
