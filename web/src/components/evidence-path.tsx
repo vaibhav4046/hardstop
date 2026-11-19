@@ -5,6 +5,7 @@
 // does. The steps arrive one at a time when the section is scrolled to, and
 // can be stepped through by hand. With reduced motion they are all there.
 
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 const TESTED = [
@@ -94,7 +95,7 @@ export function EvidencePath() {
       </div>
       <p className="small soft">
         The left side is how the limit was raised in the test described above. The right side is what the vault&rsquo;s
-        contract does; you can try each step on the practice vault below. This site sends no alerts itself; the optional
+        contract does; you can try each step on the <Link href="/#live-example">practice vault</Link>. This site sends no alerts itself; the optional
         watcher you run yourself (web/mcp/watch.ts) reports a waiting raise around the clock.
       </p>
     </div>

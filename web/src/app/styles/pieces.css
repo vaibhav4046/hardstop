@@ -55,7 +55,7 @@
     transition: transform 300ms var(--ease-out-expo);
   }
 
-  /* The stop block sits outside the clipped track, so it is drawn by the wrapper. */
+  /* The limit tick sits outside the clipped track, so it is drawn by the wrapper. */
   .gauge-stop {
     position: relative;
   }
@@ -68,6 +68,11 @@
     width: 0.5rem;
     height: 1.375rem;
     border-radius: 2px;
+    background: var(--color-edge);
+  }
+
+  /* The limit tick is neutral; it turns the refusal colour only once today's limit is reached. */
+  .gauge-stop.is-full::after {
     background: var(--color-stop);
   }
 

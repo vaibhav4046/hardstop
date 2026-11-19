@@ -25,7 +25,7 @@ const tooSmall = (found: Target[]): Target[] =>
 test.describe('Persona C: Barbara, mobile with larger text', () => {
   test.use({ viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true })
 
-  test('the home walkthrough and the protects / does not protect section, with nothing to connect', async ({ page }) => {
+  test('the home walkthrough, then the protects / does not protect section on How it works, with nothing to connect', async ({ page }) => {
     await largerText(page)
     const foreign: string[] = []
     page.on('request', (request) => {
@@ -41,7 +41,9 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
     await demo.getByRole('button', { name: 'Agent tries $80' }).tap()
     await expect(demo.locator('.slip')).toHaveCount(2)
     await expect(demo.locator('.slip').first()).toContainText('One payment may be at most $10.00.')
+    await shot(page, 'C-01-home-360-large-text')
 
+    await page.goto('/how-it-works')
     const boundary = page.locator('section[aria-labelledby="boundary-title"]')
     await boundary.scrollIntoViewIfNeeded()
     await expect(boundary.getByRole('heading', { name: 'What this protects, and what it does not' })).toBeVisible()
@@ -58,7 +60,6 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
       Math.min(...Array.from(section.querySelectorAll('li, h2, h3'), (node) => parseFloat(getComputedStyle(node).fontSize))),
     )
     expect(smallest).toBeGreaterThanOrEqual(16)
-    await shot(page, 'C-01-home-360-large-text')
 
     // Nothing was connected and nothing left this machine.
     expect(foreign, 'requests to anything but this site').toEqual([])
@@ -66,7 +67,7 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
   })
 
   // A wallet is offered on the review step, as one of two choices; nothing on the way there asks for one.
-  // Links are not checked for the word "wallet": the sources on the home page are articles about wallets.
+  // Links are not checked for the word "wallet": the sources on /evidence are articles about wallets.
   test('no route asks for a wallet or an address', async ({ page }) => {
     await largerText(page)
     for (const route of ROUTES) {

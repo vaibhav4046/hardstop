@@ -68,6 +68,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                 <Link href="/how-it-works">How it works</Link>
               </li>
               <li>
+                <Link href="/evidence">Evidence</Link>
+              </li>
+              <li>
                 <Link href="/developers">Developers</Link>
               </li>
               <li>

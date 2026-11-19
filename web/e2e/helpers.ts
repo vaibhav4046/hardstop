@@ -11,7 +11,7 @@ export const REPO = path.resolve(import.meta.dirname, '..', '..')
 const SHOTS = path.join(REPO, 'qa', 'screenshots')
 const METRICS = path.join(REPO, 'qa', 'metrics')
 
-export const ROUTES = ['/', '/protect', '/activity', '/how-it-works', '/developers'] as const
+export const ROUTES = ['/', '/protect', '/activity', '/how-it-works', '/developers', '/evidence'] as const
 export const STORAGE_KEY = 'hardstop.practice.v1'
 
 type Problems = { list: string[]; aborted: string[] }

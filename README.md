@@ -5,7 +5,7 @@ are enforced by a Fe contract the agent cannot talk its way past, raising a
 limit takes a waiting period that the owner can cancel, and the worst-case
 loss is a number you can read before anything goes wrong.
 
-**Demo video (2 min 1 s, silent, captioned):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
+**Demo video (1 min 47 s, silent, captioned):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 (also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4))
 
 [![HARDSTOP demo video: the problem, the idea, the live site, an AI agent through MCP, Fe compiler refusals, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)

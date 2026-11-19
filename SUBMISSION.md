@@ -12,7 +12,7 @@ push, and check that commit's CI run is green.
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min 1 s, silent, captioned; also in the repo at `web/public/demo/hardstop-demo.mp4`) |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 1 min 47 s, silent, captioned; also in the repo at `web/public/demo/hardstop-demo.mp4`) |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 

@@ -163,6 +163,74 @@ export default function HowItWorks() {
         </div>
       </section>
 
+      <section className="mt-[var(--gap-section)]" aria-labelledby="boundary-title">
+        <h2 id="boundary-title" className="section-title max-w-[36rem]">
+          What this protects, and what it does not
+        </h2>
+
+        <div className="reveal mt-10">
+          <p className="panel-title">What the agent&rsquo;s key can do</p>
+          <dl className="perms mt-2">
+            <div>
+              <dt>Ask the vault to pay an approved recipient</dt>
+              <dd>Allowed, inside your limits</dd>
+            </div>
+            <div>
+              <dt>Raise its own limit</dt>
+              <dd className="perm-never">Never</dd>
+            </div>
+            <div>
+              <dt>Add a recipient</dt>
+              <dd className="perm-never">Never</dd>
+            </div>
+            <div>
+              <dt>Take the money out</dt>
+              <dd className="perm-never">Never</dd>
+            </div>
+          </dl>
+          <p className="mt-5">
+            <span className="text-gold">Only you:</span> pause, change limits, withdraw.
+          </p>
+        </div>
+
+        <div className="reveal mt-14 grid gap-x-16 gap-y-12 md:grid-cols-2">
+          <div>
+            <h3 className="column-title">It protects the money in the vault</h3>
+            <ul className="bullets">
+              <li>The agent can only ask the vault to pay. It has no other way to move the money.</li>
+              <li>
+                Every payment is checked against a cap per payment, a cap per day, your list of approved recipients,
+                and an end date.
+              </li>
+              <li>The agent cannot change any rule. A request from it to raise its own limit is rejected.</li>
+              <li>
+                Anything that loosens the rules waits out a cooling period first, so there is always a worst-case
+                number: the most the agent could take before a change made right now could take effect.
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="column-title">It does not protect anything else</h3>
+            <ul className="bullets">
+              <li>Money outside the vault, in the agent&rsquo;s own wallet or your other accounts, is not covered.</li>
+              <li>
+                A bad purchase inside the limits is still allowed. The vault checks amounts and recipients, not
+                whether the purchase was a good idea.
+              </li>
+              <li>
+                If the agent can act as you, for example by getting hold of the key or login you use as owner, it can
+                do what you can do.
+              </li>
+              <li>
+                A day here is a fixed 24 hours, not a rolling one. An agent can spend one day&rsquo;s allowance just
+                before the reset and the next day&rsquo;s just after.
+              </li>
+              <li>This is an unaudited prototype. Do not use it to hold real money.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <section className="mt-[var(--gap-section)] max-w-[46rem]" aria-labelledby="deeper-title">
         <h2 id="deeper-title" className="section-title">
           For technical readers

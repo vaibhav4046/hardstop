@@ -161,7 +161,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
         <p className="small soft mt-1">Test dollars</p>
 
         <div className="mt-7">
-          <div className="gauge-stop">
+          <div className={usedShare >= 1 ? 'gauge-stop is-full' : 'gauge-stop'}>
             <div
               className="gauge"
               role="meter"

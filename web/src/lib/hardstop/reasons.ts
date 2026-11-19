@@ -69,7 +69,7 @@ export function explain(code: number, detail: bigint, f: Formatters): Explanatio
     case 'WrongNonce':
       return say(
         'Blocked: repeat request',
-        `This request was already used or is out of order. The next valid request is number ${detail}.`,
+        `This request was already used, or came out of order. The agent must send a new one (request ${detail}).`,
       )
     case 'NonceExhausted':
       return say('Blocked', 'This vault has used up its request numbers. Create a new one.')

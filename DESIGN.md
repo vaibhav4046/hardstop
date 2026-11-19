@@ -32,8 +32,10 @@ that:
    `brand/hardstop-mark-on-black-4096.png`, and
    `brand/hardstop-lockup-on-black.png` (mark and name, 4167px wide). The
    site icon (`web/src/app/icon.svg`) is the mark on a dark rounded tile.
-   The red square of the refusal colour closes the "spent today" gauge,
-   marks a refused receipt, and marks "Never" on the permissions card.
+   The "spent today" gauge ends in a neutral tick for the day's limit,
+   which turns the red of the refusal colour only once the limit is
+   reached. The red square marks a refused receipt and "Never" on the
+   permissions card.
 3. **The door.** The home hero is a vault door with a bar across it, drawn
    in dithered gold dots, and moving where the browser has a graphics card.
 

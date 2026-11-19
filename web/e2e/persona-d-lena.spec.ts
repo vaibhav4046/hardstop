@@ -79,7 +79,7 @@ test.describe('Persona D: Lena, security engineer', () => {
       { run: () => press(page, 'Pay $4.00 to Cloud hosting'), code: 0, sentence: /^Inside every limit\. \$16\.00 left today\.$/ },
       { run: () => press(page, 'Pay $80.00 to Cloud hosting'), code: 10, sentence: /^One payment may be at most \$10\.00\.$/ },
       { run: () => press(page, 'Pay $4.00 to an address you never approved'), code: 9, sentence: /^This recipient is not on your approved list/ },
-      { run: () => press(page, 'Send the last paid request again'), code: 6, sentence: /^This request was already used or is out of order\. The next valid request is number 1\.$/ },
+      { run: () => press(page, 'Send the last paid request again'), code: 6, sentence: /^This request was already used, or came out of order\. The agent must send a new one \(request 1\)\.$/ },
       { run: async () => (await request(page, '10'), await request(page, '10')), code: 11, sentence: /^Only \$6\.00 is left today\.$/ },
       { run: async () => (await press(page, 'Pause the agent now'), await press(page, 'Pay $4.00 to Cloud hosting')), code: 2, sentence: /^You paused this agent/ },
     ]
@@ -126,6 +126,8 @@ const JUDGED: Record<string, string> = {
     'Plumbing: how deep to look for revert bytes in a wallet error. Compares a search depth, not an amount.',
   'components/activity-board.tsx|const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)':
     'Display: how full to draw the gauge. Decides nothing.',
+  "components/activity-board.tsx|<div className={usedShare >= 1 ? 'gauge-stop is-full' : 'gauge-stop'}>":
+    "Display: draws the gauge's limit tick red once the drawn bar is full. Decides nothing.",
   'components/activity-board.tsx|const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance':
     'Display: caps the worst-case figure at the balance, and the page says so. Both numbers are read from the contract.',
   'components/activity-board.tsx|{worstShown < view.worstCase && (': 'Display: whether to show the "capped at what the vault holds" note.',

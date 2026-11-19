@@ -230,7 +230,7 @@ test.describe('Persona E: adversarial agent', () => {
     const slip = await request(page, '10')
     await expect(slip.locator('.stamp')).toHaveText('Paid')
     await expect(slip).toContainText('Inside every limit. $0.00 left today.')
-    await expect(await press(page, 'Send the last paid request again')).toContainText('The next valid request is number 3.')
+    await expect(await press(page, 'Send the last paid request again')).toContainText('The agent must send a new one (request 3).')
     // Leaving for another page and coming back keeps it too.
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'How it works' }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('One door for the agent. Every control for you.')
