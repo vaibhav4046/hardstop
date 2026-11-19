@@ -565,3 +565,18 @@ $ (WSL) scripts/native.sh         -> 49 passed; both_targets_reach_the_same_verd
 $ scripts/pay-cannot-loosen.sh    -> 22 ok
 $ npm test                        -> 69 passed
 ```
+
+## Launchers on Base Sepolia
+
+Each change to the contracts gives the launcher a new address (CREATE2 from
+its code). Earlier launchers stay on Base Sepolia with the vaults opened
+through them:
+
+- `0xa5ecc8802db5520ab089d63b39bb4508d3794299` (before sealed recipient
+  approvals; the gas table's transactions)
+- `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` (before sealed `Terms`)
+- `0x956fbbde5fcb981e5a8507b369c79105815d562d` (the first contracts; two
+  vaults, one opened through MetaMask on the live site)
+- `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` (before `OwnerProof`)
+- `0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1` (before the capped mint; the
+  vault used by the AI agent runs)

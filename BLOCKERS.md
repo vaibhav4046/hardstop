@@ -18,6 +18,9 @@
 5. **Posting the Fe compiler feedback.** Six issue drafts and one patch are
    in `research/UPSTREAM_ISSUES.md` and `research/fe-patches/`. Posting
    them is public, under the owner's name, so it waits for the owner.
+6. **MetaMask's site scanner** warns "Continue at your own risk" on connect.
+   A review ticket was filed with MetaMask support on 2026-11-18; the reply
+   goes to the owner's email.
 
 ## Technical limits found, with the workaround used
 

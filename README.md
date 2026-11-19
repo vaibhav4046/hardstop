@@ -132,7 +132,8 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 `own`, `#[must_use]`) bound to the real caller; and `static_assert`s run the
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
-refuse each attack (33 checks in
+refuse each attack (26 refusals, plus 6 control edits that must still
+compile and a source check, in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed (tests cover it).
@@ -323,16 +324,9 @@ approved recipient):
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
   The current launcher, `0xed8a5d83c64f71b6d027742124239dccbf018e44`, is
   not installed on either yet: the site installs it on first use, which
-  takes one extra wallet approval. Earlier ones stay on Base Sepolia with
-  the vaults opened through them:
-  `0xa5ecc8802db5520ab089d63b39bb4508d3794299` (before sealed recipient
-  approvals; the gas table's transactions),
-  `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` (before sealed `Terms`),
-  `0x956fbbde5fcb981e5a8507b369c79105815d562d` (the first contracts; two
-  vaults, one opened through MetaMask on the live site),
-  `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` (before `OwnerProof`) and
-  `0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1` (before the capped mint; the
-  vault used by the AI agent runs). A
+  takes one extra wallet approval. Earlier launchers stay on Base Sepolia
+  with the vaults opened through them (five, listed in
+  [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md#launchers-on-base-sepolia)). A
   launcher's address follows from its code, so every change to the
   contracts gives a new one. The agent is a trial key kept in the browser;
   a real agent would hold its own key.
