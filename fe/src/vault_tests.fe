@@ -7,10 +7,10 @@
 //! `tests.fe` and against the compiled contract in `web/tests/`.
 #![cfg(target = "evm")]
 
-use std::evm::{Address, Call, Ctx, Evm, revert_error}
+use std::evm::{Address, Call, Ctx, Evm, StorageMap, revert_error}
 use ingot::token::{TestDollar, TokenMsg}
 use ingot::kernel::{Instant, Policy, Schedule, Seconds}
-use ingot::kernel::sealed::{open, prove, Owner, Terms}
+use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, Terms}
 use ingot::vault::{Vault, VaultMsg}
 
 const USD: u256 = 1000000
@@ -810,27 +810,39 @@ fn zero_token_is_rejected() uses (evm: mut Evm) {
         )
 }
 
-// --- what the compiler cannot check: `open` and zeroed storage -------------
+// --- what the compiler cannot check: deploy-only calls, zeroed storage ------
 
 msg ReopenMsg {
     #[selector = sol("reopen()")]
     Reopen -> bool,
     #[selector = sol("raiseSpare()")]
     RaiseSpare -> u256,
+    #[selector = sol("refound()")]
+    Refound -> bool,
+    #[selector = sol("copyApproval(address)")]
+    CopyApproval { to: Address } -> (u64, u64),
 }
 
 /// Uses the sealed kernel types the way a careless or hostile vault might.
 /// It opens in its constructor like the vault does, then tries to open again
 /// after deployment, and to raise a limit through a `Terms` that nobody
-/// wrote (all zeros, a cooling period of zero).
+/// wrote (all zeros, a cooling period of zero). It also approves its
+/// deployer as the vault approves its first recipients, then tries to do
+/// that again after deployment, and to copy that approval to another
+/// address.
 contract Reopener uses (ctx: Ctx) {
     owner: Owner,
     mut terms: Terms,
     mut spare: Terms,
+    mut approvals: StorageMap<Address, Approval>,
 
     init()
-    uses (ctx, mut owner, mut terms)
+    uses (ctx, mut owner, mut terms, mut approvals)
     {
+        match founding(ctx, who: ctx.caller()) {
+            Option::Some(approval) => approvals.set(key: ctx.caller(), value: approval),
+            Option::None => revert_error(OpenRefused {}),
+        }
         let (owner_of, terms_of) = match open(
             ctx,
             owner: ctx.caller(),
@@ -892,6 +904,16 @@ contract Reopener uses (ctx: Ctx) {
                 )
             spare.rules().current(now).per_payment
         }
+
+        Refound -> bool uses (ctx) {
+            founding(ctx, who: ctx.caller()).is_some()
+        }
+
+        CopyApproval { to } -> (u64, u64) uses (ctx, mut approvals) {
+            let mine = approvals.get(key: ctx.caller())
+            approvals.set(key: to, value: mine)
+            (mine.of(ctx.caller()).secs(), approvals.get(key: to).of(to).secs())
+        }
     }
 }
 
@@ -922,4 +944,31 @@ fn zeroed_terms_cannot_be_raised() uses (evm: mut Evm) {
             message: ReopenMsg::RaiseSpare {},
         )
     assert!(cap == 0)
+}
+
+#[test]
+fn founding_works_only_while_deploying() uses (evm: mut Evm) {
+    let reopener = evm.create2<Reopener>(value: Wei::zero(), args: (), salt: 10)
+    let refound: bool = evm
+        .call(
+            addr: reopener,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ReopenMsg::Refound {},
+        )
+    assert!(!refound)
+}
+
+#[test]
+fn a_copied_approval_approves_no_one() uses (evm: mut Evm) {
+    let reopener = evm.create2<Reopener>(value: Wei::zero(), args: (), salt: 11)
+    let (mine, copied): (u64, u64) = evm
+        .call(
+            addr: reopener,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ReopenMsg::CopyApproval { to: reopener },
+        )
+    assert!(mine != 0)
+    assert!(copied == 0)
 }

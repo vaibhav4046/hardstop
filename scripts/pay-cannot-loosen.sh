@@ -21,13 +21,22 @@
 #    `Evm` parameter of `prove` that keeps it out.
 # 4. A proof is spent by its first use: using one twice must fail with a
 #    move error, and making one and dropping it must fail (`#[must_use]`).
-# 5. What the compiler does not check, kept visible so the README cannot
-#    drift: which address `init` gives `open` (a source check below), and a
-#    handler that lists `mut approved_from` writing the map directly (shown
-#    to compile). `open` after deployment and zeroed `Terms` are runtime
-#    checks, tested in fe/src/vault_tests.fe.
-# 6. The kernel's compile-time checks bite: a duplicate verdict code, or
-#    `meet` keeping the larger cap, must fail with "static assertion failed".
+# 5. No handler can approve a recipient except through the kernel. The
+#    recipient map stores `Approval`s (fe/src/kernel/sealed.fe), whose fields
+#    are private to the kernel. In `SetRecipient`, storing a date or a
+#    hand-built `Approval` must fail. Copying an approval the kernel made
+#    under another address still compiles; it approves no one, a runtime
+#    check tested in fe/src/vault_tests.fe.
+# 6. What the compiler does not check, kept visible so the README cannot
+#    drift: which address `init` gives `open` (a source check below), and
+#    where `Pay` sends money: an edit that pays the caller a thousand times
+#    the amount compiles, and so does one made through a function whose
+#    `uses` lists no `Call`, because any type can implement `Call` (both
+#    shown to compile). `open` and `founding` after deployment and zeroed
+#    `Terms` are runtime checks, tested in fe/src/vault_tests.fe.
+# 7. The kernel's compile-time checks bite: a duplicate verdict code, a
+#    verdict answering with another verdict's code, or `meet` keeping the
+#    larger cap, must fail with "static assertion failed".
 set -euo pipefail
 
 FE=${FE:-fe}
@@ -117,7 +126,7 @@ control 'Pay may write its own ledger' "$PAY" "$NOW" after 'ledger = ledger'
 # 8-0066 "does not provide mutable access" for a map.
 refused 'Pay writing terms' 'is immutable' 8-0018 "$PAY" "$NOW" after 'terms = terms'
 refused 'Pay approving a recipient' 'does not provide mutable access' 8-0066 \
-  "$PAY" "$NOW" after 'approved_from.set(key: to, value: now)'
+  "$PAY" "$NOW" after 'approved_from.set(key: to, value: approved_from.get(key: ctx.caller()))'
 
 # 2. Only the kernel makes new terms.
 HAND_RULES='ingot::kernel::Rules { schedule: terms.rules().schedule, active: proposed, queued: ingot::kernel::Queued::none() }'
@@ -187,7 +196,20 @@ refused 'Withdraw using one proof twice' 'cannot use a value after it was moved'
 refused 'Withdraw dropping a proof' 'unused value of type `OwnerCall`' 8-0082 \
   'Withdraw {' "$ONLY_LINE" after 'only(owner, ctx)'
 
-# 5. Not the compiler's: which address `init` hands to `open`. A source check
+# 5. Only the kernel makes new approvals.
+SET_RECIPIENT='SetRecipient {'
+STORE_APPROVAL='approved_from.set(key: who, value: from)'
+control 'SetRecipient may copy an approval the kernel made' \
+  "$SET_RECIPIENT" "$STORE_APPROVAL" replace \
+  'approved_from.set(key: who, value: approved_from.get(key: ctx.caller()))'
+refused 'SetRecipient storing a date (skipping the cooling period)' \
+  'expected `Approval`, but `Instant` is given' 8-0000 \
+  "$SET_RECIPIENT" "$STORE_APPROVAL" replace 'approved_from.set(key: who, value: Instant::at(1))'
+refused 'SetRecipient storing a hand-built Approval' '`from` is not visible' 2-0003 \
+  "$SET_RECIPIENT" "$STORE_APPROVAL" replace \
+  'approved_from.set(key: who, value: Approval { who, from: Instant::at(1) })'
+
+# 6. Not the compiler's: which address `init` hands to `open`. A source check
 #    of vault.fe (comments stripped): `open` is called exactly once, in
 #    `init`, with `owner: owner_`, and the `Owner` it returns is the one
 #    stored. `open` itself refuses to run after deployment.
@@ -216,11 +238,28 @@ if ! why=$(check_open); then
 fi
 echo "ok   source check: init opens once, with owner_, and stores that Owner"
 
-control 'NOT covered by the compiler: SetRecipient writing approved_from directly' \
-  'SetRecipient {' 'approved_from.set(key: who, value: from)' replace \
-  'approved_from.set(key: who, value: Instant::at(1))'
+# Not the compiler's: where `Pay` sends money. The kernel decides whether
+# `to` may receive `amount`; the transfer is ordinary code.
+TRANSFER='safe_transfer(token, receiver: to, amount)'
+control 'NOT covered by the compiler: Pay paying the caller 1000x the amount' \
+  "$PAY" "$TRANSFER" replace 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
+# Taking `mut call` away from `Pay` would not close this: `Call`'s methods
+# have default bodies and its seal is reachable, so any type can be a `Call`.
+FORGED_CALL='
+pub struct Forged {}
+impl std::evm::effects::EvmCapabilitySeal for Forged {}
+impl Call for Forged {}
+fn steal(_ token: Address, to: Address, amount: u256) uses (ctx: Ctx) {
+    var forged = Forged {}
+    with (Call = mut forged) {
+        safe_transfer(token, receiver: to, amount)
+    }
+}
+'
+APPEND=$FORGED_CALL control 'NOT covered by the compiler: Pay paying through a function with no Call in its uses' \
+  "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
 
-# 6. Kernel edits the compiler must refuse with "static assertion failed"
+# 7. Kernel edits the compiler must refuse with "static assertion failed"
 #    (8-0081): the line matching $2 in kernel.fe becomes $3.
 kernel_refused() {
   local name=$1 from=$2 to=$3 dir
@@ -245,9 +284,12 @@ kernel_refused() {
   echo "ok   refused: $name"
 }
 
-# The verdict codes: making one refusal code a duplicate of another.
+# The verdict codes: making one refusal code a duplicate of another, or
+# having a reason answer with another reason's code.
 kernel_refused 'a duplicate verdict code' \
   '^pub const CODE_PAUSED: u8 = 2$' 'pub const CODE_PAUSED: u8 = 1'
+kernel_refused 'a reason answering with another code' \
+  'Reason::Paused => CODE_PAUSED,' 'Reason::Paused => CODE_NOT_AGENT,'
 # The ratchet's laws (end of kernel.fe): `meet` keeping the larger
 # per-payment cap would let a "tightening" raise it.
 kernel_refused 'meet choosing the larger cap' \

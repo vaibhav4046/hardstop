@@ -249,8 +249,9 @@ const NEVER: Instant = Instant { secs: MAX_U64 }
 /// shift. The compiler checks the constants: 0 is "allowed" and each refusal
 /// is the one before it plus one, so no two constants collide and none is
 /// skipped; editing one into a duplicate fails to build
-/// (`scripts/pay-cannot-loosen.sh`). It does not check that each `Reason`
-/// below uses its own constant; the tests on each reason's code do that.
+/// (`scripts/pay-cannot-loosen.sh`). `Reason::code` and `Decision::code` are
+/// `const fn`, and the compiler also runs them on every verdict, so a reason
+/// that answers with another reason's constant fails to build as well.
 pub const CODE_ALLOWED: u8 = 0
 pub const CODE_INVALID_POLICY: u8 = 1
 pub const CODE_PAUSED: u8 = 2
@@ -279,7 +280,7 @@ static_assert(CODE_OVER_WINDOW_LIMIT == CODE_OVER_PAYMENT_LIMIT + 1)
 
 impl Reason {
     /// Stable wire code. `0` is reserved for "allowed".
-    pub fn code(self) -> u8 {
+    pub const fn code(self) -> u8 {
         match self {
             Reason::InvalidPolicy => CODE_INVALID_POLICY,
             Reason::Paused => CODE_PAUSED,
@@ -310,7 +311,7 @@ impl Reason {
 
 impl Decision {
     /// `0` when allowed, otherwise the reason code.
-    pub fn code(self) -> u8 {
+    pub const fn code(self) -> u8 {
         match self {
             Decision::Allow(_) => CODE_ALLOWED,
             Decision::Deny(reason) => reason.code(),
@@ -326,6 +327,21 @@ impl Decision {
         }
     }
 }
+
+// Each verdict answers with its own constant. With the chain above, no two
+// verdicts share a code.
+static_assert(Decision::Allow(Ledger { window: 0, spent: 0, next_nonce: 0 }).code() == CODE_ALLOWED)
+static_assert(Decision::Deny(Reason::InvalidPolicy).code() == CODE_INVALID_POLICY)
+static_assert(Decision::Deny(Reason::Paused).code() == CODE_PAUSED)
+static_assert(Decision::Deny(Reason::NotAgent).code() == CODE_NOT_AGENT)
+static_assert(Decision::Deny(Reason::NotYetActive(NOT_SET)).code() == CODE_NOT_YET_ACTIVE)
+static_assert(Decision::Deny(Reason::Expired(NOT_SET)).code() == CODE_EXPIRED)
+static_assert(Decision::Deny(Reason::WrongNonce(0)).code() == CODE_WRONG_NONCE)
+static_assert(Decision::Deny(Reason::NonceExhausted).code() == CODE_NONCE_EXHAUSTED)
+static_assert(Decision::Deny(Reason::ZeroAmount).code() == CODE_ZERO_AMOUNT)
+static_assert(Decision::Deny(Reason::RecipientNotApproved).code() == CODE_RECIPIENT_NOT_APPROVED)
+static_assert(Decision::Deny(Reason::OverPaymentLimit(0)).code() == CODE_OVER_PAYMENT_LIMIT)
+static_assert(Decision::Deny(Reason::OverWindowLimit(0)).code() == CODE_OVER_WINDOW_LIMIT)
 
 impl Queued {
     /// The empty queue.

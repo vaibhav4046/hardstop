@@ -5,11 +5,11 @@
 //! the kernel decided. Money leaves in two ways only: to an approved
 //! recipient on an `Allow` verdict, or back to the owner.
 //!
-//! Each handler's `uses` clause is its whole authority. `Pay` lists `terms`
-//! and `approved_from` without `mut`, so the agent's code path cannot change
-//! its own limits or its own recipients; the compiler rejects a `Pay` that
-//! tries. `owner`, `agent` and `token` are immutable: no handler can list
-//! them `mut`.
+//! Each handler's `uses` clause is its whole authority over storage. `Pay`
+//! lists `terms` and `approved_from` without `mut`, so the agent's code path
+//! cannot change its own limits or its own recipients; the compiler rejects
+//! a `Pay` that tries. `owner`, `agent` and `token` are immutable: no handler
+//! can list them `mut`.
 //!
 //! The rules are stored as `Terms` (`kernel::sealed`), whose field this file
 //! cannot see. A handler that lists `mut terms` can store only terms the
@@ -23,10 +23,22 @@
 //! (which only `open` makes) with the caller read from `ctx`, passed as the
 //! concrete `Evm`, so a stand-in context does not compile. Drop a handler's
 //! `only` line and it has no proof to pass, so it does not compile either.
+//!
+//! The recipient map stores `Approval`s (`kernel::sealed`) too. A handler
+//! that lists `mut approved_from` can store only approvals the kernel made:
+//! from `founding`, which works only while the vault is being deployed, or
+//! from `Terms::approve_from`, which takes an `OwnerCall` and applies the
+//! cooling period. A hand-written date does not compile, and an approval
+//! copied under another address approves no one.
+//!
 //! Not the compiler's: which address `init` gives `open` (the source check
-//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_`), and the
-//! recipient map: a handler that lists `mut approved_from` could write a
-//! date into it directly, without a proof or a cooling period.
+//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_`), and where `Pay`
+//! sends money. The kernel decides whether `to` may receive `amount`; the
+//! transfer below is ordinary code, and an edit that pays someone else, or
+//! pays more, compiles. `Pay` needs `mut call` to transfer at all, and
+//! without it a `Call` can still be made: the standard library's capability
+//! seal can be implemented outside it. Tests catch such an edit; the
+//! compiler does not.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}
@@ -45,7 +57,7 @@ use ingot::kernel::{
     Schedule,
     Seconds,
 }
-use ingot::kernel::sealed::{open, prove, Owner, OwnerCall, Terms}
+use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}
 
 pub msg VaultMsg {
     // The agent's only door.
@@ -174,6 +186,14 @@ uses (ctx: Ctx, call: mut Call)
     safe_transfer(token, receiver: owner.address(), amount)
 }
 
+/// `who` approved from now, for a recipient the vault is created with.
+fn founded(_ ctx: Evm, who: Address) -> Approval {
+    match founding(ctx, who) {
+        Option::Some(approval) => approval,
+        Option::None => revert_error(InvalidPolicy {}),
+    }
+}
+
 fn seconds(_ at: Timestamp) -> Instant {
     Instant::at(at.as_seconds().downcast_saturate())
 }
@@ -188,7 +208,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     token: Address,
     mut terms: Terms,
     mut ledger: Ledger,
-    mut approved_from: StorageMap<Address, Instant>,
+    mut approved_from: StorageMap<Address, Approval>,
 
     /// Recipients named here are approved from the first second. Everything
     /// added later waits out the cooling period.
@@ -240,13 +260,13 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         terms = terms_of
         ledger = Ledger { window: 0, spent: 0, next_nonce: 0 }
         if payee_a != Address::zero() {
-            approved_from.set(key: payee_a, value: now)
+            approved_from.set(key: payee_a, value: founded(ctx, who: payee_a))
         }
         if payee_b != Address::zero() {
-            approved_from.set(key: payee_b, value: now)
+            approved_from.set(key: payee_b, value: founded(ctx, who: payee_b))
         }
         if payee_c != Address::zero() {
-            approved_from.set(key: payee_c, value: now)
+            approved_from.set(key: payee_c, value: founded(ctx, who: payee_c))
         }
     }
 
@@ -267,7 +287,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 amount,
                 nonce,
                 from_agent: ctx.caller() == agent,
-                to_approved: cooled(at: approved_from.get(key: to), now),
+                to_approved: cooled(at: approved_from.get(key: to).of(to), now),
             }
             match decide(rules, ledger, request, now) {
                 Decision::Allow(next) => {
@@ -309,7 +329,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 amount,
                 nonce,
                 from_agent: caller == agent,
-                to_approved: cooled(at: approved_from.get(key: to), now),
+                to_approved: cooled(at: approved_from.get(key: to).of(to), now),
             }
             let decision = decide(rules, ledger, request, now)
             (decision.code(), decision.detail(policy: rules.current(now)))
@@ -374,12 +394,15 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             let from = terms
                 .approve_from(
                     proof,
+                    who,
                     current: approved_from.get(key: who),
                     approved,
                     now: seconds(ctx.timestamp()),
                 )
             approved_from.set(key: who, value: from)
-            log.emit(RecipientChanged { who, approved_from: from.secs() })
+            log.emit(
+                RecipientChanged { who, approved_from: from.of(who).secs() },
+            )
         }
 
         Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
@@ -429,7 +452,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         ApprovedFrom { who } -> u64 uses (approved_from) {
-            approved_from.get(key: who).secs()
+            approved_from.get(key: who).of(who).secs()
         }
     }
 }
