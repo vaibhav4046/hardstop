@@ -138,30 +138,41 @@ build (the script checks one such edit).
 **The ratchet's laws are checked when the kernel compiles.** Fe 26.6
 evaluates `const fn`s inside `static_assert`, operator methods included
 (`impl core::ops::Add<Seconds> for Instant { const fn add(..) }` makes `+`
-usable there). `loosens`, `meet`, `cooled`, `Rules::current` and the
-`Instant` and `Seconds` operators are `const fn`, and the end of
-[`fe/src/kernel.fe`](fe/src/kernel.fe) runs them on fixed values: the
+usable there). `amend`, `cancel`, `matures_at`, `loosens`, `meet`, `cooled`,
+`Rules::current` and the `Instant` and `Seconds` operators are `const fn`,
+and the end of [`fe/src/kernel.fe`](fe/src/kernel.fe) runs them on fixed
+values: the
 tightest policy, the loosest (every limit at its maximum, valid until
 `NEVER`), ordinary ones, and one changed in a single field at a time. The
 asserts state that no policy loosens itself; that `meet` is idempotent and
 never looser than either input; that `NOT_SET` and `NEVER` never take
 effect and a queued policy is in force only from its moment on; that `+`
-saturates at `NEVER`; and, for a raise, a tightening and a mixed proposal,
-the rule `amend` applies (the active policy becomes `meet(in force,
-proposed)`, and the proposal is queued exactly when it loosens that). Every
+saturates at `NEVER`; and that `amend` and `cancel` themselves, called
+directly on fixed rules, keep the ratchet: a raise leaves the active policy
+as it was and is queued for `now + cooling_secs`; a tightening applies at
+once and drops a waiting raise; a mixed proposal applies its tighter fields
+at once and queues the rest; `matures_at` gives `NEVER` for a cooling
+period past the end of time and never second zero; and `cancel`, before or
+after a raise matures, leaves nothing looser than what was in force. Every
 law-breaking edit tried fails the build: `meet` keeping the larger cap or
 the later end, or dropping a pause; `loosens` ignoring any one field;
 `cooled` letting `NEVER` through or firing a second early; `current`
-ignoring the queue ("static assertion failed", 8-0081); and `+` wrapping
-instead of saturating ("arithmetic overflow in const context", 3-0034). CI
-checks the first. What this does not cover: the asserts check those cases,
-not every input (breadth comes from `fe test` and the seeded adversary). And
-`amend`, `cancel` and `matures_at` are not `const fn`, so their own code is
-tested, not asserted. Making them `const` changes the compiled vault, and
-with it the launcher's deterministic address.
+ignoring the queue; `amend` applying a raise at once ("static assertion
+failed", 8-0081); and `+` wrapping instead of saturating ("arithmetic
+overflow in const context", 3-0034). CI checks six of them: `meet` keeping
+the larger cap, `loosens` ignoring the window cap, `cooled` letting `NEVER`
+through, `current` ignoring the queue, `+` wrapping, and `amend` applying a
+raise at once, which only the asserts that call `amend` catch (with them
+removed, that edit compiles). What this does not cover: the asserts check
+those cases, not every input (breadth comes from `fe test` and the seeded
+adversary).
 
-None of this adds bytecode. All 24 compiled outputs are byte-identical with
-or without the asserts and the `const` markings.
+The asserts add no bytecode: all 24 compiled outputs are byte-identical
+with or without them. The `const` markings on `amend`, `cancel`,
+`matures_at`, `Queued::none`, `Instant::at` and `Seconds::of` do change it:
+the vault's runtime is 65 bytes smaller (7,983 bytes), and since the
+launcher carries the vault's code, the launcher's deterministic address
+changed with it.
 
 The other half is that the same `decide` is the body of a native program:
 

@@ -35,8 +35,11 @@
 #    shown to compile). `open` and `founding` after deployment and zeroed
 #    `Terms` are runtime checks, tested in fe/src/vault_tests.fe.
 # 7. The kernel's compile-time checks bite: a duplicate verdict code, a
-#    verdict answering with another verdict's code, or `meet` keeping the
-#    larger cap, must fail with "static assertion failed".
+#    verdict answering with another verdict's code, `meet` keeping the larger
+#    cap, `loosens` ignoring a field, `cooled` letting `NEVER` through,
+#    `current` ignoring the queue, or `amend` applying a raise at once, must
+#    fail with "static assertion failed"; `+` wrapping instead of saturating
+#    must fail with "arithmetic overflow in const context".
 set -euo pipefail
 
 FE=${FE:-fe}
@@ -259,22 +262,29 @@ fn steal(_ token: Address, to: Address, amount: u256) uses (ctx: Ctx) {
 APPEND=$FORGED_CALL control 'NOT covered by the compiler: Pay paying through a function with no Call in its uses' \
   "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
 
-# 7. Kernel edits the compiler must refuse with "static assertion failed"
-#    (8-0081): the line matching $2 in kernel.fe becomes $3.
+# 7. Kernel edits the compiler must refuse: the one line matching $2 in
+#    kernel.fe becomes $3, and the build must fail with $5 in the log and no
+#    error other than code $4 (by default "static assertion failed", 8-0081).
 kernel_refused() {
-  local name=$1 from=$2 to=$3 dir
+  local name=$1 from=$2 to=$3 code=${4:-8-0081} message=${5:-static assertion failed} dir
   dir=$(mktemp -d)
   cp -r "$ROOT/fe" "$dir/"
   rm -rf "$dir/fe/out"
   sed -i "s/$from/$to/" "$dir/fe/src/kernel.fe"
-  grep -qF "$to" "$dir/fe/src/kernel.fe" || { echo "could not edit kernel.fe for: $name"; rm -rf "$dir"; exit 2; }
+  # Exactly one line changed, and it now reads as intended.
+  if [ "$(diff "$ROOT/fe/src/kernel.fe" "$dir/fe/src/kernel.fe" | grep -c '^>')" != 1 ] \
+    || ! grep -qF -- "$to" "$dir/fe/src/kernel.fe"; then
+    echo "could not edit kernel.fe for: $name"
+    rm -rf "$dir"
+    exit 2
+  fi
   if (cd "$dir/fe" && "$FE" build > "$dir/build.log" 2>&1); then
     echo "FAIL compiled: $name"
     rm -rf "$dir"
     exit 1
   fi
-  if ! grep -q 'static assertion failed' "$dir/build.log" \
-    || grep -E '^error\[' "$dir/build.log" | grep -qvF 'error[8-0081]'; then
+  if ! grep -qF -- "$message" "$dir/build.log" \
+    || grep -E '^error\[' "$dir/build.log" | grep -qvF "error[$code]"; then
     echo "FAIL refused for another reason: $name"
     cat "$dir/build.log"
     rm -rf "$dir"
@@ -290,7 +300,24 @@ kernel_refused 'a duplicate verdict code' \
   '^pub const CODE_PAUSED: u8 = 2$' 'pub const CODE_PAUSED: u8 = 1'
 kernel_refused 'a reason answering with another code' \
   'Reason::Paused => CODE_PAUSED,' 'Reason::Paused => CODE_NOT_AGENT,'
-# The ratchet's laws (end of kernel.fe): `meet` keeping the larger
+# The ratchet's laws (end of kernel.fe). `meet` keeping the larger
 # per-payment cap would let a "tightening" raise it.
 kernel_refused 'meet choosing the larger cap' \
   'per_payment: if a.per_payment < b.per_payment {' 'per_payment: if a.per_payment > b.per_payment {'
+# `loosens` blind to the window cap would apply a raise of it at once.
+kernel_refused 'loosens ignoring the window cap' \
+  '^        || to.per_window > from.per_window$' '        || false'
+# A change queued past the end of time would take effect at the last second.
+kernel_refused 'cooled letting NEVER through' \
+  '^    at != NOT_SET && at != NEVER && now >= at$' '    !(at == NOT_SET || now < at)'
+# A matured raise would never take effect, and `cancel` could not see it.
+kernel_refused 'current ignoring the queue' \
+  '^        if self.queued.matured(now) {$' '        if false {'
+# A cooling period running past the end of time would wrap to a moment soon.
+kernel_refused '+ wrapping instead of saturating' \
+  'Instant { secs: self.secs.saturating_add(other.secs) }' 'Instant { secs: self.secs + other.secs }' \
+  3-0034 'arithmetic overflow in const context'
+# `amend` itself: a raise applied at once instead of waiting out the cooling
+# period. Only the asserts that run `amend` catch this.
+kernel_refused 'amend applying a raise at once' \
+  '^    let active = meet(in_force, proposed)$' '    let active = proposed'

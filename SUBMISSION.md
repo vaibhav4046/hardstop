@@ -84,19 +84,22 @@ a verdict allowed. An edit that pays the caller more compiles, even in a
 `Pay` without `mut call`, because any type can implement Fe 26.6's `Call`;
 the tests catch it, not the compiler.
 
-The ratchet's laws are checked when the kernel compiles. `loosens`, `meet`,
-`cooled`, `Rules::current` and the time operators (`+`, `-`, `<`, ...) are
-`const fn`, and `static_assert`s run them on fixed policies, zero and the
-maximum among them. No policy loosens itself; `meet` is never looser than
-either input; `NOT_SET` and `NEVER` never take effect; `+` saturates at
-`NEVER`; and a raise is queued while a tightening applies at once, by the
-rule `amend` uses. An edit that breaks one fails the build, and CI proves it
-for `meet` keeping the larger cap. Each verdict's wire code is asserted the
-same way (`Reason::code` is a `const fn`), so a reason answering with
-another's code fails to build. These are representative cases, not every
-input (the tests and the adversary cover breadth), and `amend` itself is not
-`const`. The compiled contracts are byte-identical with or without these
-checks. The same pure `decide` also runs as a native command-line program.
+The ratchet's laws are checked when the kernel compiles. `amend`,
+`cancel`, `matures_at`, `loosens`, `meet`, `cooled`, `Rules::current` and
+the time operators (`+`, `-`, `<`, ...) are `const fn`, and
+`static_assert`s run them on fixed policies, zero and the maximum among
+them. No policy loosens itself; `meet` is never looser than either input;
+`NOT_SET` and `NEVER` never take effect; `+` saturates at `NEVER`; and
+`amend` itself, called on fixed rules, queues a raise for `now + cooling`,
+applies a tightening at once and drops a waiting raise, and splits a mixed
+proposal, while `cancel` never loosens. An edit that breaks one fails the
+build, and CI proves it for six such edits, including `amend` applying a
+raise at once. Each verdict's wire code is asserted the same way
+(`Reason::code` is a `const fn`), so a reason answering with another's code
+fails to build. These are representative cases, not every input (the tests
+and the adversary cover breadth). The asserts add no bytecode; marking
+`amend`, `cancel` and `matures_at` `const` did change it (the vault's
+runtime is 65 bytes smaller), and with it the launcher's address. The same pure `decide` also runs as a native command-line program.
 Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works

@@ -18,7 +18,7 @@ export const AMEND = `/// The owner proposes \`proposed\` at \`now\`.
 /// takes effect \`cooling_secs\` later; a proposal with nothing looser clears
 /// the queue. So a limit can drop in one step but can only rise after the
 /// cooling period, and any later tightening cancels a pending rise.
-pub fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
+pub const fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
     let in_force = rules.current(now)
     let active = meet(in_force, proposed)
     let queued = if loosens(active, to: proposed) {
