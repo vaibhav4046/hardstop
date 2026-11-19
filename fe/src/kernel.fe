@@ -39,7 +39,7 @@ impl Instant {
         Instant { secs }
     }
 
-    pub fn secs(self) -> u64 {
+    pub const fn secs(self) -> u64 {
         self.secs
     }
 }
@@ -49,7 +49,7 @@ impl Seconds {
         Seconds { secs }
     }
 
-    pub fn secs(self) -> u64 {
+    pub const fn secs(self) -> u64 {
         self.secs
     }
 }
@@ -57,14 +57,14 @@ impl Seconds {
 /// Saturates at the last representable second, which `cooled` treats as
 /// never.
 impl core::ops::Add<Seconds> for Instant {
-    fn add(own self, _ other: own Seconds) -> Instant {
+    const fn add(own self, _ other: own Seconds) -> Instant {
         Instant { secs: self.secs.saturating_add(other.secs) }
     }
 }
 
 /// Saturates at second zero.
 impl core::ops::Sub<Seconds> for Instant {
-    fn sub(own self, _ other: own Seconds) -> Instant {
+    const fn sub(own self, _ other: own Seconds) -> Instant {
         Instant { secs: self.secs.saturating_sub(other.secs) }
     }
 }
@@ -72,7 +72,7 @@ impl core::ops::Sub<Seconds> for Instant {
 /// The time from `other` to `self`; zero if `other` is later.
 impl core::ops::Sub<Instant> for Instant {
     type Output = Seconds
-    fn sub(own self, _ other: own Instant) -> Seconds {
+    const fn sub(own self, _ other: own Instant) -> Seconds {
         Seconds { secs: self.secs.saturating_sub(other.secs) }
     }
 }
@@ -80,7 +80,7 @@ impl core::ops::Sub<Instant> for Instant {
 /// How many whole `other`s fit in `self`; zero when `other` is zero.
 impl core::ops::Div<Seconds> for Seconds {
     type Output = u64
-    fn div(own self, _ other: own Seconds) -> u64 {
+    const fn div(own self, _ other: own Seconds) -> u64 {
         if other.secs == 0 {
             0
         } else {
@@ -90,29 +90,35 @@ impl core::ops::Div<Seconds> for Seconds {
 }
 
 impl core::ops::Eq for Instant {
-    fn eq(self, _ other: Instant) -> bool {
+    const fn eq(self, _ other: Instant) -> bool {
         self.secs == other.secs
+    }
+    const fn ne(self, _ other: Instant) -> bool {
+        self.secs != other.secs
     }
 }
 
 impl core::ops::Ord for Instant {
-    fn lt(self, _ other: Instant) -> bool {
+    const fn lt(self, _ other: Instant) -> bool {
         self.secs < other.secs
     }
-    fn le(self, _ other: Instant) -> bool {
+    const fn le(self, _ other: Instant) -> bool {
         self.secs <= other.secs
     }
-    fn gt(self, _ other: Instant) -> bool {
+    const fn gt(self, _ other: Instant) -> bool {
         self.secs > other.secs
     }
-    fn ge(self, _ other: Instant) -> bool {
+    const fn ge(self, _ other: Instant) -> bool {
         self.secs >= other.secs
     }
 }
 
 impl core::ops::Eq for Seconds {
-    fn eq(self, _ other: Seconds) -> bool {
+    const fn eq(self, _ other: Seconds) -> bool {
         self.secs == other.secs
+    }
+    const fn ne(self, _ other: Seconds) -> bool {
+        self.secs != other.secs
     }
 }
 
@@ -330,12 +336,12 @@ impl Queued {
         }
     }
 
-    pub fn is_some(self) -> bool {
+    pub const fn is_some(self) -> bool {
         self.effective_at != NOT_SET
     }
 
     /// Whether the queued policy is in force at `now`.
-    pub fn matured(self, now: Instant) -> bool {
+    pub const fn matured(self, now: Instant) -> bool {
         cooled(at: self.effective_at, now)
     }
 }
@@ -345,14 +351,14 @@ impl Queued {
 /// Zero means "nothing scheduled". The last representable second means "the
 /// cooling period ran past the end of time", and such a change never takes
 /// effect: rounding it down to that last second would cut the wait short.
-pub fn cooled(at: Instant, now: Instant) -> bool {
+pub const fn cooled(at: Instant, now: Instant) -> bool {
     at != NOT_SET && at != NEVER && now >= at
 }
 
 impl Rules {
     /// The policy in force at `now`: the queued one once its cooling period
     /// is over, the active one before that.
-    pub fn current(self, now: Instant) -> Policy {
+    pub const fn current(self, now: Instant) -> Policy {
         if self.queued.matured(now) {
             self.queued.policy
         } else {
@@ -434,7 +440,7 @@ pub fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> D
 }
 
 /// Whether `to` lets the agent do anything `from` does not.
-pub fn loosens(_ from: Policy, to: Policy) -> bool {
+pub const fn loosens(_ from: Policy, to: Policy) -> bool {
     to.per_payment > from.per_payment
         || to.per_window > from.per_window
         || to.valid_until > from.valid_until
@@ -442,7 +448,7 @@ pub fn loosens(_ from: Policy, to: Policy) -> bool {
 }
 
 /// The tightest of two policies, field by field.
-pub fn meet(_ a: Policy, _ b: Policy) -> Policy {
+pub const fn meet(_ a: Policy, _ b: Policy) -> Policy {
     Policy {
         per_payment: if a.per_payment < b.per_payment {
             a.per_payment
@@ -603,3 +609,154 @@ fn span(
     let later_windows: u256 = (last - first) as u256
     left_in_window(policy, spent).saturating_add(policy.per_window.saturating_mul(later_windows))
 }
+
+// The ratchet's laws, checked by the compiler.
+//
+// Each `static_assert` below is evaluated while the kernel compiles: the
+// compiler runs the `const fn`s above (`loosens`, `meet`, `cooled`,
+// `Rules::current` and the `Instant` and `Seconds` operators) on the
+// constants here, and a false one stops the build with "static assertion
+// failed" (8-0081). They check these representative cases, chosen to include
+// zero and the extremes, not every input; the tests and the seeded adversary
+// cover breadth.
+//
+// `amend`, `cancel` and `matures_at` are not `const fn`, so nothing here runs
+// them. Making them `const` changes the compiled vault, and with it the
+// launcher's deterministic address. What is checked is the rule `amend` is
+// built on: the active policy becomes `meet(in force, proposed)`, and the
+// proposal is queued exactly when `loosens(that, to: proposed)`.
+
+/// Neither policy lets the agent do anything the other does not.
+const fn same(_ a: Policy, _ b: Policy) -> bool {
+    !loosens(a, to: b) && !loosens(b, to: a)
+}
+
+const MAX_U256: u256 = 115792089237316195423570985008687907853269984665640564039457584007913129639935
+/// Nothing allowed: the tightest policy there is.
+const SHUT: Policy = Policy { per_payment: 0, per_window: 0, valid_until: NOT_SET, paused: true }
+/// Everything allowed: the loosest.
+const OPEN: Policy = Policy {
+    per_payment: MAX_U256,
+    per_window: MAX_U256,
+    valid_until: NEVER,
+    paused: false,
+}
+const P1: Policy = Policy {
+    per_payment: 100,
+    per_window: 1000,
+    valid_until: Instant { secs: 500 },
+    paused: false,
+}
+/// Looser than `P1` per payment; tighter per window and in time, and paused.
+const P2: Policy = Policy {
+    per_payment: 200,
+    per_window: 800,
+    valid_until: Instant { secs: 300 },
+    paused: true,
+}
+/// Looser than `P1` per window and in time.
+const P3: Policy = Policy {
+    per_payment: 100,
+    per_window: 5000,
+    valid_until: Instant { secs: 900 },
+    paused: false,
+}
+/// `P1` loosened in one field each.
+const P1_PAY: Policy = Policy {
+    per_payment: 101,
+    per_window: 1000,
+    valid_until: Instant { secs: 500 },
+    paused: false,
+}
+const P1_WINDOW: Policy = Policy {
+    per_payment: 100,
+    per_window: 1001,
+    valid_until: Instant { secs: 500 },
+    paused: false,
+}
+const P1_LATER: Policy = Policy {
+    per_payment: 100,
+    per_window: 1000,
+    valid_until: Instant { secs: 501 },
+    paused: false,
+}
+/// `P1` tightened in one field: paused.
+const P1_PAUSED: Policy = Policy {
+    per_payment: 100,
+    per_window: 1000,
+    valid_until: Instant { secs: 500 },
+    paused: true,
+}
+
+const ONE: Instant = Instant { secs: 1 }
+const AT: Instant = Instant { secs: 1000 }
+const SECOND: Seconds = Seconds { secs: 1 }
+const NO_TIME: Seconds = Seconds { secs: 0 }
+const HOUR: Seconds = Seconds { secs: 3600 }
+const FOREVER: Seconds = Seconds { secs: MAX_U64 }
+/// `P1` in force with `P3` queued to take effect an hour after `AT`.
+const RAISING: Rules = Rules {
+    schedule: Schedule {
+        anchor: NOT_SET,
+        window_secs: Seconds { secs: 86400 },
+        cooling_secs: HOUR,
+    },
+    active: P1,
+    queued: Queued { policy: P3, effective_at: Instant { secs: 4600 } },
+}
+/// The same, queued for the last second, which never comes.
+const STUCK: Rules = Rules {
+    schedule: RAISING.schedule,
+    active: P1,
+    queued: Queued { policy: P3, effective_at: NEVER },
+}
+
+// A policy never loosens itself.
+static_assert(!loosens(SHUT, to: SHUT))
+static_assert(!loosens(OPEN, to: OPEN))
+static_assert(!loosens(P1, to: P1))
+static_assert(!loosens(P2, to: P2))
+// `loosens` sees each field on its own, so the laws below are not vacuous.
+static_assert(loosens(P1, to: P1_PAY) && !loosens(P1_PAY, to: P1))
+static_assert(loosens(P1, to: P1_WINDOW) && !loosens(P1_WINDOW, to: P1))
+static_assert(loosens(P1, to: P1_LATER) && !loosens(P1_LATER, to: P1))
+static_assert(loosens(P1_PAUSED, to: P1) && !loosens(P1, to: P1_PAUSED))
+static_assert(loosens(SHUT, to: OPEN) && !loosens(OPEN, to: SHUT))
+static_assert(loosens(P1, to: P2) && loosens(P2, to: P1))
+
+// `meet` is idempotent and never looser than either input.
+static_assert(same(meet(P1, P1), P1))
+static_assert(same(meet(SHUT, SHUT), SHUT))
+static_assert(same(meet(OPEN, OPEN), OPEN))
+static_assert(!loosens(P1, to: meet(P1, P2)) && !loosens(P2, to: meet(P1, P2)))
+static_assert(!loosens(P1, to: meet(P1, P3)) && !loosens(P3, to: meet(P1, P3)))
+static_assert(!loosens(P2, to: meet(P2, P3)) && !loosens(P3, to: meet(P2, P3)))
+static_assert(same(meet(P1, OPEN), P1) && same(meet(OPEN, P1), P1))
+static_assert(same(meet(P1, SHUT), SHUT) && same(meet(SHUT, P1), SHUT))
+static_assert(same(meet(P1_PAY, P1), P1) && same(meet(P1, P1_WINDOW), P1))
+static_assert(same(meet(P1_LATER, P1), P1) && same(meet(P1, P1_PAUSED), P1_PAUSED))
+
+// The rule `amend` applies: a raise leaves the active policy as it was and
+// is queued; a tightening applies at once and queues nothing; a mixed
+// proposal tightens what it can now and queues the rest.
+static_assert(same(meet(P1, P3), P1) && loosens(meet(P1, P3), to: P3))
+static_assert(same(meet(P1, SHUT), SHUT) && !loosens(meet(P1, SHUT), to: SHUT))
+static_assert(same(meet(P1, P1_PAUSED), P1_PAUSED) && !loosens(meet(P1, P1_PAUSED), to: P1_PAUSED))
+static_assert(loosens(P1, to: P2) && loosens(meet(P1, P2), to: P2))
+static_assert(!loosens(P1, to: meet(P1, P2)))
+
+// `NOT_SET` and `NEVER` never take effect; any other moment does, from then on.
+static_assert(!cooled(at: NOT_SET, now: NOT_SET) && !cooled(at: NOT_SET, now: NEVER))
+static_assert(!cooled(at: NEVER, now: NOT_SET) && !cooled(at: NEVER, now: NEVER))
+static_assert(!cooled(at: AT, now: AT - SECOND) && cooled(at: AT, now: AT))
+static_assert(cooled(at: ONE, now: ONE) && cooled(at: ONE, now: NEVER))
+// A queued policy is in force only once it has cooled.
+static_assert(same(RAISING.current(now: AT), P1))
+static_assert(same(RAISING.current(now: AT + HOUR - SECOND), P1))
+static_assert(same(RAISING.current(now: AT + HOUR), P3))
+static_assert(same(STUCK.current(now: NEVER), P1))
+// `+` saturates at `NEVER`, which is what keeps a cooling period that runs
+// past the end of time from ever ending.
+static_assert(NEVER + HOUR == NEVER && ONE + FOREVER == NEVER)
+static_assert(!cooled(at: ONE + FOREVER, now: NEVER))
+static_assert(NOT_SET - HOUR == NOT_SET && AT - NEVER == NO_TIME)

@@ -73,8 +73,19 @@ its first use, and one thrown away as a bare statement is a compile error
 (`let _ =` still discards it). CI proves each of these on every push. What
 the compiler does not decide: which address `init` makes the owner (a CI
 source check pins it to the constructor's `owner_` argument), and whether a
-handler passes on what the owner asked for. The same pure `decide` also
-runs as a native command-line program.
+handler passes on what the owner asked for.
+
+The ratchet's laws are checked when the kernel compiles. `loosens`, `meet`,
+`cooled`, `Rules::current` and the time operators (`+`, `-`, `<`, ...) are
+`const fn`, and `static_assert`s run them on fixed policies, zero and the
+maximum among them. No policy loosens itself; `meet` is never looser than
+either input; `NOT_SET` and `NEVER` never take effect; `+` saturates at
+`NEVER`; and a raise is queued while a tightening applies at once, by the
+rule `amend` uses. An edit that breaks one fails the build, and CI proves it
+for `meet` keeping the larger cap. These are representative cases, not every
+input (the tests and the adversary cover breadth), and `amend` itself is not
+`const`. The compiled contracts are byte-identical with or without these
+checks. The same pure `decide` also runs as a native command-line program.
 Details in the README's "Fe highlight".
 
 ## Evidence it works

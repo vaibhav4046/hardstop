@@ -26,7 +26,8 @@
 #    handler that lists `mut approved_from` writing the map directly (shown
 #    to compile). `open` after deployment and zeroed `Terms` are runtime
 #    checks, tested in fe/src/vault_tests.fe.
-# 6. The verdict codes stay distinct: see the end of this script.
+# 6. The kernel's compile-time checks bite: a duplicate verdict code, or
+#    `meet` keeping the larger cap, must fail with "static assertion failed".
 set -euo pipefail
 
 FE=${FE:-fe}
@@ -219,23 +220,35 @@ control 'NOT covered by the compiler: SetRecipient writing approved_from directl
   'SetRecipient {' 'approved_from.set(key: who, value: from)' replace \
   'approved_from.set(key: who, value: Instant::at(1))'
 
-# 6. The verdict codes are checked at compile time: making one refusal code a
-#    duplicate of another must fail with "static assertion failed" (8-0081).
-dir=$(mktemp -d)
-cp -r "$ROOT/fe" "$dir/"
-rm -rf "$dir/fe/out"
-sed -i 's/^pub const CODE_PAUSED: u8 = 2$/pub const CODE_PAUSED: u8 = 1/' "$dir/fe/src/kernel.fe"
-grep -q '^pub const CODE_PAUSED: u8 = 1$' "$dir/fe/src/kernel.fe" || { echo "could not edit CODE_PAUSED"; rm -rf "$dir"; exit 2; }
-if (cd "$dir/fe" && "$FE" build > "$dir/build.log" 2>&1); then
-  echo "FAIL a duplicate verdict code compiled"
+# 6. Kernel edits the compiler must refuse with "static assertion failed"
+#    (8-0081): the line matching $2 in kernel.fe becomes $3.
+kernel_refused() {
+  local name=$1 from=$2 to=$3 dir
+  dir=$(mktemp -d)
+  cp -r "$ROOT/fe" "$dir/"
+  rm -rf "$dir/fe/out"
+  sed -i "s/$from/$to/" "$dir/fe/src/kernel.fe"
+  grep -qF "$to" "$dir/fe/src/kernel.fe" || { echo "could not edit kernel.fe for: $name"; rm -rf "$dir"; exit 2; }
+  if (cd "$dir/fe" && "$FE" build > "$dir/build.log" 2>&1); then
+    echo "FAIL compiled: $name"
+    rm -rf "$dir"
+    exit 1
+  fi
+  if ! grep -q 'static assertion failed' "$dir/build.log" \
+    || grep -E '^error\[' "$dir/build.log" | grep -qvF 'error[8-0081]'; then
+    echo "FAIL refused for another reason: $name"
+    cat "$dir/build.log"
+    rm -rf "$dir"
+    exit 1
+  fi
   rm -rf "$dir"
-  exit 1
-fi
-if ! grep -q 'static assertion failed' "$dir/build.log"; then
-  echo "FAIL a duplicate verdict code was refused for another reason"
-  cat "$dir/build.log"
-  rm -rf "$dir"
-  exit 1
-fi
-rm -rf "$dir"
-echo "ok   refused: a duplicate verdict code"
+  echo "ok   refused: $name"
+}
+
+# The verdict codes: making one refusal code a duplicate of another.
+kernel_refused 'a duplicate verdict code' \
+  '^pub const CODE_PAUSED: u8 = 2$' 'pub const CODE_PAUSED: u8 = 1'
+# The ratchet's laws (end of kernel.fe): `meet` keeping the larger
+# per-payment cap would let a "tightening" raise it.
+kernel_refused 'meet choosing the larger cap' \
+  'per_payment: if a.per_payment < b.per_payment {' 'per_payment: if a.per_payment > b.per_payment {'
