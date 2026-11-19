@@ -30,7 +30,7 @@ const RESULTS = [
 export function EvidenceModels() {
   const [shown, setShown] = useState(0)
   const result = RESULTS[shown]
-  const [report, paper] = MODEL_TEST.sources.map(sourceById)
+  const [paper, report] = MODEL_TEST.sources.map(sourceById)
 
   return (
     <div className="models reveal">

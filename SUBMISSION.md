@@ -12,7 +12,7 @@ push, and check that commit's CI run is green.
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | https://github.com/vaibhav4046/hardstop/blob/main/web/public/demo/hardstop-demo.mp4 (2 min 28 s, silent, captioned; poster `web/public/demo/hardstop-demo.jpg`) |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min 28 s, silent, captioned; also in the repo at `web/public/demo/hardstop-demo.mp4`) |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -94,9 +94,9 @@ Details in the README's "Fe highlight".
 - `fe test`: 90 passed on the EVM; 49 passed natively.
 - Web: 69 unit tests (including the MCP server and watcher) and 58 browser
   tests (Chromium, production build).
-  CI runs the Fe tests, the native campaign, the compile-refusal check and
-  the unit tests on every push; the browser suite runs locally
-  (`npm run e2e`).
+  CI runs the Fe tests, the native campaign, the compile-refusal check,
+  the unit tests and the browser suite on every push
+  ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
 - On Base Sepolia (public test network): the launcher, seven vaults (one
   opened by clicking through MetaMask on the live site), paid and refused
   payments, and measured gas for every call, each with its transaction link,

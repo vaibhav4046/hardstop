@@ -23,14 +23,14 @@ const MARKS: Mark[] = [
   },
   {
     name: 'Ethereum',
-    role: 'It runs on the Ethereum test network, Sepolia',
+    role: 'It runs on Ethereum test networks: Sepolia is supported',
     viewBox: '0 0 24 24',
     brand: '#8ea2f2',
     paths: [{ d: 'M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z' }],
   },
   {
     name: 'Base',
-    role: 'and on Base Sepolia',
+    role: 'and Base Sepolia is where every transaction in the evidence was made',
     viewBox: '3 3 18 18',
     brand: '#3c5cff',
     paths: [

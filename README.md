@@ -323,7 +323,7 @@ npx playwright install chromium   # once
 npm run e2e                       # 58 browser tests against the production build
 ```
 
-Every command above except the browser suite runs in
+Every command above, the browser suite included, runs in
 [CI](.github/workflows/ci.yml) on each push, together with a check that the bytecode committed in
 `web/src/lib/hardstop/artifacts.ts` is exactly what the source compiles to.
 

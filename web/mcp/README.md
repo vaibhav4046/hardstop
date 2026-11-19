@@ -25,7 +25,7 @@ You need Node 24 or later, and `npm ci` run once in `web/`. The server runs as T
 | Variable | |
 |---|---|
 | `HARDSTOP_AGENT_KEY` | The agent's private key, hex. **Never the owner's key.** The server needs it; the watcher does not. |
-| `HARDSTOP_VAULT` | The vault address. The server and the watcher check its code before trusting anything it answers: the runtime code, minus the 128 bytes the constructor fills in (owner, agent, token, schedule), must hash to a vault build a HARDSTOP launcher deployed. Those are listed in `KNOWN_VAULT_CODE` in `vault.ts`: the current build (launchers `0x811e…` and `0x9fa4…`, and the demo) and two earlier ones (`0xe7d4…`; `0x956f…` and `0x3b83…`), which answer the same functions and events. Anything else is refused with a plain message. |
+| `HARDSTOP_VAULT` | The vault address. The server and the watcher check its code before trusting anything it answers: the runtime code, minus the 128 bytes the constructor fills in (owner, agent, token, schedule), must hash to a vault build a HARDSTOP launcher deployed. Those are listed in `KNOWN_VAULT_CODE` in `vault.ts`, the current build first, then earlier builds that answer the same functions and events; each entry names the launcher it came from. Anything else is refused with a plain message. |
 | `HARDSTOP_CHAIN_ID` | `84532` (Base Sepolia, default) or `11155111` (Sepolia). Any other chain is refused. |
 | `HARDSTOP_RPC` | Optional. Defaults to the network's public endpoint. The server checks that the RPC is on the chain you named. |
 | `HARDSTOP_RECIPIENTS` | Optional. `name=0x...,name2=0x...` lets the assistant say "pay Cloud hosting". |
