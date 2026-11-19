@@ -22,7 +22,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 33 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `49 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `71` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `73` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 58 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -71,13 +71,16 @@ Three things, all in Fe, all built during the contest window.
 **1. A ratchet.** Tightening a rule is instant. Loosening one (a higher cap,
 a later expiry, a new recipient, resuming after a pause) is queued, takes
 effect only after a cooling period fixed when the vault is created, and can
-be cancelled until then. Any later tightening cancels a queued loosening. An
+be cancelled until then. Any later tightening of the rules cancels a queued
+loosening of them; a recipient still in its cooling period stays pending
+until the owner removes it (a pause does not stop it either). An
 approval obtained by trickery stops being an instant loss and becomes a
 pending change the owner can see.
 
 **2. A worst-case number.** `exposure(rules, ledger, now, until)` is a pure
-function returning the most the agent can move between two moments. With
-nothing queued it is exact: a greedy agent reaches it and cannot exceed it.
+function returning the most the agent can move between two moments: an upper
+bound, which a greedy agent reaches when nothing is queued, a recipient is
+approved, request numbers are left and the vault holds that much.
 While `until` is inside the cooling period it holds whatever the owner signs
 in the meantime. The vault exposes it as a view, the native tool computes it
 offline, and the app shows it as "worst case in the next 24 hours".
@@ -223,7 +226,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 71 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 73 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 58 browser tests against the production build

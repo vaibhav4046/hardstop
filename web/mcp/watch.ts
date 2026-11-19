@@ -72,6 +72,12 @@ export class Watcher {
   private readonly warnSecs: bigint
   /** Where a previous run stopped (HARDSTOP_WATCH_CURSOR), if known. */
   private readonly resumeAt: bigint | undefined
+  /** Blocks asked for in one eth_getLogs; halved each time the network refuses a range. */
+  private span = MAX_BLOCKS
+  /** The latest block at the first look: events up to it happened before this run, so are catch-up. */
+  private catchUpTo: bigint | undefined
+  /** The last look could not read every event range. */
+  private eventsFailing = false
 
   constructor(vault: Vault, warnSecs = 3n * DAY, resumeAt?: bigint) {
     this.vault = vault
@@ -106,22 +112,34 @@ export class Watcher {
       from = latest > lookback ? latest - lookback : 0n
       if (this.resumeAt !== undefined && this.resumeAt < from) from = this.resumeAt
     }
-    const catchUp = this.nextBlock === undefined
-    const logs: RawLog[] = []
+    const catchUpTo = this.catchUpTo ?? latest
+
+    // The events, a range at a time. A range the network refuses (a public RPC
+    // limits how many logs one query returns) ends the reading for this look:
+    // what was read is reported, the rest is read next time with half the
+    // range, and the alerts from the state below still go out.
+    const events: { event: VaultEvent; tx: Record<string, unknown> }[] = []
     let next = from
+    let unreadable: unknown
     while (next <= latest) {
-      const to = latest < next + MAX_BLOCKS - 1n ? latest : next + MAX_BLOCKS - 1n
-      logs.push(
-        ...((await wallet.request({
+      const to = latest < next + this.span - 1n ? latest : next + this.span - 1n
+      let logs: RawLog[]
+      try {
+        logs = (await wallet.request({
           method: 'eth_getLogs',
           params: [{ address: sim.vault, fromBlock: `0x${next.toString(16)}`, toBlock: `0x${to.toString(16)}` }],
-        })) as RawLog[]),
-      )
+        })) as RawLog[]
+      } catch (error) {
+        unreadable = error
+        if (this.span > 1n) this.span /= 2n
+        break
+      }
+      const catchUp = next <= catchUpTo
+      for (const log of logs) for (const e of this.decode(log)) events.push(catchUp ? { ...e, tx: { ...e.tx, catch_up: true } } : e)
       next = to + 1n
     }
 
-    const events = logs.flatMap((log) => this.decode(log))
-    for (const { event, tx } of events) alerts.push(...this.fromEvent(event, catchUp ? { ...tx, catch_up: true } : tx))
+    for (const { event, tx } of events) alerts.push(...this.fromEvent(event, tx))
     const seen: string[] = []
     const missed = this.fromProposals(events, state, seen)
     alerts.push(...missed.alerts)
@@ -129,6 +147,20 @@ export class Watcher {
     const warned: string[] = []
     alerts.push(...(await this.fromState(this.last, state, warned, seen, missed.inForce)))
 
+    if (unreadable !== undefined && !this.eventsFailing) {
+      alerts.push(
+        this.alert(
+          'events_unreadable',
+          `The watcher cannot read the vault's events from block ${next}: ${plain(unreadable)} Payments, refusals and recipient changes are reported once they can be read; the rules are still checked every time.`,
+          { from_block: next.toString() },
+        ),
+      )
+    } else if (unreadable === undefined && this.eventsFailing) {
+      alerts.push(this.alert('events_readable', "The watcher can read the vault's events again."))
+    }
+
+    this.eventsFailing = unreadable !== undefined
+    this.catchUpTo = catchUpTo
     this.last = state
     this.nextBlock = next
     for (const key of warned) this.warned.add(key)

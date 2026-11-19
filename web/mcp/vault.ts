@@ -6,7 +6,7 @@
 // Only the agent's key is ever read. The owner's key is never asked for, and
 // the connection refuses to send anything as anyone but the agent.
 
-import { decodeFunctionResult, encodeFunctionData, formatEther, keccak256, type Hex } from 'viem'
+import { decodeFunctionResult, encodeFunctionData, formatEther, keccak256, zeroAddress, type Hex } from 'viem'
 import { generatePrivateKey } from 'viem/accounts'
 import { vaultAbi } from '../src/lib/hardstop/artifacts.ts'
 import { Sim, type Policy, type Schedule, type State } from '../src/lib/hardstop/sim.ts'
@@ -225,6 +225,13 @@ export async function connect(config: Config, wallet: Wallet = rpcWallet(config.
     readAddress(wallet, vault, 'token'),
     readAddress(wallet, vault, 'agent'),
   ])
+  // The vault constructor refuses these (fe/src/vault.fe, `init`): only a
+  // hand-made deployment of the same code could hold them.
+  if ([owner, token, agent].includes(zeroAddress) || owner === agent) {
+    throw new Refused(
+      `The vault at ${vault} has an owner, agent and token no HARDSTOP launcher could have set (one is the zero address, or the owner is the agent). Check HARDSTOP_VAULT.`,
+    )
+  }
   // The watcher has no key and only reads: a throwaway key fills the slot and never signs anything.
   const live = { chainId, vault, token, owner, agentKey: config.agentKey ?? generatePrivateKey(), launchedIn: '0x' as Hex }
   const attached = await attach(wallet, live)

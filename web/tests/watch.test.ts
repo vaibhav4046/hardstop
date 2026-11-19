@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { test } from 'node:test'
-import type { Hex } from 'viem'
+import { toFunctionSelector, type Hex } from 'viem'
 import { Refused, readConfig, connect } from '../mcp/vault.ts'
 import { Watcher, deliverer, intervalProblem, watch, type Alert } from '../mcp/watch.ts'
 import { attach, launchVault } from '../src/lib/live/launch.ts'
@@ -190,6 +190,65 @@ test('a raise still waiting is reported once, from the state, even though its ev
   const alerts = await watcher.check()
   assert.deepEqual(kinds(alerts), ['loosening_waiting'])
   assert.match(String(alerts[0].message), /In the 24 hours after that the agent could have moved up to/)
+})
+
+test('a raise is still reported while the vault events cannot be read, and no event is lost', async () => {
+  const { network, sim, config } = await setUp()
+  // A network whose event query fails while `failing` is set, as a public RPC
+  // refuses a block range with too many logs in it.
+  let failing = false
+  const ranges: bigint[] = []
+  const flaky: Wallet = {
+    request: (args) => {
+      if (args.method === 'eth_getLogs') {
+        const [{ fromBlock, toBlock }] = args.params as { fromBlock: Hex; toBlock: Hex }[]
+        ranges.push(BigInt(toBlock) - BigInt(fromBlock) + 1n)
+        if (failing) return Promise.reject(new Error('query returned more than 10000 results'))
+      }
+      return network.request(args)
+    },
+  }
+  const watcher = new Watcher(await connect(config, flaky))
+  assert.deepEqual(kinds(await watcher.check()), ['watching'])
+
+  await sim.pay(PAYEE, 4n * USD, 0n)
+  await sim.propose(PROPOSAL)
+  failing = true
+  const blind = await watcher.check()
+  assert.deepEqual(kinds(blind), ['loosening_waiting', 'events_unreadable'], 'the raise, from the state, despite the failing query')
+  assert.deepEqual(await watcher.check(), [], 'each said once')
+
+  failing = false
+  ranges.length = 0
+  const back = await watcher.check()
+  assert.deepEqual(kinds(back), ['paid', 'events_readable'], 'the payment from the failed range, not lost')
+  assert.ok(ranges.every((n) => n <= 250n), `smaller ranges after two failures: ${ranges}`)
+  assert.deepEqual(await watcher.check(), [])
+})
+
+test('vault code with storage no launcher could have written is refused: owner equal to the agent, or zero', async () => {
+  const { network, config } = await setUp()
+  const owner = toFunctionSelector('owner()')
+  // The vault's own code, answering `owner()` with what a hand-made deployment could have stored.
+  const forged = (answer: (args: { method: string; params?: unknown[] }) => Promise<unknown>): Wallet => ({
+    request: (args) => {
+      const [call] = (args.params ?? []) as { data?: Hex }[]
+      return args.method === 'eth_call' && call?.data === owner ? answer(args) : network.request(args)
+    },
+  })
+  const asAgent = forged((args) => {
+    const [call, block] = args.params as [{ to: Hex; data: Hex }, string]
+    return network.request({ method: 'eth_call', params: [{ ...call, data: toFunctionSelector('agent()') }, block] })
+  })
+  const zero = forged(async () => `0x${'0'.repeat(64)}`)
+  for (const wallet of [asAgent, zero]) {
+    await assert.rejects(connect(config, wallet), (error: unknown) => {
+      assert.ok(error instanceof Refused)
+      assert.match(error.message, /owner, agent and token no HARDSTOP launcher could have set/)
+      return true
+    })
+  }
+  await connect(config, network)
 })
 
 test('checks must come at least twice per cooling period, unless explicitly run unsafe', async () => {

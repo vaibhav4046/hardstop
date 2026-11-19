@@ -13,7 +13,7 @@ the reference; this page only says where things stand.
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
 | `scripts/pay-cannot-loosen.sh` | 33 lines starting `ok`: 26 compiler refusals, 6 controls that must compile, 1 source check |
 | Committed web artifacts vs a fresh build | identical |
-| `npm test` (web) | 71 passed, 0 failed, 0 skipped |
+| `npm test` (web) | 73 passed, 0 failed, 0 skipped |
 | `npx tsc --noEmit` | clean |
 | Browser suite | 58 tests; green in CI (GitHub Actions) |
 | Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app |

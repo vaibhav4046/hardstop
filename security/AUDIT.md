@@ -30,6 +30,19 @@ each fix has a test that fails without it.
 | 6 | Info | **An unstated precondition.** The "whatever the owner signs" promise assumes the queue was built by `amend`. Hand-built rules with a queue tighter than the active policy make `cancel` a loosening. The vault cannot reach that state; the command-line tool can be handed it. | Documented on `exposure`, and pinned as a test of the precondition. | `exposure_owner_promise_needs_a_queue_built_by_amend` |
 | 7 | Info | "Exact" was overstated: with the sequence counter used up nothing can be paid, yet the bound is non-zero. `preview` answers for the rules and does not check the vault's balance. The constructor accepted `owner == agent` and a one-second cooling period. | Wording corrected on `exposure` and `preview`. The constructor now rejects `owner == agent` and any cooling period under 60 seconds. | `exposure_is_only_an_upper_bound_once_sequence_numbers_run_out`, `owner_and_agent_must_differ`, `cooling_period_under_a_minute_is_rejected` |
 
+## Second review, 2026-11-19
+
+A fresh AI reviewer was given the code at `b0b62a4` with the same
+instruction. It found no way to move money past the policy, replay a
+payment, make a loosening land early or lock the owner out. It found these,
+now fixed, each with a test that fails without the fix:
+
+| # | Severity | Finding | Fix | Test that now pins it |
+|---|---|---|---|---|
+| 8 | Medium | **The watcher went quiet about a waiting raise when the vault's events could not be read.** `check()` read the event log before comparing state, so a failing `eth_getLogs` (a public RPC refusing a range with too many logs, which an agent could cause with refused payments) aborted the whole check, and the "looser rules are waiting" alert never came; the same range then failed every time. | Events are read a range at a time; a refused range ends the reading for that check, is retried next time with half the range, and the alerts from the vault's state go out regardless, with one `events_unreadable` alert and one `events_readable` when it recovers. Nothing read is lost. | `a raise is still reported while the vault events cannot be read, and no event is lost` (web/tests/watch.test.ts) |
+| 9 | Low | **"Is this a real vault" checked the code, not what it stores.** A hand-made deployment of the same code could hold an owner equal to the agent, or a zero owner, which the constructor refuses. | `connect` refuses a vault whose owner, agent or token is zero, or whose owner is its agent. It still does not check which launcher made the vault. | `vault code with storage no launcher could have written is refused: owner equal to the agent, or zero` |
+| 10 | Info | **Two sentences overstated.** "Any later tightening cancels a queued loosening" does not hold for a recipient in its cooling period (only removing it does), and the exposure bound was called "exact" with nothing queued, which item 7 had already retracted. | README and THREAT_MODEL.md corrected. | (wording) |
+
 ## What it tried and could not break
 
 - Making `Pay` write the policy: the compiler refuses

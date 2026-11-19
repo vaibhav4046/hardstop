@@ -48,7 +48,9 @@ Assume the agent's key is in an attacker's hands from time `t`.
   `per_window`; nothing after `valid_until`.
 - Between `t` and any later moment `u`, the total is at most
   `exposure(rules, ledger, t, u)`, the number the vault's `exposure` view
-  returns. With nothing queued this bound is exact.
+  returns. It is an upper bound: with nothing queued a greedy agent reaches
+  it if a recipient is approved, request numbers are left and the vault holds
+  that much (AUDIT.md item 7).
 - **If `u` is inside the cooling period (`u < t + cooling_secs`), that bound
   holds no matter what the owner is tricked into signing after `t`**, because
   nothing proposed after `t` can loosen the rules before `t + cooling_secs`.
