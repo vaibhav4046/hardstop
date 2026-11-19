@@ -27,4 +27,7 @@ Then run `/reload-mcp` in a session.
 - Demo with no keys: `env: { HARDSTOP_FAKE: "1" }`.
 - HTTP variant: `url: "http://127.0.0.1:8787/mcp"` plus `headers: { Authorization: "Bearer ${HARDSTOP_HTTP_TOKEN}" }` instead of `command`/`args`/`env`.
 
-Note: the fetched reference page lost its YAML indentation, so the nesting above is rebuilt from the documented key names. The key names are verified; the exact indentation is not.
+Run 2026-11-19 with Hermes Agent v0.18.2 on Windows, demo server: the nesting above is right. `hermes mcp test hardstop` connected and found the five tools, and a headless `hermes chat -q` session called them. Output: [qa/mcp-clients/hermes-agent.md](../../../qa/mcp-clients/hermes-agent.md).
+
+- On Windows the file is `%LOCALAPPDATA%\hermes\config.yaml`, not `~/.hermes/config.yaml`. `hermes config path` prints the one your install reads.
+- `hermes mcp test hardstop` checks the connection without starting a session.

@@ -2,6 +2,8 @@
 
 Checked 2026-11-18. Runnable end-to-end harness: `harness.py` in this folder.
 
+Run 2026-11-19 against the demo server: the OpenAI Agents SDK, LangChain and Pydantic AI snippets below each drove an agent through status, preview, a payment and a refusal, with a local model in Ollama in place of `openai:gpt-4.1` (no hosted model was run; LangChain through `client.session`, shown below). Scripts and output: [qa/mcp-clients/](../../../../qa/mcp-clients/).
+
 ```bash
 uv run --with mcp python web/mcp/clients/python/harness.py
 ```
@@ -67,6 +69,17 @@ tools = await client.get_tools()
 agent = create_agent("openai:gpt-4.1", tools)
 ```
 
+Tools from `client.get_tools()` start a new server process for every call (run 2026-11-19, `langchain-mcp-adapters` 0.3.2). In demo mode each process has its own vault, so a payment does not show in the next status; on a real vault every call pays the start-up time and the server's one-payment-at-a-time rule no longer holds across calls. To keep one server for the whole run:
+
+```python
+from langchain_mcp_adapters.tools import load_mcp_tools
+
+async with client.session("hardstop") as session:
+    tools = await load_mcp_tools(session)
+    agent = create_agent("openai:gpt-4.1", tools)
+    # run the agent inside this block
+```
+
 Current replacement:
 
 ```python
@@ -75,7 +88,7 @@ async with MCPAdapter({"mcpServers": {"hardstop": {"command": "node", "args": [S
     tools = await adapter.list_tools()
 ```
 
-UNVERIFIED: that the new `MCPAdapter` config honors `env` (the migration page shows only `command`/`args`). Use the legacy client if the server starts without its variables.
+Run 2026-11-19 with `langchain` 1.5.2: `MCPAdapter` passes `env` to the server (the demo server started from it), lists the five tools and calls `hardstop_status`. `langchain.mcp` prints a beta warning. Not run: an agent on top of `MCPAdapter`.
 
 ## Pydantic AI
 
@@ -88,10 +101,12 @@ from fastmcp.client.transports import StdioTransport
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPToolset
 
-toolset = MCPToolset(StdioTransport(command="node", args=[SERVER], env=ENV))
+toolset = MCPToolset(StdioTransport(command="node", args=[SERVER], env=ENV), init_timeout=30)
 agent = Agent("openai:gpt-4.1", toolsets=[toolset])
 async with agent:
     print((await agent.run("What is my HARDSTOP status?")).output)
 ```
+
+`init_timeout=30` is there because `MCPToolset` otherwise gives the server 5 seconds to start. The server answers in about 2 seconds on an idle machine, but took longer on a busy one, and a run without it failed with `Client failed to connect: Failed to initialize server session` (2026-11-19, `pydantic-ai-slim` 2.71.0).
 
 UNVERIFIED: the legacy form `MCPServerStdio("node", args=[SERVER], env=ENV)` from `pydantic_ai.mcp`, passed via `toolsets=[server]`. One secondary source (PR #5325) says it is deprecated but works until V3. It is not in the current docs.
