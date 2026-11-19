@@ -10,8 +10,14 @@
 3. **Optional, plain-language policy drafting.** Needs an LLM API key set as
    a server environment variable. Without it the manual form is the only way
    to create a policy, which is the intended fallback.
-4. **Optional, a public test-network deployment.** Needs a funded test key.
-   Not required by the contest; practice mode runs the same bytecode.
+4. **On-chain receipts for the current contract build.** Earlier builds ran
+   on Base Sepolia (transactions in the README). The current build's
+   launcher is installed by the site on first use; installing it ahead of
+   time and re-running the evidence needs about 0.0001 test ETH on Base
+   Sepolia for the throwaway test key, which is nearly empty.
+5. **Posting the Fe compiler feedback.** Six issue drafts and one patch are
+   in `research/UPSTREAM_ISSUES.md` and `research/fe-patches/`. Posting
+   them is public, under the owner's name, so it waits for the owner.
 
 ## Technical limits found, with the workaround used
 
