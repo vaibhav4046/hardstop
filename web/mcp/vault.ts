@@ -173,8 +173,10 @@ async function readSchedule(wallet: Wallet, vault: Hex): Promise<Schedule> {
  */
 export const VAULT_IMMUTABLE_BYTES = 128
 export const KNOWN_VAULT_CODE: Readonly<Record<Hex, string>> = {
+  '0x4975c54738332e56f3f39e3d525cf2ea5432281b830a4165eeb5f59fe3c21b84':
+    'the current build, with amend and cancel checked at compile time (launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44, installed on first use)',
   '0xa5840ccfc835c9734732b1e29de030b851da06e4e3be8a12a6288c5573514c2d':
-    'the current build, with sealed recipient approvals (launcher 0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b, installed on first use)',
+    'an earlier build, with sealed recipient approvals (launcher 0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b)',
   '0x6e3ff3daea0dc95ed16ecaa344d3fdfdda76949991bf822fa040130ac3d1e719':
     'an earlier build, with sealed Terms (launcher 0xa5ecc8802db5520ab089d63b39bb4508d3794299)',
   '0x94c9fa9ac1757b70c2624ccd6e8823e0bdfa4fb3fd413f7e57e98d99fd313e75':

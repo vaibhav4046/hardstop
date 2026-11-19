@@ -19,7 +19,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `92 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 28 lines starting `ok` |
+| The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 33 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `49 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `71` pass |
@@ -132,7 +132,7 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 `own`, `#[must_use]`) bound to the real caller; and `static_assert`s run the
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
-refuse each attack (28 checks in
+refuse each attack (33 checks in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed (tests cover it).
@@ -240,9 +240,9 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | The same wallet code on Base Sepolia, a public test network (2026-11-18, previous contracts) | launcher installed ([tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099)), vault created ([tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62)), agent paid $4 ([tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a)), agent refused $80 over its per-payment limit ([tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967)), agent's attempt to raise its own limit refused before sending. All four succeeded; vault left with $96, recipient $4 |
 | A vault opened by clicking through MetaMask on the live site (2026-11-18, previous contracts) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
-| Current contracts (adds sealed recipient approvals) | not installed on any network yet: launcher `0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b` is installed by the site on first use (one extra wallet approval) |
+| Current contracts (adds sealed recipient approvals; `amend` and `cancel` run at compile time) | not installed on any network yet: launcher `0xed8a5d83c64f71b6d027742124239dccbf018e44` is installed by the site on first use (one extra wallet approval). The site's previous build of these contracts used launcher `0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b`; the MCP server still recognises vaults opened through it |
 | Previous contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint; recipient approvals not sealed) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions in the gas table below |
-| Vault runtime size | 7,958 bytes for the previous contracts, read from Base Sepolia with `eth_getCode`; the current build's runtime is 186 bytes larger (`fe/out/Vault.runtime.bin`: 8,048 against 7,862) |
+| Vault runtime size | 7,958 bytes for the previous contracts, read from Base Sepolia with `eth_getCode`; the current build's runtime is 121 bytes larger (`fe/out/Vault.runtime.bin`: 7,983 against 7,862) |
 | Browser suite (`npm run e2e`, Chromium, production build) | 58 tests, all passing (55 of 55 in one full run on 2026-11-18, before 3 were added); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
@@ -321,7 +321,7 @@ approved recipient):
 ## Limitations
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b`, is
+  The current launcher, `0xed8a5d83c64f71b6d027742124239dccbf018e44`, is
   not installed on either yet: the site installs it on first use, which
   takes one extra wallet approval. Earlier ones stay on Base Sepolia with
   the vaults opened through them:

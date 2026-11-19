@@ -35,7 +35,7 @@ impl Copy for Instant {}
 impl Copy for Seconds {}
 
 impl Instant {
-    pub fn at(_ secs: u64) -> Instant {
+    pub const fn at(_ secs: u64) -> Instant {
         Instant { secs }
     }
 
@@ -45,7 +45,7 @@ impl Instant {
 }
 
 impl Seconds {
-    pub fn of(_ secs: u64) -> Seconds {
+    pub const fn of(_ secs: u64) -> Seconds {
         Seconds { secs }
     }
 
@@ -345,7 +345,7 @@ static_assert(Decision::Deny(Reason::OverWindowLimit(0)).code() == CODE_OVER_WIN
 
 impl Queued {
     /// The empty queue.
-    pub fn none() -> Queued {
+    pub const fn none() -> Queued {
         Queued {
             policy: Policy { per_payment: 0, per_window: 0, valid_until: NOT_SET, paused: true },
             effective_at: NOT_SET,
@@ -492,7 +492,7 @@ pub const fn meet(_ a: Policy, _ b: Policy) -> Policy {
 /// takes effect `cooling_secs` later; a proposal with nothing looser clears
 /// the queue. So a limit can drop in one step but can only rise after the
 /// cooling period, and any later tightening cancels a pending rise.
-pub fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
+pub const fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Instant) -> Rules {
     let in_force = rules.current(now)
     let active = meet(in_force, proposed)
     let queued = if loosens(active, to: proposed) {
@@ -505,7 +505,7 @@ pub fn amend(_ proof: own OwnerProof, rules: Rules, proposed: Policy, now: Insta
 
 /// Drop a queued loosening that has not taken effect yet. One that already
 /// has is the policy in force and stays.
-pub fn cancel(_ proof: own OwnerProof, rules: Rules, now: Instant) -> Rules {
+pub const fn cancel(_ proof: own OwnerProof, rules: Rules, now: Instant) -> Rules {
     Rules { schedule: rules.schedule, active: rules.current(now), queued: Queued::none() }
 }
 
@@ -534,7 +534,7 @@ pub fn approve_from(
 /// When something loosened at `now` takes effect: `now + cooling_secs`,
 /// never zero (zero means "nothing queued"). If that would be past the end
 /// of time it is the last second, which `cooled` treats as never.
-pub fn matures_at(_ schedule: Schedule, now: Instant) -> Instant {
+pub const fn matures_at(_ schedule: Schedule, now: Instant) -> Instant {
     // `+` saturates at `NEVER`, the last second.
     let at = now + schedule.cooling_secs
     if at == NOT_SET { Instant::at(1) } else { at }
@@ -629,18 +629,12 @@ fn span(
 // The ratchet's laws, checked by the compiler.
 //
 // Each `static_assert` below is evaluated while the kernel compiles: the
-// compiler runs the `const fn`s above (`loosens`, `meet`, `cooled`,
-// `Rules::current` and the `Instant` and `Seconds` operators) on the
-// constants here, and a false one stops the build with "static assertion
-// failed" (8-0081). They check these representative cases, chosen to include
-// zero and the extremes, not every input; the tests and the seeded adversary
-// cover breadth.
-//
-// `amend`, `cancel` and `matures_at` are not `const fn`, so nothing here runs
-// them. Making them `const` changes the compiled vault, and with it the
-// launcher's deterministic address. What is checked is the rule `amend` is
-// built on: the active policy becomes `meet(in force, proposed)`, and the
-// proposal is queued exactly when `loosens(that, to: proposed)`.
+// compiler runs the `const fn`s above (`amend`, `cancel`, `matures_at`,
+// `loosens`, `meet`, `cooled`, `Rules::current` and the `Instant` and
+// `Seconds` operators) on the constants here, and a false one stops the
+// build with "static assertion failed" (8-0081). They check these
+// representative cases, chosen to include zero and the extremes, not every
+// input; the tests and the seeded adversary cover breadth.
 
 /// Neither policy lets the agent do anything the other does not.
 const fn same(_ a: Policy, _ b: Policy) -> bool {
@@ -776,3 +770,68 @@ static_assert(same(STUCK.current(now: NEVER), P1))
 static_assert(NEVER + HOUR == NEVER && ONE + FOREVER == NEVER)
 static_assert(!cooled(at: ONE + FOREVER, now: NEVER))
 static_assert(NOT_SET - HOUR == NOT_SET && AT - NEVER == NO_TIME)
+
+// `amend` and `cancel` themselves, run on fixed inputs. The proofs are made
+// by hand: this module can see `granted`, and `authorize` is not `const`.
+/// `P1` in force, nothing queued.
+const CALM: Rules = Rules { schedule: RAISING.schedule, active: P1, queued: Queued::none() }
+const RAISED: Rules = amend(
+    OwnerProof { granted: true },
+    rules: CALM,
+    proposed: P3,
+    now: AT,
+)
+const TIGHTENED: Rules = amend(
+    OwnerProof { granted: true },
+    rules: RAISING,
+    proposed: P1_PAUSED,
+    now: AT,
+)
+const MIXED: Rules = amend(
+    OwnerProof { granted: true },
+    rules: CALM,
+    proposed: P2,
+    now: AT,
+)
+/// `P2` tightened where it can be at once: `P1`'s payment cap, `P2`'s
+/// window cap, end and pause.
+const P1_MEET_P2: Policy = Policy {
+    per_payment: 100,
+    per_window: 800,
+    valid_until: Instant { secs: 300 },
+    paused: true,
+}
+
+// A raise leaves the active policy as it was and is queued for
+// `now + cooling_secs`.
+static_assert(same(RAISED.active, P1) && same(RAISED.queued.policy, P3))
+static_assert(RAISED.queued.effective_at == AT + HOUR)
+static_assert(same(RAISED.current(now: AT + HOUR - SECOND), P1)
+    && same(RAISED.current(now: AT + HOUR), P3))
+// A tightening applies at once and drops the queued raise.
+static_assert(same(TIGHTENED.active, P1_PAUSED) && !TIGHTENED.queued.is_some())
+static_assert(same(TIGHTENED.current(now: NEVER), P1_PAUSED))
+// A mixed proposal applies its tighter fields at once and queues the rest.
+static_assert(same(MIXED.active, P1_MEET_P2) && !loosens(P1, to: MIXED.active))
+static_assert(same(MIXED.queued.policy, P2) && MIXED.queued.effective_at == AT + HOUR)
+// A cooling period that runs past the end of time queues for `NEVER`, and
+// one of zero at second zero still queues for a moment other than "nothing".
+const ENDLESS: Schedule = Schedule { anchor: NOT_SET, window_secs: HOUR, cooling_secs: FOREVER }
+const NO_WAIT: Schedule = Schedule { anchor: NOT_SET, window_secs: HOUR, cooling_secs: NO_TIME }
+static_assert(matures_at(RAISING.schedule, now: AT) == AT + HOUR)
+static_assert(matures_at(ENDLESS, now: AT) == NEVER && matures_at(NO_WAIT, now: NOT_SET) == ONE)
+
+// `cancel` never loosens: before the raise matures it keeps `P1` for good;
+// after, the raise is the policy in force and stays.
+const CANCELLED: Rules = cancel(OwnerProof { granted: true }, rules: RAISING, now: AT)
+const TOO_LATE: Rules = cancel(
+    OwnerProof { granted: true },
+    rules: RAISING,
+    now: AT + HOUR,
+)
+static_assert(same(CANCELLED.current(now: NEVER), P1) && !CANCELLED.queued.is_some())
+static_assert(same(TOO_LATE.current(now: NEVER), P3) && !TOO_LATE.queued.is_some())
+static_assert(same(
+    cancel(OwnerProof { granted: true }, rules: CALM, now: AT).current(now: NEVER),
+    P1,
+))
