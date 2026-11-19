@@ -113,10 +113,7 @@ function Lane({ title, steps, step, ending }: { title: string; steps: string[]; 
             className={index === step ? 'is-now' : index < step ? 'is-done' : 'is-ahead'}
             aria-current={index === step ? 'step' : undefined}
           >
-            <span className="lane-number" aria-hidden="true">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <span>{text}</span>
+            {text}
           </li>
         ))}
       </ol>

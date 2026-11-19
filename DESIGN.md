@@ -211,6 +211,26 @@ Named distances: `--gap-hair` 0.375rem, `--gap-line` 0.75rem,
   sentence saying it is the agent's test-network key, never the owner's, and
   what holding it allows. Copy always copies the complete setup. VS Code keeps
   its own masked prompt for the key; the watcher takes no key.
+- **Logo colours**: every logo in "Built with" and "Connect your AI" is grey
+  at rest and takes its brand's own colour on hover, and on a touch screen
+  (which has no hover) is in colour from the start. Claude #d97757, Ethereum
+  #627eea, Base #0000ff, MetaMask its own oranges, Python #3776ab and #ffd43b
+  split along the diagonal; brands whose mark is black (OpenAI, Cursor,
+  GitHub Copilot, Windsurf, Hermes, Next.js, Vercel) use their light-on-dark
+  form, white; Fe's own mark is white. The assistant logos are CSS masks over
+  the SVG files, so one file serves both states.
+- **The worst-case chart** (`exposure-chart.tsx`): the area is gold dots on
+  a 6-unit grid, fading downward; the line glows gold; each step up carries
+  a gold dot and the figure the vault gave; dotted guides mark a quarter, a
+  half and three quarters of what the vault holds; the waiting period is
+  shaded and labelled "Locked in". Pointing at the chart, or dragging a
+  finger across it, moves the look-ahead marker (a glowing dot with a ring
+  breathing out from it) and a readout ("In 42 h · $40.00"), in step with
+  the slider, which stays as the keyboard control. Every figure is the
+  vault's own answer.
+- **Button pairs** (`.btn-pair`): side by side when both labels fit on one
+  line, stacked full width when they do not, so a label never wraps beside
+  a one-line neighbour.
 - **Icons and link previews**: `web/src/app/icon.svg` (vector, the mark on a
   dark tile) is what browsers show. `favicon.ico` (16, 32, 48px) and
   `apple-icon.png` (180px) are rendered from that vector for browsers and
@@ -280,8 +300,8 @@ context is lost, the still picture comes back.
   screen at the moment the visitor first scrolls with a wheel or a finger, so
   a page that is read, printed or captured without scrolling shows
   everything.
-  The working panel in a revealed section follows its text 80ms behind, and
-  a gold rule draws out from each step's number.
+  The working panel in a revealed section follows its text 80ms behind. The
+  steps carry no numbers (removed at the owner's request), only their titles.
 - The hero backdrop fades in once. On a wide screen a glow crosses the bar
   every 5.2s. The glow is a strip of CSS laid over the bar's bright dots and
   cut to the same 4px dot grid, with a soft light sliding through it
@@ -366,7 +386,7 @@ the three parties and the four checks, with its caption.
 - **Permissions card** (home): what the agent's key can do, as term and
   answer rows: one "Allowed, inside your limits", three "Never", and what
   only the owner can do.
-- **Step panels** (home): the three numbered steps each have a live card
+- **Step panels** (home): the three steps (titles only, no numbers) each have a live card
   wired to the home page's one practice vault (`HomeVaultProvider`): the
   rules and worst-case figure read from the contract; two more requests an
   agent might send and the vault's last answer; pause, raise the daily limit

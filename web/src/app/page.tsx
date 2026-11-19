@@ -80,7 +80,6 @@ export default function Home() {
         <div className="steps">
           <div className="split split-center reveal">
             <div>
-              <p className="step-number">01</p>
               <h3 className="step-title">Set the rules once.</h3>
               <p className="step-text">
                 A cap per payment, a cap per day, who may be paid, and an end date. The vault keeps them, and works out
@@ -94,7 +93,6 @@ export default function Home() {
 
           <div className="split split-center split-flip reveal">
             <div>
-              <p className="step-number">02</p>
               <h3 className="step-title">The agent asks. The vault answers.</h3>
               <p className="step-text">
                 Your agent has one move: ask the vault to pay. It has no other way to reach the money, and a request
@@ -108,7 +106,6 @@ export default function Home() {
 
           <div className="split split-center reveal">
             <div>
-              <p className="step-number">03</p>
               <h3 className="step-title">You stay in charge.</h3>
               <p className="step-text">
                 Lowering a limit is instant. Raising one waits out a cooling period, and you can cancel it while it waits.

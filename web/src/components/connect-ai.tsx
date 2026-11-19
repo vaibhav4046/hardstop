@@ -12,7 +12,7 @@
 // for OpenAI and Hermes (the Nous Research mark). Neither set has a VS Code
 // logo, so that entry shows GitHub Copilot, which is how it runs there.
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { source } from '@/lib/links'
 
 /** The one install line shown: the stdio form from web/mcp/clients/claude-code/README.md, on one line. Keep the two in step. */
@@ -20,14 +20,17 @@ export const INSTALL_COMMAND =
   'claude mcp add --env HARDSTOP_AGENT_KEY=<agent key> --env HARDSTOP_VAULT=<vault> --env HARDSTOP_CHAIN_ID=84532 --transport stdio --scope user hardstop -- node /path/to/hardstop/web/mcp/server.ts'
 const SETUP_GUIDE = source('web/mcp/README.md')
 
+// Each logo's own colour, shown on hover (and always on a touch screen).
+// Brands whose mark is black use their light-on-dark form, white. Python's
+// two colours are split along the diagonal, as its two snakes are.
 const CLIENTS = [
-  { file: 'claude', name: 'Claude' },
-  { file: 'openai', name: 'ChatGPT' },
-  { file: 'cursor', name: 'Cursor' },
-  { file: 'githubcopilot', name: 'VS Code + Copilot' },
-  { file: 'windsurf', name: 'Windsurf' },
-  { file: 'hermes', name: 'Hermes' },
-  { file: 'python', name: 'Python' },
+  { file: 'claude', name: 'Claude', brand: '#d97757' },
+  { file: 'openai', name: 'ChatGPT', brand: '#ffffff' },
+  { file: 'cursor', name: 'Cursor', brand: '#ffffff' },
+  { file: 'githubcopilot', name: 'VS Code + Copilot', brand: '#ffffff' },
+  { file: 'windsurf', name: 'Windsurf', brand: '#ffffff' },
+  { file: 'hermes', name: 'Hermes', brand: '#ffffff' },
+  { file: 'python', name: 'Python', brand: 'linear-gradient(135deg, #3776ab 50%, #ffd43b 50%)' },
 ] as const
 
 export function ConnectAI() {
@@ -58,8 +61,12 @@ export function ConnectAI() {
       <ul className="connect-clients" aria-label="Works with">
         {CLIENTS.map((client) => (
           <li key={client.file}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- a tiny static SVG; next/image adds nothing here */}
-            <img src={`/logos/${client.file}.svg`} alt="" width={28} height={28} loading="lazy" decoding="async" />
+            {/* The logo file is the shape; the colour is painted through it, grey until hovered. */}
+            <span
+              className="connect-logo"
+              aria-hidden="true"
+              style={{ '--logo': `url(/logos/${client.file}.svg)`, '--brand': client.brand } as CSSProperties}
+            />
             <span>{client.name}</span>
           </li>
         ))}

@@ -81,7 +81,7 @@ export function AskPanel() {
   return (
     <div className="grid gap-5">
       <p className="panel-title">Two more things an agent might try</p>
-      <div className="grid gap-3 min-[26rem]:grid-cols-2">
+      <div className="btn-pair">
         <button
           type="button"
           className="btn"
@@ -157,7 +157,7 @@ export function OwnerPanel() {
         </div>
       </dl>
 
-      <div className="grid gap-3 min-[26rem]:grid-cols-2">
+      <div className="btn-pair">
         <button
           type="button"
           className="btn btn-stop"

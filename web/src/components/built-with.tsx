@@ -25,14 +25,14 @@ const MARKS: Mark[] = [
     name: 'Ethereum',
     role: 'It runs on Ethereum test networks: Sepolia is supported',
     viewBox: '0 0 24 24',
-    brand: '#8ea2f2',
+    brand: '#627eea',
     paths: [{ d: 'M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z' }],
   },
   {
     name: 'Base',
     role: 'and Base Sepolia is where every transaction in the evidence was made',
     viewBox: '3 3 18 18',
-    brand: '#3c5cff',
+    brand: '#0000ff',
     paths: [
       {
         d: 'M3 4.706c0-.585 0-.877.11-1.101.106-.215.28-.39.496-.495C3.83 3 4.122 3 4.706 3h14.588c.585 0 .876 0 1.101.11.215.105.389.28.494.495.111.225.111.517.111 1.101v14.588c0 .585 0 .876-.11 1.101-.106.215-.28.389-.495.494-.225.111-.517.111-1.101.111H4.706c-.585 0-.876 0-1.101-.11a1.08 1.08 0 0 1-.494-.495C3 20.17 3 19.878 3 19.294z',

@@ -15,12 +15,24 @@ test.describe('Connect your AI', () => {
     // One logo per assistant, served from this site and actually drawn.
     const clients = section.getByRole('list', { name: 'Works with' }).getByRole('listitem')
     await expect(clients).toHaveText(CLIENTS)
-    const logos = section.locator('img')
+    const logos = section.locator('.connect-logo')
     await expect(logos).toHaveCount(CLIENTS.length)
     for (const logo of await logos.all()) {
-      await expect(logo).toHaveAttribute('src', /^\/logos\/[a-z]+\.svg$/)
-      await expect.poll(() => logo.evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+      // Each logo's shape is an SVG on this site, served as one.
+      const mask = await logo.evaluate((element) => getComputedStyle(element).maskImage)
+      const file = /\/logos\/[a-z]+\.svg/.exec(mask)?.[0] ?? ''
+      expect(file, mask).not.toBe('')
+      const response = await page.request.get(file)
+      expect(response.status()).toBe(200)
+      expect(response.headers()['content-type']).toContain('image/svg+xml')
     }
+
+    // Grey until pointed at, then the brand's own colour (Claude's orange).
+    const claude = clients.filter({ hasText: 'Claude' }).locator('.connect-logo')
+    const colour = () => claude.evaluate((element) => getComputedStyle(element).backgroundColor)
+    expect(await colour()).toBe('rgba(236, 236, 236, 0.8)')
+    await claude.hover()
+    await expect.poll(colour).toBe('rgb(217, 119, 87)')
 
     // The copy button puts exactly the line on screen on the clipboard, and says so.
     const line = (await section.locator('code').textContent()) ?? ''

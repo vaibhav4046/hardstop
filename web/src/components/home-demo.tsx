@@ -38,7 +38,7 @@ export function HomeDemo() {
             per day, to one approved recipient, {PAYEE.name}.
           </p>
 
-          <div className="mt-7 grid gap-3 min-[26rem]:grid-cols-2">
+          <div className="btn-pair mt-7">
             <button type="button" className="btn btn-large" disabled={status === 'working'} onClick={() => ask(4n)}>
               Agent pays $4
             </button>
