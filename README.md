@@ -5,10 +5,14 @@ are enforced by a Fe contract the agent cannot talk its way past, raising a
 limit takes a waiting period that the owner can cancel, and the worst-case
 loss is a number you can read before anything goes wrong.
 
-**Demo video (1 min 47 s, silent, captioned):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
-(also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4))
+**Demo video (2 min, narrated, with music and captions):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
+(also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)).
+The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.
+A longer silent walkthrough (1 min 47 s) with the test output and on-chain receipts:
+[watch](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4)
+([`web/public/demo/hardstop-walkthrough.mp4`](web/public/demo/hardstop-walkthrough.mp4)).
 
-[![HARDSTOP demo video: the problem, the idea, the live site, an AI agent through MCP, Fe compiler refusals, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
+[![HARDSTOP demo video: the vault door, the lab test, the live site, an AI agent refused, the Fe compiler refusal, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
@@ -391,7 +395,8 @@ The full list, with what breaks under each, is in the threat model.
   with URLs and access dates; figures were read through a summarising fetch
   tool and should be checked against the linked source before being quoted
   elsewhere. Every test result in this README was produced by running the
-  command shown.
+  command shown. The demo films were made the same way; the narration is a
+  synthetic voice and the music is generated, not a recording.
 
 ## Team
 

@@ -13,7 +13,7 @@ push, and check that commit's CI run is green.
 | Fe version | 26.6.0 (5b3f96a) |
 | Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and two open pull requests, #2041 and #2042 (not yet merged) |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 1 min 47 s, silent, captioned; also in the repo at `web/public/demo/hardstop-demo.mp4`) |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A longer silent walkthrough with test output and receipts: https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -134,5 +134,6 @@ on it. Full list in the README's "Limitations".
 ## AI assistance
 
 Disclosed in full in the README's "Declaration": the code, tests,
-documentation and research were written with Claude (Anthropic) through
-Claude Code, directed and reviewed by the author.
+documentation, research and demo films were written with Claude (Anthropic)
+through Claude Code, directed and reviewed by the author. The film's
+narration is a synthetic voice.

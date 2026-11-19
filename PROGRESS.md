@@ -33,7 +33,7 @@ the reference; this page only says where things stand.
   raise and a pause, 2026-11-19; transactions in the README).
 - MCP server for AI agents (five agent tools, no owner tools) and a 24/7
   watcher for the owner that catches up after a restart.
-- A 1 min 47 s captioned demo video (1080p, built in HyperFrames from real site footage, compiler output and on-chain receipts).
+- A 2 min narrated demo film (1080p, synthetic voice, music and captions, with live-site screen recordings), and a 1 min 47 s silent walkthrough (built in HyperFrames from real site footage, compiler output and on-chain receipts).
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.
 - Six Fe compiler issues filed upstream with reproductions (argotorg/fe
