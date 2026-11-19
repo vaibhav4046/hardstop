@@ -265,6 +265,14 @@ Version: `fe 26.6.0 (5b3f96a)`.
 
 **Title:** Unknown attributes on items (e.g. a misspelled `#[must_use]`) are accepted silently
 
+**Fix ready:** [`fe-patches/unknown-attributes.diff`](fe-patches/unknown-attributes.diff), against
+`master` at `6cd57cc`. Unknown attributes on items, members, fields, variants, msg variants and
+`for` loops become error `12-0008`, with "did you mean" for close names; `#[test(..)]` accepts only
+the keys `fe test` reads. New uitest snapshots (`unknown_attr`, `attr_test_args`); no existing
+snapshot changes. `cargo test --workspace --exclude fe-bench` on Windows: 2672 passed, 1 failed
+(`mock_lsp_checks_for_the_project_target`, which fails the same way on unmodified `master` there).
+HARDSTOP builds and passes `fe test` (92) with the patched compiler. Not posted.
+
 **Suggested labels:** `type: bug` (or `type: ui/ux`), `comp: analyzer`
 
 **Duplicate search:** none found. Searched `unknown attribute`, `unrecognized attribute`,

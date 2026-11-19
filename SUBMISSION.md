@@ -97,7 +97,7 @@ another's code fails to build. These are representative cases, not every
 input (the tests and the adversary cover breadth), and `amend` itself is not
 `const`. The compiled contracts are byte-identical with or without these
 checks. The same pure `decide` also runs as a native command-line program.
-Details in the README's "Fe highlight".
+Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works
 
