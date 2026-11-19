@@ -208,6 +208,8 @@ fe test --backend native          # the 49 kernel + adversary tests again, nativ
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
 ./out/hardstop campaign 5206533097626292048 20000 40
+./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
+                                  # prints "10 10 0 0 0": code 10, over the per-payment limit of 10
 
 cd ../web
 npm ci
@@ -217,7 +219,7 @@ npx playwright install chromium   # once
 npm run e2e                       # 58 browser tests against the production build
 ```
 
-Every command above, the browser suite included, runs in
+Every command above except the `decide` example, the browser suite included, runs in
 [CI](.github/workflows/ci.yml) on each push, together with a check that the bytecode committed in
 `web/src/lib/hardstop/artifacts.ts` is exactly what the source compiles to.
 
