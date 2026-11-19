@@ -145,12 +145,18 @@ The full account, with every error code and limit:
 with reproductions in [`research/UPSTREAM_ISSUES.md`](research/UPSTREAM_ISSUES.md)
 (not yet posted), including one where a private trait can be implemented
 from any ingot, which lets user code forge `std`'s sealed `Call` and `Ctx`
-capabilities. One is fixed in a tested compiler patch,
-[`research/fe-patches/unknown-attributes.diff`](research/fe-patches/unknown-attributes.diff)
-(against `master` at `6cd57cc`): unknown attributes such as `#[mustuse]`
-become an error with a "did you mean `#[must_use]`?" hint, with new snapshot
-tests; the compiler's own test suite passes except one language-server test
-that also fails on unmodified `master` on Windows.
+capabilities. Two are fixed in tested compiler patches against `master` at
+`6cd57cc`, in [`research/fe-patches/`](research/fe-patches/):
+`private-trait-visibility.diff` makes a private trait named outside its
+module "not visible" (2-0003) in an `impl` header, a bound, a `where`
+clause or a super-trait, which closes the forged `Call` and `Ctx`; and
+`unknown-attributes.diff` makes an unknown attribute such as `#[mustuse]`
+an error with a "did you mean `#[must_use]`?" hint. Each adds snapshot
+tests; the compiler's own suite passes (2672) except one language-server
+test that also fails on unmodified `master` on Windows. With the patched
+compiler HARDSTOP passes `fe test`, and the refusal script requires the
+forged `Call` and `Ctx` to be refused instead of compiling. CI and the
+deployed contracts use the unpatched 26.6 release.
 
 ## Architecture
 

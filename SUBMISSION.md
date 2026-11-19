@@ -82,7 +82,12 @@ source check pins it to the constructor's `owner_` argument), whether a
 handler passes on what the owner asked for, and where `Pay` sends the money
 a verdict allowed. An edit that pays the caller more compiles, even in a
 `Pay` without `mut call`, because any type can implement Fe 26.6's `Call`;
-the tests catch it, not the compiler.
+the tests catch it, not the compiler. That last gap is a Fe bug (a private
+trait is not visibility-checked in an `impl` header or a bound), and
+`research/fe-patches/private-trait-visibility.diff` fixes it in the
+compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
+(2-0003), HARDSTOP's 92 tests still pass, and the Fe suite passes apart
+from one language-server test that fails on unmodified `master` too.
 
 The ratchet's laws are checked when the kernel compiles. `amend`,
 `cancel`, `matures_at`, `loosens`, `meet`, `cooled`, `Rules::current` and

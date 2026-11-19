@@ -35,11 +35,16 @@ the reference; this page only says where things stand.
 - A 2 min 44 s captioned demo video.
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.
-- Six Fe compiler issues drafted with reproductions, and one tested compiler
-  patch (`research/`).
+- Six Fe compiler issues drafted with reproductions, and two tested compiler
+  patches (`research/fe-patches/`): unknown attributes become errors, and a
+  private trait is visibility-checked in `impl` headers and bounds, which
+  stops user code forging `std`'s `Call` and `Ctx`. With the second patch,
+  `fe test` passes (92) and the refusal script requires both forgeries to be
+  refused; the Fe suite passes 2672, with 1 failure that also happens on
+  unmodified `master` on Windows. Not posted upstream (owner's choice).
 
 ## Needs the owner
 
 See [`BLOCKERS.md`](BLOCKERS.md): the final submission, test ETH for
-on-chain receipts of the current build, posting the Fe feedback, and the
+on-chain receipts of the current build, and the
 MetaMask scanner review (ticket filed 2026-11-18).

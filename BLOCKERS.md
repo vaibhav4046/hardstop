@@ -15,9 +15,10 @@
    launcher is installed by the site on first use; installing it ahead of
    time and re-running the evidence needs about 0.0001 test ETH on Base
    Sepolia for the throwaway test key, which is nearly empty.
-5. **Posting the Fe compiler feedback.** Six issue drafts and one patch are
-   in `research/UPSTREAM_ISSUES.md` and `research/fe-patches/`. Posting
-   them is public, under the owner's name, so it waits for the owner.
+5. **Fe compiler feedback is not posted, by the owner's choice.** Six issue
+   drafts and two tested patches are in `research/UPSTREAM_ISSUES.md` and
+   `research/fe-patches/`. The owner decided on 2026-11-19 to keep them
+   local rather than post them.
 6. **MetaMask's site scanner** warns "Continue at your own risk" on connect.
    A review ticket was filed with MetaMask support on 2026-11-18; the reply
    goes to the owner's email.

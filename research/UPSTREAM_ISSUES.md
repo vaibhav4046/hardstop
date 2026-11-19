@@ -464,6 +464,20 @@ covered by the compiler".
 **Duplicate search:** not yet done; search `visibility trait`, `sealed`, `EvmCapabilitySeal`,
 `2-0003` before posting.
 
+**Fix ready:** [`fe-patches/private-trait-visibility.diff`](fe-patches/private-trait-visibility.diff),
+against `master` at `6cd57cc`. Trait-ref lowering resolves the path without a visibility check;
+the patch reports `2-0003` from `trait_ref_arg_diags`, which every place that names a trait
+already calls: `impl` headers, generic-parameter bounds, `where` clauses, super-traits and
+associated-type bounds. New uitest `name_resolution/trait_ref_visibility` (five refusals; a
+private trait used in its own module or a child module, a `pub` trait and a `pub(super)` one
+stay accepted). std still builds: its one `impl EvmCapabilitySeal for Evm` is in the trait's
+module. With the patched compiler HARDSTOP passes `fe test` (92), and
+`scripts/pay-cannot-loosen.sh` requires the forged `Call` and stand-in `Ctx` to be refused at
+the seal. `cargo test --workspace --exclude fe-bench --no-fail-fast` on Windows, with both
+patches: 2672 passed, 1 failed (`mock_lsp_checks_for_the_project_target`, which fails the same
+way on unmodified `master` there). The diff touches no file the attribute patch touches, so it
+applies to `6cd57cc` on its own. Not posted.
+
 Reproduced on `fe 26.6.0 (5b3f96a)` and on a local build of `master` at `6cd57cc`
 (`fe 26.6.0 (427588afb)`, master plus one unrelated attribute-diagnostics commit). `trait
 EvmCapabilitySeal {}` is private in `ingots/std/src/evm/effects.fe` (line 201) in both.

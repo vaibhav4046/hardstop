@@ -50,7 +50,17 @@ so any type can implement `Call`, and a function whose `uses` lists no `Call` ca
 transfer tokens (such an edit, in a `Pay` without `mut call`, moved money
 in a local `fe test`). A sealed payout value would bind only the path that
 uses it, not every path, so the vault does not have one. The script keeps
-both edits as controls that must compile.
+both edits as controls that must compile on Fe 26.6.
+
+The forged `Call` is a compiler bug, and it is fixed in a local patch,
+[`research/fe-patches/private-trait-visibility.diff`](research/fe-patches/private-trait-visibility.diff):
+a private trait named in an `impl` header, a bound, a `where` clause, a
+super-trait or an associated-type bound outside its module is now "not
+visible" (2-0003), as a private function or struct already is. With the
+patched compiler, HARDSTOP still passes `fe test` (92), and the refusal
+script, which checks whichever compiler it is given, requires the forged
+`Call` and the stand-in `Ctx` below to be refused at the seal instead of
+compiling. CI and the deployed contracts use the unpatched 26.6 release.
 
 **The cooling period is enforced by the compiler for the rules.** The vault
 does not store the kernel's plain `Rules`. It stores `Terms`, from
@@ -98,9 +108,9 @@ and only `prove(owner, ctx)` makes one, when `ctx.caller()` is the address
 in `owner`. `owner` must be an `Owner`, another sealed type that only `open`
 makes, so only during deployment. `ctx` must be an `Evm`, the concrete type
 whose methods read the EVM itself. A stand-in that implements `Ctx` and
-reports any caller does compile (the trait's private seal,
+reports any caller does compile on Fe 26.6 (the trait's private seal,
 `std::evm::effects::EvmCapabilitySeal`, can be implemented from outside
-`std`; see Draft 6), and could be supplied to a
+`std`; see Draft 6 and the patch above), and could be supplied to a
 `with (Ctx = ...)` block, but handing it to `prove` is a type error
 ("expected `Evm`", 8-0000). The kernel's `authorize` is still public: the
 tests, the adversary and the native tool use it, because Fe 26.6 has no

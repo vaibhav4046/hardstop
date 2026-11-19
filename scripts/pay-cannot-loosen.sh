@@ -184,11 +184,43 @@ impl Ctx for Liar {
     fn gas(self) -> u256 { 0 }
 }
 '
-APPEND=$FAKE_CTX control 'a stand-in Ctx that claims the owner is calling' \
-  'Withdraw {' "$ONLY_LINE" before 'let liar = Liar { says: owner.address(), ts: ctx.timestamp() }'
-APPEND=$FAKE_CTX refused 'Withdraw proving against a stand-in Ctx' 'expected `Evm`, but `Liar` is given' 8-0000 \
-  'Withdraw {' "$ONLY_LINE" replace \
-  'let proof = only(owner, ctx: Liar { says: owner.address(), ts: ctx.timestamp() })'
+# Fe 26.6 does not check a private trait's visibility in an impl header, so
+# the stand-in compiles there (research/UPSTREAM_ISSUES.md, Draft 6). With
+# research/fe-patches/private-trait-visibility.diff it is refused at the seal.
+# This script checks whichever compiler it is given; CI pins 26.6.
+SEAL='`EvmCapabilitySeal` is not visible'
+LIAR_LINE='let liar = Liar { says: owner.address(), ts: ctx.timestamp() }'
+SEAL_CHECKED=0
+if ! APPEND=$FAKE_CTX build_edited 'Withdraw {' "$ONLY_LINE" before "$LIAR_LINE"; then
+  if grep -qF -- "$SEAL" <<<"$LOG"; then
+    SEAL_CHECKED=1
+  else
+    echo "control failed: a stand-in Ctx that claims the owner is calling should compile"
+    echo "$LOG"
+    exit 1
+  fi
+fi
+
+# A control that a compiler checking private traits must refuse at the seal.
+seal_control() {
+  local name=$1
+  shift
+  if [ "$SEAL_CHECKED" = 1 ]; then
+    refused "$name (this compiler checks the seal)" "$SEAL" 2-0003 "$@"
+  else
+    control "$name" "$@"
+  fi
+}
+
+APPEND=$FAKE_CTX seal_control 'a stand-in Ctx that claims the owner is calling' \
+  'Withdraw {' "$ONLY_LINE" before "$LIAR_LINE"
+if [ "$SEAL_CHECKED" = 1 ]; then
+  echo "skip refused: Withdraw proving against a stand-in Ctx (the stand-in itself is refused above)"
+else
+  APPEND=$FAKE_CTX refused 'Withdraw proving against a stand-in Ctx' 'expected `Evm`, but `Liar` is given' 8-0000 \
+    'Withdraw {' "$ONLY_LINE" replace \
+    'let proof = only(owner, ctx: Liar { says: owner.address(), ts: ctx.timestamp() })'
+fi
 
 # 4. Proofs are spent on use and cannot be dropped.
 PAY_OWNER='pay_owner(proof, token, owner, amount)'
@@ -246,8 +278,9 @@ echo "ok   source check: init opens once, with owner_, and stores that Owner"
 TRANSFER='safe_transfer(token, receiver: to, amount)'
 control 'NOT covered by the compiler: Pay paying the caller 1000x the amount' \
   "$PAY" "$TRANSFER" replace 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
-# Taking `mut call` away from `Pay` would not close this: `Call`'s methods
-# have default bodies and its seal is reachable, so any type can be a `Call`.
+# On Fe 26.6, taking `mut call` away from `Pay` would not close this: `Call`'s
+# methods have default bodies and its seal is reachable, so any type can be a
+# `Call`. A compiler with the private-trait fix refuses the forged `Call`.
 FORGED_CALL='
 pub struct Forged {}
 impl std::evm::effects::EvmCapabilitySeal for Forged {}
@@ -259,7 +292,7 @@ fn steal(_ token: Address, to: Address, amount: u256) uses (ctx: Ctx) {
     }
 }
 '
-APPEND=$FORGED_CALL control 'NOT covered by the compiler: Pay paying through a function with no Call in its uses' \
+APPEND=$FORGED_CALL seal_control 'NOT covered by Fe 26.6: Pay paying through a function with no Call in its uses' \
   "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
 
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
