@@ -186,7 +186,7 @@ impl Ctx for Liar {
 '
 # Fe 26.6 does not check a private trait's visibility in an impl header, so
 # the stand-in compiles there (research/UPSTREAM_ISSUES.md, Draft 6). With
-# research/fe-patches/private-trait-visibility.diff it is refused at the seal.
+# research/fe-patches/2-private-trait-visibility.patch it is refused at the seal.
 # This script checks whichever compiler it is given; CI pins 26.6.
 SEAL='`EvmCapabilitySeal` is not visible'
 LIAR_LINE='let liar = Liar { says: owner.address(), ts: ctx.timestamp() }'

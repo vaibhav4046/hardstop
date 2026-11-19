@@ -6,6 +6,23 @@ Every compile error named below is one that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires on every
 push; checks that happen when the code runs are named as `fe test` tests.
 
+## On one screen
+
+| Claim | Enforced by | Edit that must fail, and its error |
+|---|---|---|
+| The agent's `Pay` cannot change the rules or approve a recipient | `terms`, `approved_from` without `mut` in `Pay`'s `uses` | assign either in `Pay`: 8-0018, 8-0066 |
+| No handler can set the rules except through the cooling period | sealed `Terms` (private field) | build or write `Terms`: 2-0003; store a plain `Rules`: 8-0000 |
+| No handler can approve a recipient at once | sealed `Approval` | store a date: 8-0000; build an `Approval`: 2-0003 |
+| Owner actions need the real owner, once | sealed `OwnerCall`, `own`, not `Copy`, `#[must_use]`, `prove` takes the concrete `Evm` | hand-made proof or `Owner`: 2-0003; `authorize`'s proof or a stand-in `Ctx` passed to `prove`: 8-0000; no proof: 8-0012; reuse: 16-0002; drop: 8-0082 |
+| Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
+| Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
+| Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug, Draft 6) | edits compile; tests catch the first. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
+
+The first five rows are edits that
+[`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires to fail,
+and the last row's are controls it requires to compile, run by CI job `verify`
+on the pinned Fe 26.6 release on every push.
+
 The agent's entire authority is one handler signature. This is `Pay` in
 [`fe/src/vault.fe`](fe/src/vault.fe):
 
@@ -53,7 +70,7 @@ uses it, not every path, so the vault does not have one. The script keeps
 both edits as controls that must compile on Fe 26.6.
 
 The forged `Call` is a compiler bug, and it is fixed in a local patch,
-[`research/fe-patches/private-trait-visibility.diff`](research/fe-patches/private-trait-visibility.diff):
+[`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch):
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not
 visible" (2-0003), as a private function or struct already is. With the

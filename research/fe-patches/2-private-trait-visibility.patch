@@ -1,3 +1,25 @@
+From 74ace8e0a79deb3e70c00759b7d24dd65ea47816 Mon Sep 17 00:00:00 2001
+From: vaibhav4046 <115102797+vaibhav4046@users.noreply.github.com>
+Date: Thu, 19 Nov 2026 10:36:48 +0000
+Subject: [PATCH 2/2] fix: check the visibility of a trait named in an impl
+ header or a bound
+
+Trait-ref lowering resolves the trait path without a visibility check, so a
+private trait could be implemented, or used as a bound, a where clause, a
+super-trait or an associated-type bound, from any module or ingot. That made
+std's private EvmCapabilitySeal implementable by user code, and with it Ctx,
+Call, Log, Create and RawStorage.
+
+Report 2-0003 from trait_ref_arg_diags, which every place that names a trait
+already calls, as private functions and structs are reported.
+---
+ crates/hir/src/analysis/ty/ty_error.rs        | 42 +++++++++++++++-
+ .../name_resolution/trait_ref_visibility.fe   | 38 ++++++++++++++
+ .../name_resolution/trait_ref_visibility.snap | 49 +++++++++++++++++++
+ 3 files changed, 127 insertions(+), 2 deletions(-)
+ create mode 100644 crates/uitest/fixtures/name_resolution/trait_ref_visibility.fe
+ create mode 100644 crates/uitest/fixtures/name_resolution/trait_ref_visibility.snap
+
 diff --git a/crates/hir/src/analysis/ty/ty_error.rs b/crates/hir/src/analysis/ty/ty_error.rs
 index cda67f671..fbf53f81a 100644
 --- a/crates/hir/src/analysis/ty/ty_error.rs
@@ -160,3 +182,6 @@ index 000000000..b97deccb3
 +   ·
 +32 │     type Out: inner::Hidden
 +   │                      ^^^^^^ `Hidden` is not visible
+-- 
+2.49.0.windows.1
+

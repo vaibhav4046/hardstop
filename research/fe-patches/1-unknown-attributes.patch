@@ -1,3 +1,38 @@
+From cd9e5ef420ad39818961a40052d97cfc280dfd9b Mon Sep 17 00:00:00 2001
+From: vaibhav4046 <115102797+vaibhav4046@users.noreply.github.com>
+Date: Thu, 19 Nov 2026 10:36:45 +0000
+Subject: [PATCH 1/2] feat: report unknown attributes and unknown `#[test]`
+ arguments
+
+An attribute name the compiler doesn't act on anywhere, such as a
+misspelled `#[mustuse]`, was accepted silently, so a typo could turn off
+the check the attribute stands for. It is now an error (12-0008) on every
+item, associated item, field, variant, msg variant and for loop, with a
+"did you mean" suggestion when a known name is close. Recv arms, init
+blocks and recv blocks keep their existing restricted-context check
+(12-0004), so they are not reported twice. Items dropped by a `#[cfg]`
+that doesn't hold are not checked.
+
+`#[test(..)]` now accepts only the keys `fe test` reads (`should_revert`,
+`panic`, `selector`, `balance`); an unknown key such as
+`#[test(timestamp = 1000)]` was ignored and is now reported as an invalid
+form (12-0002). Values are still checked by `fe test`.
+---
+ crates/hir/src/analysis/diagnostics.rs        |   8 ++
+ crates/hir/src/core/lower/attr.rs             |  94 +++++++++++++
+ crates/hir/src/core/lower/contract.rs         |   2 +-
+ crates/hir/src/core/lower/item.rs             |  52 ++++++--
+ crates/hir/src/core/lower/msg.rs              |   9 +-
+ .../fixtures/ty_check/attr_test_args.fe       |  36 +++++
+ .../fixtures/ty_check/attr_test_args.snap     |  34 +++++
+ .../uitest/fixtures/ty_check/unknown_attr.fe  |  86 ++++++++++++
+ .../fixtures/ty_check/unknown_attr.snap       | 124 ++++++++++++++++++
+ 9 files changed, 426 insertions(+), 19 deletions(-)
+ create mode 100644 crates/uitest/fixtures/ty_check/attr_test_args.fe
+ create mode 100644 crates/uitest/fixtures/ty_check/attr_test_args.snap
+ create mode 100644 crates/uitest/fixtures/ty_check/unknown_attr.fe
+ create mode 100644 crates/uitest/fixtures/ty_check/unknown_attr.snap
+
 diff --git a/crates/hir/src/analysis/diagnostics.rs b/crates/hir/src/analysis/diagnostics.rs
 index 7a174c544..1edde27ce 100644
 --- a/crates/hir/src/analysis/diagnostics.rs
@@ -654,3 +689,6 @@ index 000000000..dda3a7b2b
 +   │
 +75 │     #[slott(0)]
 +   │     ^^^^^^^^^^^ did you mean `#[slot]`?
+-- 
+2.49.0.windows.1
+

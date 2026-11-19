@@ -265,7 +265,7 @@ Version: `fe 26.6.0 (5b3f96a)`.
 
 **Title:** Unknown attributes on items (e.g. a misspelled `#[must_use]`) are accepted silently
 
-**Fix ready:** [`fe-patches/unknown-attributes.diff`](fe-patches/unknown-attributes.diff), against
+**Fix ready:** [`fe-patches/1-unknown-attributes.patch`](fe-patches/1-unknown-attributes.patch), against
 `master` at `6cd57cc`. Unknown attributes on items, members, fields, variants, msg variants and
 `for` loops become error `12-0008`, with "did you mean" for close names; `#[test(..)]` accepts only
 the keys `fe test` reads. New uitest snapshots (`unknown_attr`, `attr_test_args`); no existing
@@ -458,13 +458,16 @@ Version: `fe 26.6.0 (5b3f96a)`.
 **Found:** 2026-11-19, while trying to make HARDSTOP's `Pay` handler unable to move tokens except
 through one function. Removing `mut call` from `Pay`'s `uses` did not stop a transfer: a
 user-defined type implementing `Call` made it. In `fe test` that edit moved 8 test dollars to the
-caller instead of 4 to the shop. HARDSTOP's refusal script keeps the edit as a control under "NOT
-covered by the compiler".
+caller instead of 4 to the shop.
 
-**Duplicate search:** not yet done; search `visibility trait`, `sealed`, `EvmCapabilitySeal`,
-`2-0003` before posting.
+**Duplicate search:** none found (2026-11-19). Searched issues and PRs, open and closed, for
+`EvmCapabilitySeal`, `private trait visibility`, `private trait impl`, `sealed trait`,
+`trait not visible`, `visibility trait bound`, `visibility`, `2-0003`, `is not visible`. Nearest:
+#598 (closed, 2021, the original `pub` modifier) and PR #1345 (closed, "Fix trait bound diag",
+about a different diagnostic). HARDSTOP's refusal script keeps the edit as a control under "NOT
+covered by Fe 26.6".
 
-**Fix ready:** [`fe-patches/private-trait-visibility.diff`](fe-patches/private-trait-visibility.diff),
+**Fix ready:** [`fe-patches/2-private-trait-visibility.patch`](fe-patches/2-private-trait-visibility.patch),
 against `master` at `6cd57cc`. Trait-ref lowering resolves the path without a visibility check;
 the patch reports `2-0003` from `trait_ref_arg_diags`, which every place that names a trait
 already calls: `impl` headers, generic-parameter bounds, `where` clauses, super-traits and

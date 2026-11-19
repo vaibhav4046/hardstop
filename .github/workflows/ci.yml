@@ -65,6 +65,44 @@ jobs:
         working-directory: web
         run: npx next typegen && npx tsc --noEmit
 
+  # The two compiler patches in research/fe-patches, applied to Fe master at the
+  # commit they were written against: the compiler's own UI tests for them, then
+  # HARDSTOP's tests and refusal script on the patched compiler, which must refuse
+  # the forged `Call` and `Ctx` that compile on 26.6. The contracts are still built
+  # with the release above, not with this compiler.
+  patched-fe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      FE_BASE: 6cd57cc622144bbbd4d82f62361e39150b145021
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fe master at the patches' base, with the patches applied
+        run: |
+          git init -q fe-src
+          cd fe-src
+          git fetch -q --depth 1 https://github.com/argotorg/fe "$FE_BASE"
+          git checkout -q FETCH_HEAD
+          git -c user.name=ci -c user.email=ci@localhost am -q ../research/fe-patches/*.patch
+          git log --format='%h %s' -3
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fe-src
+      - name: Build the patched compiler
+        working-directory: fe-src
+        run: cargo build --release -p fe
+      - name: The patches' UI tests (name resolution, type checking)
+        working-directory: fe-src
+        run: cargo test --release -p fe-uitest --test name_resolution --test ty_check
+      - name: HARDSTOP's Fe tests on the patched compiler
+        working-directory: fe
+        run: ../fe-src/target/release/fe test
+      - name: Refusal script on the patched compiler (both forgeries refused at the seal)
+        shell: bash
+        run: |
+          FE="$PWD/fe-src/target/release/fe" bash scripts/pay-cannot-loosen.sh | tee refusal.log
+          test "$(grep -c 'this compiler checks the seal' refusal.log)" = 2
+
   # The browser suite (web/e2e) against the production build. playwright.config.ts
   # retries a failed test once when CI is set; one that passes on the retry is
   # listed as "flaky" in the log, not hidden.
