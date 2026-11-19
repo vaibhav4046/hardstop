@@ -9,15 +9,21 @@ permissions:
 
 env:
   FE_VERSION: v26.6.0
+  # sha256 of the release asset fe_linux_amd64 for FE_VERSION, so the compiler
+  # that produces the "the compiler refuses" evidence cannot change underneath it.
+  FE_SHA256: 697081cb9265bd1be7a5d33e6bb0c8559ee5ff542abab9a046540fc151b4edaa
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Install Fe
+      - name: Install Fe (pinned release binary, checksum verified)
         run: |
-          curl -fsSL https://raw.githubusercontent.com/argotorg/fe/master/feup/feup.sh | bash -s -- --version "$FE_VERSION" --no-modify-path
+          mkdir -p "$HOME/.fe/bin"
+          curl -fsSL -o "$HOME/.fe/bin/fe" "https://github.com/argotorg/fe/releases/download/$FE_VERSION/fe_linux_amd64"
+          echo "$FE_SHA256  $HOME/.fe/bin/fe" | sha256sum -c -
+          chmod +x "$HOME/.fe/bin/fe"
           echo "$HOME/.fe/bin" >> "$GITHUB_PATH"
       - run: fe --version
 

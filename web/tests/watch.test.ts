@@ -249,31 +249,42 @@ test('a restarted watcher reports what happened while no watcher was running, ma
   assert.deepEqual(await restarted.check(), [], 'reported once')
 })
 
-test('with HARDSTOP_WATCH_CURSOR the loop saves where it stopped, and a restart resumes there', async () => {
+test('with HARDSTOP_WATCH_CURSOR a restart resumes where the last run stopped, further back than one cooling period', async () => {
   const { mkdtemp, readFile } = await import('node:fs/promises')
   const { join } = await import('node:path')
   const { tmpdir } = await import('node:os')
-  const { network, sim, config } = await setUp()
+  // A one-minute cooling period: a restart without the cursor looks back only 61 blocks here.
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, { ...SETUP, coolingSecs: 60n }, () => {}, 1)
+  const { sim } = await attach(network, live, 1)
+  const config = readConfig({ HARDSTOP_VAULT: live.vault })
   const cursorFile = join(await mkdtemp(join(tmpdir(), 'hardstop-watch-')), 'cursor')
-  // One check through the loop, then stop: the file holds the next block to read.
-  const controller = new AbortController()
-  await watch(config, { everySecs: 0.001, signal: controller.signal, wallet: network, cursorFile, deliver: async () => controller.abort() })
+  // One check through the loop and stop: delivering an alert aborts, and the check's alerts are all delivered first.
+  const once = async () => {
+    const controller = new AbortController()
+    const seen: Alert[] = []
+    await watch(config, {
+      everySecs: 1,
+      signal: controller.signal,
+      wallet: network,
+      cursorFile,
+      deliver: async (alert) => {
+        seen.push(alert)
+        controller.abort()
+      },
+    })
+    return seen
+  }
+  await once()
   const saved = BigInt((await readFile(cursorFile, 'utf8')).trim())
-  const latest = BigInt((await network.request({ method: 'eth_blockNumber' })) as Hex)
-  assert.equal(saved, latest + 1n)
+  assert.equal(saved, BigInt((await network.request({ method: 'eth_blockNumber' })) as Hex) + 1n)
 
+  // While no watcher runs: a stranger is approved, then 70 more blocks go by.
   await sim.setRecipient(STRANGER, true)
-  const again = new AbortController()
-  const seen: Alert[] = []
-  await watch(config, {
-    everySecs: 0.001,
-    signal: again.signal,
-    wallet: network,
-    cursorFile,
-    deliver: async (alert) => {
-      seen.push(alert)
-      if (alert.kind === 'recipient_approved') again.abort()
-    },
-  })
-  assert.deepEqual(kinds(seen), ['watching', 'recipient_approved'])
+  for (let i = 0; i < 70; i++) await network.request({ method: 'eth_sendTransaction', params: [{ from: OWNER, to: PAYEE, data: '0x' }] })
+
+  assert.deepEqual(kinds(await once()), ['watching', 'recipient_approved'])
+  // Without the cursor the same restart finds nothing: the approval is older than the lookback.
+  const blind = new Watcher(await connect(config, network))
+  assert.deepEqual(kinds(await blind.check()), ['watching'])
 })

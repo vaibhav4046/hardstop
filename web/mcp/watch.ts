@@ -432,7 +432,7 @@ export async function watch(config: Config, { everySecs, signal, deliver, wallet
 /** The saved block, or undefined if there is no usable file yet. */
 async function readCursor(file: string): Promise<bigint | undefined> {
   const text = await readFile(file, 'utf8').catch(() => '')
-  return /^d+$/.test(text.trim()) ? BigInt(text.trim()) : undefined
+  return /^\d+$/.test(text.trim()) ? BigInt(text.trim()) : undefined
 }
 
 async function main(): Promise<void> {
