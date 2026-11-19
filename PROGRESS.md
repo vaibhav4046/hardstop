@@ -36,13 +36,14 @@ the reference; this page only says where things stand.
 - A 1 min 47 s captioned demo video (1080p, built in HyperFrames from real site footage, compiler output and on-chain receipts).
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.
-- Six Fe compiler issues drafted with reproductions, and two tested compiler
-  patches (`research/fe-patches/`): unknown attributes become errors, and a
+- Six Fe compiler issues filed upstream with reproductions (argotorg/fe
+  #2035 to #2040), and two open pull requests (#2041, #2042; the patches are
+  also in `research/fe-patches/`): unknown attributes become errors, and a
   private trait is visibility-checked in `impl` headers and bounds, which
   stops user code forging `std`'s `Call` and `Ctx`. With the second patch,
   `fe test` passes (92) and the refusal script requires both forgeries to be
   refused; the Fe suite passes 2672, with 1 failure that also happens on
-  unmodified `master` on Windows. Not posted upstream (owner's choice).
+  unmodified `master` on Windows. Posted 2026-11-19; not yet reviewed or merged.
 
 ## Needs the owner
 

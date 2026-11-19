@@ -26,6 +26,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The whole site works in a browser | `cd web && npm run e2e` | 58 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
+| Building it found bugs in Fe itself, reported and fixed upstream | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041) and [#2042](https://github.com/argotorg/fe/pull/2042) on argotorg/fe; CI job `patched-fe` | open, not yet merged; the job is green |
 | Every command in this table runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
 
 What the compiler does not cover, and why: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -144,12 +145,17 @@ where `Pay` sends the money a verdict allowed (tests cover it).
 The full account, with every error code and limit:
 [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
-**Feedback to Fe.** Building this turned up six compiler issues, drafted
-with reproductions in [`research/UPSTREAM_ISSUES.md`](research/UPSTREAM_ISSUES.md)
-(not yet posted), including one where a private trait can be implemented
+**Feedback to Fe.** Building this turned up six compiler issues, filed
+upstream with reproductions on 2026-11-19 (argotorg/fe
+[#2035](https://github.com/argotorg/fe/issues/2035) to
+[#2040](https://github.com/argotorg/fe/issues/2040); text in
+[`research/UPSTREAM_ISSUES.md`](research/UPSTREAM_ISSUES.md)), including
+[one](https://github.com/argotorg/fe/issues/2036) where a private trait can be implemented
 from any ingot, which lets user code forge `std`'s sealed `Call` and `Ctx`
-capabilities. Two are fixed in tested compiler patches against `master` at
-`6cd57cc`, in [`research/fe-patches/`](research/fe-patches/):
+capabilities. Two are fixed in open pull requests against Fe `master`
+([#2042](https://github.com/argotorg/fe/pull/2042) and
+[#2041](https://github.com/argotorg/fe/pull/2041), not yet reviewed or
+merged; the same patches are in [`research/fe-patches/`](research/fe-patches/)):
 `2-private-trait-visibility.patch` makes a private trait named outside its
 module "not visible" (2-0003) in an `impl` header, a bound, a `where`
 clause or a super-trait, which closes the forged `Call` and `Ctx`; and

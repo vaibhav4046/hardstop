@@ -16,7 +16,7 @@ push; checks that happen when the code runs are named as `fe test` tests.
 | Owner actions need the real owner, once | sealed `OwnerCall`, `own`, not `Copy`, `#[must_use]`, `prove` takes the concrete `Evm` | hand-made proof or `Owner`: 2-0003; `authorize`'s proof or a stand-in `Ctx` passed to `prove`: 8-0000; no proof: 8-0012; reuse: 16-0002; drop: 8-0082 |
 | Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
-| Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug, Draft 6) | edits compile; tests catch the first. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
+| Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug, [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)) | edits compile; tests catch the first. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
 The first five rows are edits that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires to fail,
@@ -62,15 +62,17 @@ Only the tests catch it. Taking `mut call` away from `Pay` would not change
 that in Fe 26.6: `Call`'s methods have default bodies and its seal trait,
 `std::evm::effects::EvmCapabilitySeal`, is private but can be implemented
 from any ingot (Fe does not check a private trait's visibility in an `impl`;
-reported as Draft 6 in [`research/UPSTREAM_ISSUES.md`](research/UPSTREAM_ISSUES.md)),
+reported as [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)),
 so any type can implement `Call`, and a function whose `uses` lists no `Call` can still
 transfer tokens (such an edit, in a `Pay` without `mut call`, moved money
 in a local `fe test`). A sealed payout value would bind only the path that
 uses it, not every path, so the vault does not have one. The script keeps
 both edits as controls that must compile on Fe 26.6.
 
-The forged `Call` is a compiler bug, and it is fixed in a local patch,
-[`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch):
+The forged `Call` is a compiler bug, and it is fixed in pull request
+[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) (open, not yet
+merged; the same patch is
+[`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch)):
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not
 visible" (2-0003), as a private function or struct already is. With the
@@ -127,7 +129,7 @@ makes, so only during deployment. `ctx` must be an `Evm`, the concrete type
 whose methods read the EVM itself. A stand-in that implements `Ctx` and
 reports any caller does compile on Fe 26.6 (the trait's private seal,
 `std::evm::effects::EvmCapabilitySeal`, can be implemented from outside
-`std`; see Draft 6 and the patch above), and could be supplied to a
+`std`; see argotorg/fe#2036 and the patch above), and could be supplied to a
 `with (Ctx = ...)` block, but handing it to `prove` is a type error
 ("expected `Evm`", 8-0000). The kernel's `authorize` is still public: the
 tests, the adversary and the native tool use it, because Fe 26.6 has no

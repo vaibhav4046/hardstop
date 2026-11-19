@@ -13,10 +13,10 @@
 4. **On-chain receipts for the current contract build.** Done 2026-11-19:
    test ETH from the Coinbase faucet on the owner's account, and `web/scripts/base-sepolia-evidence.ts`
    installed the current launcher and re-ran the evidence (README).
-5. **Fe compiler feedback is not posted, by the owner's choice.** Six issue
-   drafts and two tested patches are in `research/UPSTREAM_ISSUES.md` and
-   `research/fe-patches/`. The owner decided on 2026-11-19 to keep them
-   local rather than post them.
+5. **Fe compiler feedback.** Posted on 2026-11-19 with the owner's
+   approval: six issues (argotorg/fe #2035 to #2040) and two pull requests
+   (#2041, #2042). Replies and review comments go to the owner's GitHub
+   account; answering them is the owner's call.
 6. **MetaMask's site scanner** warns "Continue at your own risk" on connect.
    A review ticket was filed with MetaMask support on 2026-11-18; the reply
    goes to the owner's email.

@@ -1,22 +1,28 @@
-# Draft upstream issues for the Fe compiler
+# Upstream issues for the Fe compiler
 
 **Repository:** [argotorg/fe](https://github.com/argotorg/fe). `ethereum/fe` redirects there; the
 official starter (`fe-lang/builders-challenge-starter`) links its issue tracker; release `v26.6.0`
 there is commit `5b3f96a`, the one `fe --version` reports. `fe-lang/fe` is a fork with issues
 turned off.
 
-**Note to the owner:** these are drafts only. Nothing has been posted, commented or labelled.
+**Posted on 2026-11-19**, with the owner's approval, as six issues and two pull requests. All are
+open; none is merged or reviewed yet.
+
+| Draft | Posted as | Fix |
+|---|---|---|
+| 1, `pub(in path)` | [argotorg/fe#2037](https://github.com/argotorg/fe/issues/2037) | |
+| 2, `#[cfg]` predicates | [argotorg/fe#2038](https://github.com/argotorg/fe/issues/2038) | |
+| 3, block timestamp in `fe test` | [argotorg/fe#2039](https://github.com/argotorg/fe/issues/2039) | |
+| 4, unknown attributes | [argotorg/fe#2035](https://github.com/argotorg/fe/issues/2035) | pull request [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041) |
+| 5, `#[must_use]` and bindings | [argotorg/fe#2040](https://github.com/argotorg/fe/issues/2040) | |
+| 6, private traits and the capability seal | [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036) | pull request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) |
+
+The optional draft at the end was not posted. Each posted body is the text between the fences
+below plus a line saying where it was found and that it was drafted with AI assistance.
+
 Every reproduction below was run on `fe 26.6.0 (5b3f96a)` (Windows) in a scratch ingot, and the
 output is pasted as printed (`--color never`). Where a draft says "still the case on `master`",
-that comes from reading the source at `6cd57cc` (2026-11-18), not from running it. After review,
-post one with, for example:
-
-```
-gh issue create -R argotorg/fe --title "<title>" --body-file <body.md> --label "<label>"
-```
-
-Labels are the repository's own; only maintainers can apply them, so drop `--label` if `gh`
-refuses it. Each body is inside a four-backtick fence: copy what is between the fences.
+that comes from reading the source at `6cd57cc` (2026-11-18), not from running it.
 
 Candidates from the list, after checking:
 
@@ -271,7 +277,7 @@ Version: `fe 26.6.0 (5b3f96a)`.
 the keys `fe test` reads. New uitest snapshots (`unknown_attr`, `attr_test_args`); no existing
 snapshot changes. `cargo test --workspace --exclude fe-bench` on Windows: 2672 passed, 1 failed
 (`mock_lsp_checks_for_the_project_target`, which fails the same way on unmodified `master` there).
-HARDSTOP builds and passes `fe test` (92) with the patched compiler. Not posted.
+HARDSTOP builds and passes `fe test` (92) with the patched compiler. Posted as [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041).
 
 **Suggested labels:** `type: bug` (or `type: ui/ux`), `comp: analyzer`
 
@@ -479,7 +485,8 @@ module. With the patched compiler HARDSTOP passes `fe test` (92), and
 the seal. `cargo test --workspace --exclude fe-bench --no-fail-fast` on Windows, with both
 patches: 2672 passed, 1 failed (`mock_lsp_checks_for_the_project_target`, which fails the same
 way on unmodified `master` there). The diff touches no file the attribute patch touches, so it
-applies to `6cd57cc` on its own. Not posted.
+applies to `6cd57cc` on its own (run alone there: the same 2672 passed, 1 failed). Posted as
+[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042).
 
 Reproduced on `fe 26.6.0 (5b3f96a)` and on a local build of `master` at `6cd57cc`
 (`fe 26.6.0 (427588afb)`, master plus one unrelated attribute-diagnostics commit). `trait
