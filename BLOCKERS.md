@@ -10,11 +10,9 @@
 3. **Optional, plain-language policy drafting.** Needs an LLM API key set as
    a server environment variable. Without it the manual form is the only way
    to create a policy, which is the intended fallback.
-4. **On-chain receipts for the current contract build.** Earlier builds ran
-   on Base Sepolia (transactions in the README). The current build's
-   launcher is installed by the site on first use; installing it ahead of
-   time and re-running the evidence needs about 0.0001 test ETH on Base
-   Sepolia for the throwaway test key, which is nearly empty.
+4. **On-chain receipts for the current contract build.** Done 2026-11-19:
+   test ETH from the Coinbase faucet on the owner's account, and `web/scripts/base-sepolia-evidence.ts`
+   installed the current launcher and re-ran the evidence (README).
 5. **Fe compiler feedback is not posted, by the owner's choice.** Six issue
    drafts and two tested patches are in `research/UPSTREAM_ISSUES.md` and
    `research/fe-patches/`. The owner decided on 2026-11-19 to keep them

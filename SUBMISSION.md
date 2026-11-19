@@ -115,11 +115,12 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
   ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
-- On Base Sepolia (public test network), with the previous contracts
-  (before sealed recipient approvals): the launcher, seven vaults (one
-  opened by clicking through MetaMask on the live site), paid and refused
-  payments, and measured gas for every call, each with its transaction link,
-  in the README. The current contracts are not on chain yet.
+- On Base Sepolia (public test network), with the current contracts
+  (2026-11-19): the launcher installed, a vault created, two payments, $80
+  refused with code 10, a self-raise reverted, a raise proposed, cancelled
+  and paused, and the gas of every call, each with its transaction link, in
+  the README. Earlier builds ran there too: seven vaults, one opened by
+  clicking through MetaMask on the live site.
 
 ## Honest limits
 

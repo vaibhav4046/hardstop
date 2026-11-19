@@ -28,8 +28,9 @@ the reference; this page only says where things stand.
   `static_assert`s that run `amend`, `cancel` and the ratchet's laws at
   compile time. CI proves each with an edit the compiler must refuse.
 - Web app with a practice vault in the browser and real vaults on Base
-  Sepolia or Sepolia through the visitor's wallet; earlier contract builds
-  ran on Base Sepolia (transactions in the README).
+  Sepolia or Sepolia through the visitor's wallet. The current contracts
+  run on Base Sepolia (launcher, a vault, payments, a refusal, a cancelled
+  raise and a pause, 2026-11-19; transactions in the README).
 - MCP server for AI agents (five agent tools, no owner tools) and a 24/7
   watcher for the owner that catches up after a restart.
 - A 1 min 47 s captioned demo video (1080p, built in HyperFrames from real site footage, compiler output and on-chain receipts).

@@ -573,10 +573,41 @@ its code). Earlier launchers stay on Base Sepolia with the vaults opened
 through them:
 
 - `0xa5ecc8802db5520ab089d63b39bb4508d3794299` (before sealed recipient
-  approvals; the gas table's transactions)
+  approvals; its transactions were the gas table until 2026-11-19)
 - `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` (before sealed `Terms`)
 - `0x956fbbde5fcb981e5a8507b369c79105815d562d` (the first contracts; two
   vaults, one opened through MetaMask on the live site)
 - `0xe7d4489cde5cdaabbce571162ec14beca324b7c3` (before `OwnerProof`)
 - `0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1` (before the capped mint; the
   vault used by the AI agent runs)
+
+## The current contracts on Base Sepolia (2026-11-19)
+
+The owner signed in to the Coinbase developer faucet in their own Chrome;
+Claude claimed test ETH there. The first two claims (0.0002) went to the
+earlier throwaway key, whose key file had been lost when the session's
+scratch folder was cleared, so that test ETH cannot be spent. A new
+throwaway test key (kept outside the repo, holding only faucet test ETH)
+got two more claims, and `web/scripts/base-sepolia-evidence.ts` ran the
+site's own `launchVault` and `attach` with it:
+
+```
+owner    0x296067b49F888DE31C0e654871cBC2256A261870 (throwaway)
+launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44   9,838 bytes  install 0x58562f4e...b006  gas 2,333,417
+vault    0xf7d0b1e9872c21d33eec5dc9624deba0023a0d31   8,079 bytes  created 0x7ae1d584...90af  gas 1,912,637
+token    0xb2be261bb0fb1713e6e462c6c6e203a1b3f84373
+agent    0xd56ecbd517c1d3a8ddc7526e2a9083365b928b01
+
+agent pays $4            0xe554cac5...870a  status 1  gas 124,132  verdict 0
+agent pays $4 again      0x4b73992e...b675  status 1  gas  72,844  verdict 0
+agent asks for $80       0x295fa1da...ba2f  status 1  gas  51,907  verdict 10, limit $10
+agent raises own limit   reverted NotOwner in the rehearsal, nothing sent
+owner proposes $40/day   0xd4ed323d...0dfd  status 1  gas 106,119
+owner cancels it         0x36edf95a...75f6  status 1  gas  41,618
+owner pauses             0x075024ae...b30f  status 1  gas  46,075
+after: vault 92 test dollars, recipient 8; per day 20, paused, nothing queued
+```
+
+Read back independently from `https://sepolia.base.org`: every receipt has
+status 1 (blocks 60,855,583 to 60,855,634, 12:56 UTC); the vault's code hash
+is `0x4975c547...1b84`, the current build's entry in `KNOWN_VAULT_CODE`.
