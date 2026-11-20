@@ -15,7 +15,7 @@ the other pull request and the issues have no reply yet.
 |---|---|---|
 | 1, `pub(in path)` | [argotorg/fe#2037](https://github.com/argotorg/fe/issues/2037) | |
 | 2, `#[cfg]` predicates | [argotorg/fe#2038](https://github.com/argotorg/fe/issues/2038) | |
-| 3, block timestamp in `fe test` | [argotorg/fe#2039](https://github.com/argotorg/fe/issues/2039) | |
+| 3, block timestamp in `fe test` | [argotorg/fe#2039](https://github.com/argotorg/fe/issues/2039) | pull request [argotorg/fe#2048](https://github.com/argotorg/fe/pull/2048) (posted 2026-11-20) |
 | 4, unknown attributes | [argotorg/fe#2035](https://github.com/argotorg/fe/issues/2035) | pull request [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041) |
 | 5, `#[must_use]` and bindings | [argotorg/fe#2040](https://github.com/argotorg/fe/issues/2040) | |
 | 6, private traits and the capability seal | [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036) | pull request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) |

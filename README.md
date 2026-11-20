@@ -30,7 +30,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The whole site works in a browser | `cd web && npm run e2e` | 58 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
-| Building it found bugs in Fe itself, reported upstream with two fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041) and [#2042](https://github.com/argotorg/fe/pull/2042) on argotorg/fe; CI job `patched-fe` | #2042 approved by a Fe maintainer on 2026-11-20, not yet merged; #2041 open; the job is green |
+| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2042 approved by a Fe maintainer and green in Fe's CI on 2026-11-20, not yet merged; #2041 and #2048 open; the job is green |
 | Every command in this table runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
 
 What the compiler does not cover, and why: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).

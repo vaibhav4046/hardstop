@@ -11,7 +11,7 @@ push, and check that commit's CI run is green.
 | Repository | https://github.com/vaibhav4046/hardstop |
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
-| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and two pull requests: #2042 approved by a Fe maintainer on 2026-11-20, #2041 open; neither merged yet |
+| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2042 approved by a Fe maintainer on 2026-11-20 and green in Fe's CI, #2041 and #2048 open; none merged yet |
 | Live app | https://hardstop-omega.vercel.app |
 | Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A longer silent walkthrough with test output and receipts: https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
