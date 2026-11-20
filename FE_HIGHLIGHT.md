@@ -6,6 +6,29 @@ Every compile error named below is one that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires on every
 push; checks that happen when the code runs are named as `fe test` tests.
 
+## Check it in three commands
+
+With Fe 26.6.0 on your path, from the repository root:
+
+```
+$ cd fe && fe test
+test result: ok. 92 passed; 0 failed
+
+$ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
+ok   control: Pay may write its own ledger
+ok   refused: Pay writing terms
+ok   refused: Pay approving a recipient
+...
+ok   refused: amend applying a raise at once
+                                   (33 lines starting ok: 26 refused, 6 controls, 1 source check)
+
+$ gh run list -R vaibhav4046/hardstop -L 1
+                                   (CI runs both on every push, plus the patched compiler: job patched-fe;
+                                    and every night on unpatched Fe master: .github/workflows/fe-master.yml)
+```
+
+Output pasted from a run on 2026-11-20. [CI runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml).
+
 ## On one screen
 
 | Claim | Enforced by | Edit that must fail, and its error |

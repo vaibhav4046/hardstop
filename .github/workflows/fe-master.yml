@@ -1,0 +1,52 @@
+name: Fe master (nightly)
+
+# HARDSTOP is built and deployed with the pinned Fe release in ci.yml. This
+# job builds Fe from argotorg/fe master every night, unpatched, and runs the
+# same Fe checks on it, so a compiler change that breaks HARDSTOP (or changes
+# an error code the refusal script expects) shows up the day it lands rather
+# than at the next release.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fe-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fe master, unpatched
+        run: |
+          git init -q fe-src
+          cd fe-src
+          git fetch -q --depth 1 https://github.com/argotorg/fe master
+          git checkout -q FETCH_HEAD
+          git log --format='Fe master at %H (%cs): %s' -1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: The tree-sitter CLI Fe's build runs (its own lockfile)
+        working-directory: fe-src/crates/tree-sitter-fe
+        run: |
+          npm ci
+          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fe-src
+      - name: Build Fe
+        working-directory: fe-src
+        run: cargo build --release -p fe
+      - name: Format
+        working-directory: fe
+        run: ../fe-src/target/release/fe fmt --check
+      - name: HARDSTOP's Fe tests
+        working-directory: fe
+        run: ../fe-src/target/release/fe test
+      - name: The refusal script (it checks whichever compiler it is given)
+        shell: bash
+        run: FE="$PWD/fe-src/target/release/fe" bash scripts/pay-cannot-loosen.sh
