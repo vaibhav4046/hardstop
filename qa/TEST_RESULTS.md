@@ -1,7 +1,7 @@
 # Test results
 
 Date: 2026-11-17. A snapshot: current counts are in README.md (browser 61,
-Fe 98, native 52, web 88, mutants 15). All output below was produced by
+Fe 98, native 52, web 89, mutants 15). All output below was produced by
 running the command shown on this machine. The personas are scripts; no human took part in any test.
 
 ## How to run it again

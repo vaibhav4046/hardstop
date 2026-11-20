@@ -432,6 +432,112 @@ state_check_catches 'a second Approval map, to put old approvals back later' wit
 state_check_catches 'Pay resetting what was spent today' \
   edit_handler "$PAY" "$TRANSFER" after 'ledger = Ledger { window: next.window, spent: 0, next_nonce: next.next_nonce }'
 
+# The vault's whole shape, pinned (comments stripped; CI's fe fmt --check
+# fixes the layout this reads). A source check, not a compiler guarantee:
+# exactly these imports, no glob import and no type alias, exactly these
+# storage fields, exactly these handlers with exactly these uses, no token
+# approval or transfer_from anywhere, and every "now" given to the kernel is
+# the chain's own time. A new handler, a new capability on an old one, a
+# Terms kept under another name, an allowance granted to the caller, or a
+# made-up time all fail here.
+SHAPE_HEADS='init(owner_: Address, agent_: Address, token_: Address, per_payment: u256, per_window: u256, valid_until: u64, window_secs: u64, cooling_secs: u64, payee_a: Address, payee_b: Address, payee_c: Address) uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from) {
+Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log) {
+Preview { caller, to, amount, nonce } -> (u8, u256) uses (ctx, agent, terms, ledger, approved_from) {
+Exposure { until } -> u256 uses (ctx, terms, ledger) {
+Propose { per_payment, per_window, valid_until, paused } uses (ctx, owner, mut terms, mut log) {
+CancelQueued uses (ctx, owner, mut terms, mut log) {
+Pause uses (ctx, owner, mut terms, mut log) {
+SetRecipient { who, approved } uses (ctx, owner, terms, mut approved_from, mut log) {
+Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
+Owner -> Address uses (owner) {
+Agent -> Address uses (agent) {
+Token -> Address uses (token) {
+ScheduleOf -> (u64, u64, u64) uses (terms) {
+PolicyOf -> (u256, u256, u64, bool) uses (ctx, terms) {
+QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, terms) {
+LedgerOf -> (u64, u256, u64) uses (ledger) {
+ApprovedFrom { who } -> u64 uses (approved_from) {'
+SHAPE_USES='use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}
+use std::evm::erc20::safe_transfer
+use ingot::kernel::{cooled, decide, exposure, left_in_window, Decision, Instant, Ledger, Policy, Reason, Request, Schedule, Seconds}
+use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}'
+SHAPE_FIELDS='owner: Owner,
+agent: Address,
+token: Address,
+mut terms: Terms,
+mut ledger: Ledger,
+mut approved_from: StorageMap<Address, Approval>,'
+check_shape() {
+  local got
+  got=$(awk '
+    { code = $0; sub(/\/\/.*/, "", code); sub(/[ \t]+$/, "", code) }
+    function norm(text) { gsub(/ +/, " ", text); gsub(/\( /, "(", text); gsub(/,? \)/, ")", text); return text }
+    function normuse(text) { text = norm(text); gsub(/\{ /, "{", text); gsub(/,? \}/, "}", text); return text }
+    function add(text) { piece = text; sub(/^ +/, "", piece); return piece }
+    # imports, one statement per line
+    !incontract && code ~ /^use / { inuse = 1; stmt = "" }
+    inuse { stmt = stmt (stmt == "" ? "" : " ") add(code); if (code !~ /\{$/ && code !~ /,$/) { print "USE " normuse(stmt); inuse = 0 } }
+    /^pub contract Vault/ { incontract = 1; infields = 1; next }
+    infields && code ~ /^    init\(/ { infields = 0 }
+    infields && code ~ /^    [a-z]/ { print "FIELD " add(code) }
+    incontract && !inhead && (code ~ /^        [A-Z][A-Za-z]*( |\{|$)/ || code ~ /^    init\(/) { inhead = 1; head = "" }
+    inhead { head = head (head == "" ? "" : " ") add(code); if (code ~ /\{$/) { print "HEAD " norm(head); inhead = 0 } }
+    code ~ /(^|[^A-Za-z0-9_])type +[A-Z]/ { print "BAD a type alias: " $0 }
+    code ~ /::\*/ { print "BAD a glob import: " $0 }
+    code ~ /(^|[^A-Za-z0-9_])(try_)?approve *\(|transfer_from|transferFrom/ { print "BAD a token approval or transfer_from: " $0 }
+    code ~ /(let|var) +(mut +)?now *=/ && code !~ /^ +let now = seconds\(ctx\.timestamp\(\)\)$/ { print "BAD now from elsewhere: " $0 }
+    code ~ /(^|[^A-Za-z0-9_])now: / && code !~ /now: seconds\(ctx\.timestamp\(\)\)/ { print "BAD a time other than the chain'"'"'s: " $0 }
+    code ~ /Instant::at\(/ && code !~ /^    Instant::at\(at\.as_seconds\(\)\.downcast_saturate\(\)\)$|^ +valid_until: Instant::at\(valid_until\),$|^ +until: Instant::at\(until\),$/ { print "BAD a made-up Instant: " $0 }
+    code ~ /^fn seconds\(/ && code != "fn seconds(_ at: Timestamp) -> Instant {" { print "BAD seconds() changed: " $0 }
+  ' "$1")
+  local bad
+  bad=$(grep '^BAD ' <<<"$got" | head -1)
+  if [ -n "$bad" ]; then echo "${bad#BAD }"; return 1; fi
+  if [ "$(sed -n 's/^HEAD //p' <<<"$got")" != "$SHAPE_HEADS" ]; then
+    echo "the handlers or their uses differ from the pinned list:"; diff <(echo "$SHAPE_HEADS") <(sed -n 's/^HEAD //p' <<<"$got") | head -6; return 1
+  fi
+  if [ "$(sed -n 's/^USE //p' <<<"$got")" != "$SHAPE_USES" ]; then
+    echo "the imports differ from the pinned list:"; diff <(echo "$SHAPE_USES") <(sed -n 's/^USE //p' <<<"$got") | head -6; return 1
+  fi
+  if [ "$(sed -n 's/^FIELD //p' <<<"$got")" != "$SHAPE_FIELDS" ]; then
+    echo "the storage fields differ from the pinned list:"; diff <(echo "$SHAPE_FIELDS") <(sed -n 's/^FIELD //p' <<<"$got") | head -6; return 1
+  fi
+}
+if ! why=$(check_shape "$ROOT/fe/src/vault.fe"); then
+  echo "FAIL vault.fe: $why"
+  exit 1
+fi
+echo "ok   source check: the vault's imports, storage, handlers, their uses, and the time it gives the kernel match the pinned list"
+shape_check_catches() {
+  local name=$1 edited
+  shift
+  edited=$(mktemp)
+  "$@" > "$edited"
+  if check_shape "$edited" >/dev/null; then
+    rm -f "$edited"
+    echo "FAIL source check missed: $name"
+    exit 1
+  fi
+  rm -f "$edited"
+  echo "ok   source check catches: $name"
+}
+vault_sed() { sed "$@" "$ROOT/fe/src/vault.fe"; }
+# Each of these compiled and passed fe test and every check above (an Fe judge, 2026-11-20).
+MADE_UP_TIME='let next = terms.amend(proof, proposed, now: Instant::at(1))'
+control 'NOT covered by the compiler: Propose giving the kernel a made-up time, so a raise matures at once' \
+  'Propose {' 'let next = terms.amend(proof, proposed, now: seconds(ctx.timestamp()))' replace "$MADE_UP_TIME"
+shape_check_catches 'Propose giving the kernel a made-up time' \
+  edit_handler 'Propose {' 'let next = terms.amend(proof, proposed, now: seconds(ctx.timestamp()))' replace "$MADE_UP_TIME"
+shape_check_catches 'a glob import, to name Terms another way' \
+  vault_sed 's/^use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}$/use ingot::kernel::sealed::*/'
+shape_check_catches 'a type alias for Terms' vault_sed 's/^pub contract Vault uses/type Kept = Terms\n\npub contract Vault uses/'
+shape_check_catches 'Withdraw given the rules to write' \
+  vault_sed 's/^        Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {$/        Withdraw { amount } uses (ctx, owner, token, mut terms, mut call, mut log) {/'
+shape_check_catches 'Pay granting the caller an allowance on the token' \
+  edit_handler "$PAY" "$TRANSFER" after 'let _ = try_approve(token, spender: ctx.caller(), amount: 1)'
+shape_check_catches 'a new handler that moves money with no owner check' \
+  vault_sed 's/^        Owner -> Address uses (owner) {$/        Sweep { amount } uses (ctx, token, mut call) {\n            safe_transfer(token, receiver: ctx.caller(), amount)\n        }\n\n        Owner -> Address uses (owner) {/'
+
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no
 #    error other than code $4 (by default "static assertion failed", 8-0081).

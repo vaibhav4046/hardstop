@@ -11,9 +11,9 @@ push, and check that commit's CI run is green.
 | Repository | https://github.com/vaibhav4046/hardstop |
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
-| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20; #2042 approved by a Fe maintainer, who added a test of his own to it the same day, not yet merged; #2041 open |
+| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20; #2042 approved by micahscopes, and sbillig added a test commit to it the same day, not yet merged; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A silent walkthrough with test output and receipts (recorded 2026-11-19, showing that day's counts: 92 Fe tests, 33 script checks): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A silent walkthrough with test output and receipts (recorded 2026-11-19; its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -58,7 +58,9 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 approved_from, mut ledger, mut call, mut log)`: the rules appear without
 `mut`, so the agent's only handler cannot change them.
 
-The cooling period is a compiler guarantee for how rules are made. The
+The compiler guarantees that stored rules come only from the kernel's own
+functions, which apply the cooling period. The time the vault passes them is
+not compiler-checked: a CI source check requires it to be the chain's. The
 vault stores them as `Terms`, whose field only `fe/src/kernel/sealed.fe`
 can see, so no handler can build terms, store a hand-built `Rules` or write
 a field. New
@@ -72,9 +74,11 @@ or a hand-built approval does not compile. An approval copied under another
 address compiles but approves no one (a runtime check, tested). What the
 compiler does not stop: a vault that keeps an older `Terms` or `Approval`
 in a second storage field and puts it back later, since both types are
-`Copy`. A CI source check requires exactly one stored `Terms` and one
-approval map (and catches that edit), and three tests fail if a cancel ever
-undoes a pause, a lowered limit or a removed recipient.
+`Copy`. CI source checks pin the vault's storage, imports and handlers
+exactly (so no second `Terms`, under its own name, an alias or a glob
+import, and no new handler or capability), and three tests fail if a cancel
+ever undoes a pause, a lowered limit or a removed recipient. These read the
+source; they are not compiler guarantees.
 
 The owner proof is bound to the real caller by the compiler. Changing the
 terms, approving a recipient and withdrawing each need an `OwnerCall`, which
@@ -95,7 +99,7 @@ compiler guarantee) requires `Pay`'s only transfer to be exactly
 `safe_transfer(token, receiver: to, amount)`, not the compiler. That last gap is a Fe bug (a private
 trait is not visibility-checked in an `impl` header or a bound), reported
 as argotorg/fe#2036, and pull request argotorg/fe#2042 (approved by a Fe
-maintainer on 2026-11-20, with a test added by another, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
+maintainer (micahscopes) on 2026-11-20, with a test commit added by sbillig, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
 it in the compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
 (2-0003), HARDSTOP's 98 tests still pass, and the Fe suite passes apart
 from one language-server test that fails on unmodified `master` too.
@@ -121,7 +125,7 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 ## Evidence it works
 
 - `fe test`: 98 passed on the EVM; 52 passed natively.
-- Web: 88 unit tests (including the MCP server and watcher) and 61 browser
+- Web: 89 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

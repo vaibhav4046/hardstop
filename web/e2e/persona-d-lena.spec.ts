@@ -140,6 +140,8 @@ const JUDGED: Record<string, string> = {
     'Display: whether to show the "capped at what the vault holds" note under Left today.',
   'components/activity-board.tsx|{worstShown < view.worstCase && (': 'Display: whether to show the "capped at what the vault holds" note.',
   'components/activity-board.tsx|{view.worstCaseUntil >= day.resetsAt && !policy.paused && (': 'Display: whether to show the "more than one day" note.',
+  'components/activity-board.tsx|view.leftTodayIfChanged > view.leftToday &&':
+    'Display: whether the later-today figure says anything more than "Left today". Both are the contract\'s exposure.',
   'lib/session.ts|const approvedFrom = from > state.now ? from : undefined':
     'Wording: whether a refused recipient is still waiting (the receipt then says until when). The refusal itself is the contract\'s.',
   "components/activity-board.tsx|` If the scheduled change is not cancelled, from ${formatTime(queued.effectiveAt)} the vault allows up to ${formatUsd(view.leftTodayIfChanged < vaultBalance ? view.leftTodayIfChanged : vaultBalance)} more today (an upper limit).`}":

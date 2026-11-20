@@ -4,7 +4,7 @@
 import { useId } from 'react'
 import type { Hex } from 'viem'
 import { reasonName } from '@/lib/hardstop/reasons'
-import { note, scheduledFor, verdict } from '@/lib/describe'
+import { note, scheduledFor, verdict, type ScheduleStatus } from '@/lib/describe'
 import { formatTime, formatUsd } from '@/lib/money'
 import { AGENT_RAISE, type Entry } from '@/lib/session'
 
@@ -17,20 +17,20 @@ type Props = {
   isNew?: boolean
   /** Set when the vault is on a real network: where its transactions can be looked up. */
   explorer?: string
+  /** For a change this entry scheduled: what became of it since. Defaults to "Scheduled". */
+  status?: ScheduleStatus
 }
 
-export function Slip({ entry, nameOf, vault, isNew = false, explorer }: Props) {
+export function Slip({ entry, nameOf, vault, isNew = false, explorer, status = 'Scheduled' }: Props) {
   // The home example and the visitor's vault can be in the document together,
   // each numbering its receipts from 0, so the heading id cannot be the number.
   const titleId = useId()
   if (entry.kind === 'owner' || entry.kind === 'skip') {
     return (
       <p className={`logline${isNew ? ' is-new' : ''}`}>
-        {/* The sentence already says "Scheduled"; the label is for the eye. */}
+        {/* The sentence says what was asked for; the label says what became of it since. */}
         {scheduledFor(entry) !== undefined && (
-          <span className="tag tag-cool" aria-hidden="true">
-            Scheduled
-          </span>
+          <span className={status === 'Scheduled' || status === 'In force' ? 'tag tag-cool' : 'tag'}>{status}</span>
         )}
         {note(entry, nameOf)}
       </p>

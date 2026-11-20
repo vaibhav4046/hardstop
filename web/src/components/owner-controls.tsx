@@ -72,15 +72,15 @@ export function OwnerControls({ view, isBusy, run, onReset }: Props) {
       <div className="mt-6 border-t border-rule">
         <details className="disclosure">
           <summary>Change limits</summary>
-          <LimitsForm key={`${policy.perPayment}-${policy.perWindow}`} view={view} isBusy={isBusy} run={run} />
+          <LimitsForm key={`${policy.perPayment}-${policy.perWindow}-${queued?.perPayment}-${queued?.perWindow}`} view={view} isBusy={isBusy} run={run} />
         </details>
 
         <details className="disclosure">
           <summary>Recipients ({view.recipients.length})</summary>
           <ul className="grid gap-3">
             {view.recipients.map((recipient) => (
-              <li key={recipient.address} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                <span>
+              <li key={recipient.address} className="flex items-center justify-between gap-x-4">
+                <span className="min-w-0">
                   <span className="font-medium">{recipient.name}</span>
                   {recipient.approvedFrom > now ? (
                     <span className="tag tag-cool block">Can be paid from {formatTime(recipient.approvedFrom)}</span>
@@ -125,8 +125,9 @@ type FormProps = Pick<Props, 'view' | 'isBusy' | 'run'>
 
 function LimitsForm({ view, isBusy, run }: FormProps) {
   const { policy, queued, schedule, now } = view.state
-  const [perPayment, setPerPayment] = useState(inputValue(policy.perPayment))
-  const [perDay, setPerDay] = useState(inputValue(policy.perWindow))
+  // Starts from what the owner last asked for: a waiting change if there is one, else the rules in force.
+  const [perPayment, setPerPayment] = useState(inputValue((queued ?? policy).perPayment))
+  const [perDay, setPerDay] = useState(inputValue((queued ?? policy).perWindow))
   const [ends, setEnds] = useState(KEEP)
   const [errors, setErrors] = useState<{ perPayment?: string; perDay?: string }>({})
 

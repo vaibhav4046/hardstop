@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { scheduleStatus } from '@/lib/describe'
 import { formatDuration, formatTime, formatUsd } from '@/lib/money'
 import { exampleSetup, namedRecipients, today, UNAPPROVED, type Action, type Entry, type Session, type View } from '@/lib/session'
 import { useVault, type Live } from '@/lib/vault-store'
@@ -144,7 +145,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
   const launched = live !== null && agentKey !== null ? { ...live, vault: { ...live.vault, agentKey } } : null
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_auto_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_auto_auto_1fr]">
       <p className="sr-only" role="status" aria-live="polite">
         {fresh?.said ?? ''}
       </p>
@@ -226,6 +227,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
               : `Today's allowance of ${formatUsd(policy.perWindow)} resets on ${formatTime(day.resetsAt)}.`}
             {leftShown < view.leftToday && ` The rules allow ${formatUsd(view.leftToday)} more today; the figure is capped at what the vault holds.`}
             {view.leftTodayIfChanged !== null &&
+              view.leftTodayIfChanged > view.leftToday &&
               queued !== null &&
               ` If the scheduled change is not cancelled, from ${formatTime(queued.effectiveAt)} the vault allows up to ${formatUsd(view.leftTodayIfChanged < vaultBalance ? view.leftTodayIfChanged : vaultBalance)} more today (an upper limit).`}
           </p>
@@ -245,7 +247,38 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
         )}
       </section>
 
-      <div className="grid content-start gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-2">
+      {/* The worst case sits right under the balance, on a phone too, ahead of the agent and its receipts. */}
+      <section aria-labelledby="worst-title" className="card lg:col-start-1 lg:row-start-3">
+        <h2 id="worst-title" className="label">
+          Worst case if your agent goes rogue
+        </h2>
+        <p className="figure figure-gold mt-2">
+          <Amount value={worstShown} />
+        </p>
+        <p className="soft mt-3">
+          The most it could take from this vault between now and {formatTime(view.worstCaseUntil)}. No change made
+          from now on, by anyone, can raise that before then.
+        </p>
+        {worstShown < view.worstCase && (
+          <p className="small soft mt-2">
+            The rules alone would allow {formatUsd(view.worstCase)}. The figure is capped at what the vault holds.
+          </p>
+        )}
+        {view.worstCaseUntil >= day.resetsAt && !policy.paused && (
+          <p className="small soft mt-2">
+            This can be more than one day&rsquo;s limit: the allowance resets on {formatTime(day.resetsAt)}, so the
+            agent could spend what is left today and then the next day&rsquo;s.
+          </p>
+        )}
+        {queued !== null && queued.effectiveAt <= view.worstCaseUntil && (
+          <p className="small soft mt-2">
+            It counts the scheduled change from the moment it takes effect, so it is an upper limit rather than an
+            exact figure.
+          </p>
+        )}
+      </section>
+
+      <div className="grid content-start gap-6 lg:col-start-2 lg:row-span-3 lg:row-start-2">
         {live === null || launched ? (
           <AgentPanel view={view} entries={entries} isBusy={isBusy} run={run} />
         ) : (
@@ -279,6 +312,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
                     vault={view.vault}
                     isNew={entry.id === fresh?.id}
                     explorer={live?.network.explorer}
+                    status={scheduleStatus(entry, entries.slice(entries.indexOf(entry) + 1), now)}
                   />
                 </li>
               ))}
@@ -287,36 +321,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
         </section>
       </div>
 
-      <div className="grid content-start gap-6 lg:col-start-1 lg:row-start-3">
-        <section aria-labelledby="worst-title" className="card">
-          <h2 id="worst-title" className="label">
-            Worst case if your agent goes rogue
-          </h2>
-          <p className="figure figure-gold mt-2">
-            <Amount value={worstShown} />
-          </p>
-          <p className="soft mt-3">
-            The most it could take from this vault between now and {formatTime(view.worstCaseUntil)}. No change made
-            from now on, by anyone, can raise that before then.
-          </p>
-          {worstShown < view.worstCase && (
-            <p className="small soft mt-2">
-              The rules alone would allow {formatUsd(view.worstCase)}. The figure is capped at what the vault holds.
-            </p>
-          )}
-          {view.worstCaseUntil >= day.resetsAt && !policy.paused && (
-            <p className="small soft mt-2">
-              This can be more than one day&rsquo;s limit: the allowance resets on {formatTime(day.resetsAt)}, so the
-              agent could spend what is left today and then the next day&rsquo;s.
-            </p>
-          )}
-          {queued !== null && queued.effectiveAt <= view.worstCaseUntil && (
-            <p className="small soft mt-2">
-              It counts the scheduled change from the moment it takes effect, so it is an upper limit rather than an
-              exact figure.
-            </p>
-          )}
-        </section>
+      <div className="grid content-start gap-6 lg:col-start-1 lg:row-start-4">
 
         <section aria-labelledby="rules-title" className="card">
           <h2 id="rules-title" className="sub-title">

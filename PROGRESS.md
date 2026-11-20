@@ -11,9 +11,9 @@ the reference; this page only says where things stand.
 | `fe test` (EVM) | 98 passed, 0 failed |
 | `fe test --backend native` (WSL) | 52 passed, 0 failed |
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
-| `scripts/pay-cannot-loosen.sh` | 47 lines starting `ok`: 26 compiler refusals, 7 controls that must compile, 14 source-check lines (3 checks, 11 edits they must catch) |
+| `scripts/pay-cannot-loosen.sh` | 55 lines starting `ok`: 26 compiler refusals, 8 controls that must compile, 21 source-check lines (4 checks, 17 edits they must catch) |
 | Committed web artifacts vs a fresh build | identical |
-| `npm test` (web) | 88 passed, 0 failed, 0 skipped |
+| `npm test` (web) | 89 passed, 0 failed, 0 skipped |
 | `npx tsc --noEmit` | clean |
 | Browser suite | 61 tests; green in CI (GitHub Actions) |
 | Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app |
@@ -45,7 +45,7 @@ the reference; this page only says where things stand.
   refused; the Fe suite passes 2672, with 1 failure that also happens on
   unmodified `master` on Windows. Posted 2026-11-19 and 20. #2048 (block time
   and number in `fe test`) was merged on 2026-11-20; #2042 was approved and a
-  maintainer added a test to it the same day; not yet merged.
+  second maintainer (sbillig) added a test commit to it the same day; not yet merged.
 
 ## Needs the owner
 

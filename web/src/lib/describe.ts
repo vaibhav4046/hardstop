@@ -89,6 +89,26 @@ export function scheduledFor(entry: Extract<Entry, { kind: 'owner' | 'skip' }>):
     : undefined
 }
 
+/**
+ * What became of a change this entry scheduled, from what the owner did
+ * after it and the clock: still waiting, cancelled, replaced by a later
+ * change, or in force. Undefined for an entry that scheduled nothing.
+ */
+export type ScheduleStatus = 'Scheduled' | 'Cancelled' | 'Replaced' | 'In force'
+
+export function scheduleStatus(entry: Entry, later: Entry[], now: bigint): ScheduleStatus | undefined {
+  if (entry.kind !== 'owner') return undefined
+  const at = scheduledFor(entry)
+  if (at === undefined) return undefined
+  for (const next of later) {
+    if (next.kind !== 'owner' || !next.outcome.ok || next.at >= at) continue
+    if (next.action.type === 'cancel') return 'Cancelled'
+    if (next.dropped) return 'Cancelled'
+    if (next.action.type === 'propose' && scheduledFor(next) !== undefined) return 'Replaced'
+  }
+  return now >= at ? 'In force' : 'Scheduled'
+}
+
 /** One line for something the owner did, or for a clock skip. */
 export function note(entry: Extract<Entry, { kind: 'owner' | 'skip' }>, nameOf: (address: string) => string): string {
   if (entry.kind === 'skip') {

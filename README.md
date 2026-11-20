@@ -8,7 +8,7 @@ loss is a number you can read before anything goes wrong.
 **Demo video (2 min, narrated, with music and captions):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 (also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)).
 The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.
-A silent walkthrough (1 min 47 s, recorded 2026-11-19, showing that day's counts: 92 Fe tests, 33 script checks) with the test output and on-chain receipts:
+A silent walkthrough (1 min 47 s, recorded 2026-11-19; the test counts on screen are from that day, the current ones are in the table below) with the test output and on-chain receipts:
 [watch](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4)
 ([`web/public/demo/hardstop-walkthrough.mp4`](web/public/demo/hardstop-walkthrough.mp4)).
 
@@ -23,14 +23,14 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `98 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 47 lines starting `ok` |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 55 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `88` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `89` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 61 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
-| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2048 merged into Fe on 2026-11-20; #2042 approved by a Fe maintainer, who added a test of his own to it the same day, not yet merged; #2041 open; the job is green |
+| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2048 merged into Fe on 2026-11-20; #2042 approved by micahscopes, and sbillig added a test commit to it the same day, not yet merged; #2041 open; the job is green |
 | Every command in this table runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
 
 What the compiler does not cover, and why: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -144,15 +144,18 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 `own`, `#[must_use]`) bound to the real caller; and `static_assert`s run the
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
-refuse each attack (26 refusals, plus 7 control edits that must still
-compile and 14 source-check lines, in
+refuse each attack (26 refusals, plus 8 control edits that must still
+compile and 21 source-check lines, in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source
 check (it reads the text; it is not a compiler guarantee) requires `Pay`'s
 only transfer to be exactly `safe_transfer(token, receiver: to, amount)`,
 right after the ledger is updated, pins what `Pay` tells the kernel, and
-catches eight edits that compile.
+catches eight edits that compile. A further source check pins the vault's
+whole shape (its imports, storage, handlers and their `uses`, no token
+approvals, and the chain's own time for every `now` given to the kernel)
+and catches six more edits that compile and pass every test.
 
 The full account, with every error code and limit:
 [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -167,9 +170,9 @@ from any ingot, which lets user code forge `std`'s sealed `Call` and `Ctx`
 capabilities. Three have fixes from this project:
 [#2048](https://github.com/argotorg/fe/pull/2048), which lets `fe test` set
 the block time and number, was merged into Fe on 2026-11-20;
-[#2042](https://github.com/argotorg/fe/pull/2042) was approved by a Fe
-maintainer, and another added a test of his own to it, on 2026-11-20, not
-yet merged; [#2041](https://github.com/argotorg/fe/pull/2041) is open. The
+[#2042](https://github.com/argotorg/fe/pull/2042) was approved by
+micahscopes, and sbillig added a test commit to it, on 2026-11-20, not yet
+merged; [#2041](https://github.com/argotorg/fe/pull/2041) is open. The
 first two compiler patches are also in [`research/fe-patches/`](research/fe-patches/):
 `2-private-trait-visibility.patch` makes a private trait named outside its
 module "not visible" (2-0003) in an `impl` header, a bound, a `where`
@@ -247,7 +250,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 88 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 89 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 61 browser tests against the production build

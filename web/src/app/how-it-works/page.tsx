@@ -236,6 +236,11 @@ export default function HowItWorks() {
         <h2 id="deeper-title" className="section-title">
           For technical readers
         </h2>
+        <p className="section-lede">
+          The vault is written in Fe. Its payment handler is given the rules read-only, so an agent payment that tries
+          to change them does not compile. What the compiler checks, and what it does not, is on the{' '}
+          <Link href="/developers">developers page</Link>.
+        </p>
         <details className="card disclosure mt-6 !py-2">
           <summary>How the rules are written and checked</summary>
           <div className="prose">

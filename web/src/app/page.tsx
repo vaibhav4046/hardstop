@@ -70,6 +70,10 @@ export default function Home() {
           The agent can only ask. The vault checks each payment against your rules, in the same order, every time, and
           a request to change a rule never reaches them.
         </p>
+        <p className="section-lede">
+          The vault is written in <Link href="/developers">Fe</Link>. Its payment handler is given the rules read-only,
+          so an agent payment that tries to change them does not compile.
+        </p>
         <VaultDiagram />
       </section>
 
