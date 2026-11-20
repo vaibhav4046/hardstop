@@ -6,7 +6,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { amountError, formatDuration, formatTime, formatUsd, inputValue, parseUsd } from '@/lib/money'
-import { DAY, practiceAddress, type Action, type Entry, type View } from '@/lib/session'
+import { DAY, nameProblem, practiceAddress, sameName, type Action, type Entry, type View } from '@/lib/session'
 import { MoneyField } from './money-field'
 
 type Props = {
@@ -191,9 +191,10 @@ function RecipientForm({ view, isBusy, run }: FormProps) {
     const problem =
       wanted === ''
         ? 'Enter a name for the recipient.'
-        : view.recipients.some((recipient) => recipient.name.toLowerCase() === wanted.toLowerCase())
-          ? 'There is already a recipient with that name.'
-          : undefined
+        : (nameProblem(wanted) ??
+          (view.recipients.some((recipient) => sameName(recipient.name, wanted))
+            ? 'There is already a recipient with that name.'
+            : undefined))
     setError(problem)
     if (problem) return
     if (await run({ type: 'addRecipient', name: wanted, address: practiceAddress() })) setName('')

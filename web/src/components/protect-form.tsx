@@ -7,7 +7,7 @@ import type { Step } from '@/lib/live/launch'
 import { NETWORKS } from '@/lib/live/wallet'
 import { loadSim } from '@/lib/load-sim'
 import { amountError, formatDuration, formatTime, formatUsd, parseUsd } from '@/lib/money'
-import { build, DAY, practiceAddress, snapshot, type SessionSetup, type View } from '@/lib/session'
+import { build, DAY, nameProblem, practiceAddress, sameName, snapshot, type SessionSetup, type View } from '@/lib/session'
 import { useVault } from '@/lib/vault-store'
 import { MoneyField } from './money-field'
 
@@ -85,9 +85,10 @@ export function ProtectForm() {
       found.perPayment = 'One payment cannot be larger than the whole day’s limit.'
     }
     const names = rows.map((row) => row.name.trim())
+    const nameIssue = names.map(nameProblem).find(Boolean)
     if (names.some((name) => name === '')) found.recipients = 'Give every recipient a name, or remove the empty one.'
-    else if (names.some((name) => name.length > 40)) found.recipients = 'Keep each name to 40 characters or fewer.'
-    else if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
+    else if (nameIssue) found.recipients = nameIssue
+    else if (names.some((name, i) => names.findIndex((other) => sameName(other, name)) !== i)) {
       found.recipients = 'Two recipients have the same name. Give each a different one.'
     }
     return Object.fromEntries(Object.entries(found).filter(([, message]) => message)) as Errors

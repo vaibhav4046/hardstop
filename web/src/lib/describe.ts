@@ -97,13 +97,13 @@ export function note(entry: Extract<Entry, { kind: 'owner' | 'skip' }>, nameOf: 
     case 'propose': {
       const takesEffect = scheduledFor(entry)
       return takesEffect === undefined
-        ? 'You changed the rules. Nothing in the change was looser, so it is in force at once.'
+        ? `You changed the rules. Nothing in the change was looser, so it is in force at once.${entry.dropped ? ' The looser change that was waiting was dropped.' : ''}`
         : `You asked for looser rules. Scheduled: they take effect ${formatTime(takesEffect)}.`
     }
     case 'cancel':
       return 'You cancelled the scheduled change. The rules stay as they are.'
     case 'pause':
-      return 'You paused the agent. In force at once.'
+      return `You paused the agent. In force at once.${entry.dropped ? ' The looser change that was waiting was dropped.' : ''}`
     case 'addRecipient': {
       const changed = outcome.events.find((event) => event.name === 'RecipientChanged')
       return `You added ${action.name}. It can be paid from ${changed ? formatTime(changed.approvedFrom) : 'the end of the cooling period'}.`

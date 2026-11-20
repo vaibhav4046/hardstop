@@ -283,7 +283,9 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
             </div>
             <div>
               <dt>Agent</dt>
-              <dd className={policy.paused ? 'text-stop' : undefined}>{policy.paused ? 'Paused' : 'Active'}</dd>
+              <dd className={policy.paused || now >= policy.validUntil ? 'text-stop' : undefined}>
+                {now >= policy.validUntil ? 'Permission ended' : policy.paused ? 'Paused' : 'Active'}
+              </dd>
             </div>
             <div>
               <dt>Cooling period</dt>

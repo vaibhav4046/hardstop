@@ -60,7 +60,15 @@ export type Entry =
       leftToday: bigint
     }
   | { id: number; kind: 'agentRaise'; at: bigint; outcome: Outcome }
-  | { id: number; kind: 'owner'; at: bigint; action: OwnerAction; outcome: Outcome }
+  | {
+      id: number
+      kind: 'owner'
+      at: bigint
+      action: OwnerAction
+      outcome: Outcome
+      /** A looser change was waiting before this action and is gone after it (a pause or a tightening drops it). */
+      dropped?: boolean
+    }
   | { id: number; kind: 'skip'; at: bigint; seconds: bigint }
 
 /** Everything the screens show, read from the contract after each action. */
@@ -134,16 +142,18 @@ export async function apply(sim: Sim, action: Action, id: number): Promise<Entry
       return { id, kind: 'skip', at: sim.chain.now, seconds }
     }
     case 'propose':
-      return owner(id, at, action, await sim.propose({
-        perPayment: BigInt(action.perPayment),
-        perWindow: BigInt(action.perDay),
-        validUntil: BigInt(action.validUntil),
-        paused: action.paused,
-      }))
+      return dropping(sim, () =>
+        sim.propose({
+          perPayment: BigInt(action.perPayment),
+          perWindow: BigInt(action.perDay),
+          validUntil: BigInt(action.validUntil),
+          paused: action.paused,
+        }),
+      ).then(({ outcome, dropped }) => ({ ...owner(id, at, action, outcome), dropped }))
     case 'cancel':
       return owner(id, at, action, await sim.cancelQueued())
     case 'pause':
-      return owner(id, at, action, await sim.pause())
+      return dropping(sim, () => sim.pause()).then(({ outcome, dropped }) => ({ ...owner(id, at, action, outcome), dropped }))
     case 'addRecipient':
       return owner(id, at, action, await sim.setRecipient(action.address, true))
     case 'removeRecipient':
@@ -151,6 +161,14 @@ export async function apply(sim: Sim, action: Action, id: number): Promise<Entry
     case 'withdraw':
       return owner(id, at, action, await sim.withdraw(BigInt(action.amount)))
   }
+}
+
+/** Runs an owner call and says whether a looser change that was waiting before it is gone after it. */
+async function dropping(sim: Sim, call: () => Promise<Outcome>): Promise<{ outcome: Outcome; dropped: boolean }> {
+  const before = (await sim.state()).queued
+  const outcome = await call()
+  const after = (await sim.state()).queued
+  return { outcome, dropped: outcome.ok && before !== null && after === null }
 }
 
 function owner(id: number, at: bigint, action: OwnerAction, outcome: Outcome): Entry {
@@ -222,7 +240,20 @@ export function today(state: State): { spent: bigint; resetsAt: bigint } {
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const isAmount = (value: unknown): value is string => typeof value === 'string' && /^\d{1,30}$/.test(value)
 const isAddress = (value: unknown): value is Hex => typeof value === 'string' && /^0x[0-9a-f]{40}$/.test(value)
-const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 40
+/** Invisible and text-direction characters: they can make one name look like another, or show it reversed. */
+const HIDDEN_CHARACTERS = /[ --­؜᠎​-‏‪-‮⁠-⁯﻿]/
+
+/** Two names that read the same: compared after Unicode normalisation and without case. */
+export const sameName = (a: string, b: string): boolean => a.normalize('NFC').toLowerCase() === b.normalize('NFC').toLowerCase()
+
+/** Why `name` cannot be a recipient's name, or undefined when it can. */
+export function nameProblem(name: string): string | undefined {
+  if (name.trim() === '') return 'Give every recipient a name.'
+  if (name.length > 40) return 'Keep each name to 40 characters or fewer.'
+  if (HIDDEN_CHARACTERS.test(name)) return 'Names cannot contain invisible or text-direction characters.'
+}
+
+const isName = (value: unknown): value is string => typeof value === 'string' && value === value.trim() && nameProblem(value) === undefined
 const isRecipient = (value: unknown): value is Recipient => isObject(value) && isName(value.name) && isAddress(value.address)
 
 function isAction(value: unknown): value is Action {
