@@ -354,7 +354,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 valid_until: Instant::at(valid_until),
                 paused,
             }
-            let next = terms.amend(proof, proposed, now: seconds(ctx.timestamp()))
+            let next = terms.amend(proof, proposed)
             terms = next
             log.emit(
                 PolicyProposed {
@@ -369,13 +369,13 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
 
         CancelQueued uses (ctx, owner, mut terms, mut log) {
             let proof = only(owner, ctx)
-            terms = terms.cancel(proof, now: seconds(ctx.timestamp()))
+            terms = terms.cancel(proof)
             log.emit(QueueCancelled {})
         }
 
         Pause uses (ctx, owner, mut terms, mut log) {
             let proof = only(owner, ctx)
-            let next = terms.pause(proof, now: seconds(ctx.timestamp()))
+            let next = terms.pause(proof)
             terms = next
             let stopped = next.rules().active
             log.emit(
@@ -392,13 +392,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         SetRecipient { who, approved } uses (ctx, owner, terms, mut approved_from, mut log) {
             let proof = only(owner, ctx)
             let from = terms
-                .approve_from(
-                    proof,
-                    who,
-                    current: approved_from.get(key: who),
-                    approved,
-                    now: seconds(ctx.timestamp()),
-                )
+                .approve_from(proof, who, current: approved_from.get(key: who), approved)
             approved_from.set(key: who, value: from)
             log.emit(
                 RecipientChanged { who, approved_from: from.of(who).secs() },

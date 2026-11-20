@@ -148,7 +148,7 @@ for handler in 'Propose {' 'CancelQueued uses' 'Pause uses' 'SetRecipient {' 'Wi
     "$handler" "$ONLY_LINE" replace ''
 done
 refused 'Withdraw with a hand-made OwnerCall' '`granted` is not visible' 2-0003 \
-  'Withdraw {' "$ONLY_LINE" replace 'let proof = OwnerCall { granted: true }'
+  'Withdraw {' "$ONLY_LINE" replace 'let proof = OwnerCall { granted: true, now: Instant::at(1) }'
 refused 'Withdraw with an Owner made for the caller' '`address` is not visible' 2-0003 \
   'Withdraw {' "$ONLY_LINE" replace 'let proof = only(Owner { address: ctx.caller() }, ctx)'
 refused "Withdraw with the kernel's authorize" 'expected `OwnerCall`, but `OwnerProof` is given' 8-0000 \
@@ -437,7 +437,8 @@ state_check_catches 'Pay resetting what was spent today' \
 # exactly these imports, no glob import and no type alias, exactly these
 # storage fields, exactly these handlers with exactly these uses, no token
 # approval or transfer_from anywhere, and every "now" given to the kernel is
-# the chain's own time. A new handler, a new capability on an old one, a
+# the chain's own time (for the owner's changes the compiler sees to that
+# too: the time comes with the owner's proof). A new handler, a new capability on an old one, a
 # Terms kept under another name, an allowance granted to the caller, or a
 # made-up time all fail here.
 SHAPE_HEADS='init(owner_: Address, agent_: Address, token_: Address, per_payment: u256, per_window: u256, valid_until: u64, window_secs: u64, cooling_secs: u64, payee_a: Address, payee_b: Address, payee_c: Address) uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from) {
@@ -522,12 +523,16 @@ shape_check_catches() {
   echo "ok   source check catches: $name"
 }
 vault_sed() { sed "$@" "$ROOT/fe/src/vault.fe"; }
-# Each of these compiled and passed fe test and every check above (an Fe judge, 2026-11-20).
+# An Fe judge (2026-11-20) found the edits below compiled and passed fe test
+# and every check above. The first is now the compiler's: the owner's proof
+# carries the chain's time (read by `prove` from the concrete `Evm`), and
+# `Terms`'s functions take no time of their own, so a made-up one does not
+# compile. The source check catches it too.
 MADE_UP_TIME='let next = terms.amend(proof, proposed, now: Instant::at(1))'
-control 'NOT covered by the compiler: Propose giving the kernel a made-up time, so a raise matures at once' \
-  'Propose {' 'let next = terms.amend(proof, proposed, now: seconds(ctx.timestamp()))' replace "$MADE_UP_TIME"
+refused 'Propose giving the kernel a made-up time (a raise would mature at once)' 'argument number mismatch' 8-0023 \
+  'Propose {' 'let next = terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
 shape_check_catches 'Propose giving the kernel a made-up time' \
-  edit_handler 'Propose {' 'let next = terms.amend(proof, proposed, now: seconds(ctx.timestamp()))' replace "$MADE_UP_TIME"
+  edit_handler 'Propose {' 'let next = terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
 shape_check_catches 'a glob import, to name Terms another way' \
   vault_sed 's/^use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}$/use ingot::kernel::sealed::*/'
 shape_check_catches 'a type alias for Terms' vault_sed 's/^pub contract Vault uses/type Kept = Terms\n\npub contract Vault uses/'

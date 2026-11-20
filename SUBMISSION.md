@@ -59,8 +59,11 @@ approved_from, mut ledger, mut call, mut log)`: the rules appear without
 `mut`, so the agent's only handler cannot change them.
 
 The compiler guarantees that stored rules come only from the kernel's own
-functions, which apply the cooling period. The time the vault passes them is
-not compiler-checked: a CI source check requires it to be the chain's. The
+functions, which apply the cooling period, at the chain's own time: the
+owner's proof (`OwnerCall`) is made by `prove` from the concrete `Evm` and
+carries the block time in a private field, and `Terms`'s functions take no
+time of their own, so a handler that passes a made-up time does not compile
+(8-0023). The
 vault stores them as `Terms`, whose field only `fe/src/kernel/sealed.fe`
 can see, so no handler can build terms, store a hand-built `Rules` or write
 a field. New
@@ -131,7 +134,7 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
   the unit tests and the browser suite on every push
   ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
 - On Base Sepolia (public test network), with the current contracts
-  (2026-11-19): the launcher installed, a vault created, two payments, $80
+  (2026-11-20): the launcher installed, a vault created, two payments, $80
   refused with code 10, a self-raise reverted, a raise proposed, cancelled
   and paused, and the gas of every call, each with its transaction link, in
   the README. Earlier builds ran there too, including a vault opened by

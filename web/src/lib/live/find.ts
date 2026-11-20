@@ -23,8 +23,10 @@ export class Refused extends Error {}
  */
 export const VAULT_IMMUTABLE_BYTES = 128
 export const KNOWN_VAULT_CODE: Readonly<Record<Hex, string>> = {
+  '0xb5b582328f1d7df187779837f3b8a58c28328ca7bfac887928eb4e6a91c259ce':
+    "the current build, where the owner's proof carries the chain's time (launcher 0x770bbe43a3669f066b8dc3274ff6dca9f22a8fd1)",
   '0x4975c54738332e56f3f39e3d525cf2ea5432281b830a4165eeb5f59fe3c21b84':
-    'the current build, with amend and cancel checked at compile time (launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44, on Base Sepolia since 2026-11-19)',
+    'an earlier build, with amend and cancel checked at compile time (launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44, on Base Sepolia since 2026-11-19)',
   '0xa5840ccfc835c9734732b1e29de030b851da06e4e3be8a12a6288c5573514c2d':
     'an earlier build, with sealed recipient approvals (launcher 0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b)',
   '0x6e3ff3daea0dc95ed16ecaa344d3fdfdda76949991bf822fa040130ac3d1e719':

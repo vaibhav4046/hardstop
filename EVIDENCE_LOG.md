@@ -724,3 +724,35 @@ the agent resumes; a "Pause now" button sits by the balance; the home page
 leads with a no-keys demo command; the /protect form moves the cursor to a
 new recipient and clears an error once it is fixed; a vault opened by link
 says so when the connected wallet is not its owner.
+
+### The time is the compiler's, and new contracts on Base Sepolia, 20 Nov
+
+An Fe judge found that an owner handler could give the kernel a made-up
+time (`terms.amend(proof, proposed, now: Instant::at(1))`): it compiled and
+passed every test, and a raise would mature at once. The owner's proof
+(`OwnerCall`) now carries the block time, read by `prove` from the concrete
+`Evm` into a private field, and `Terms::amend`, `cancel`, `pause` and
+`approve_from` take no time argument. The same edit now fails with 8-0023
+("argument number mismatch"); a hand-made proof with a made-up time fails
+with 2-0003. `fe test` 98 passed; native 52; refusal script 55 ok (27
+refused, 7 controls, 21 source-check lines).
+
+The bytecode changed, so the launcher address did too. Installed and re-run
+on Base Sepolia with the throwaway test key (`web/scripts/base-sepolia-evidence.ts`):
+
+```
+launcher 0x770bbe43a3669f066b8dc3274ff6dca9f22a8fd1  install 0x7e1da5bf...8cf5  gas 2,313,081
+vault    0x76a0494dd6c205671adde95defc04c21a4e32100  created 0xcf1b4aa2...7017  gas 1,893,783
+agent pays $4            0x77d173c1...1334  gas 124,132  verdict 0
+agent pays $4 again      0x91824c8f...b8f   gas  72,844  verdict 0
+agent asks for $80       0x5526d9d3...bb7   gas  51,907  verdict 10, limit $10
+agent raises own limit   reverted NotOwner in the rehearsal, nothing sent
+owner proposes $40/day   0xa91d5797...4a301 gas 106,115
+owner cancels it         0xd52080c8...0ef   gas  41,588
+owner pauses             0xe8fa2fea...857b  gas  46,075
+after: vault 92 test dollars, recipient 8; per day 20, paused, nothing queued
+```
+
+Read back from `https://sepolia.base.org`: every receipt has status 1; the
+vault's runtime is 7,985 bytes and its code hash
+(`0xb5b58232...59ce`) is the first entry of `KNOWN_VAULT_CODE`.

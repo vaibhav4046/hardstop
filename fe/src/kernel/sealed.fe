@@ -54,10 +54,12 @@ pub struct Owner { address: Address }
 pub struct Terms { rules: Rules }
 
 /// Evidence that the current call comes from the `Owner` it was proved
-/// against. Like `OwnerProof`: not `Copy`, spent by its first use, and a
-/// proof that is made and dropped is refused.
+/// against, and the chain's time when it was proved. Like `OwnerProof`: not
+/// `Copy`, spent by its first use, and a proof that is made and dropped is
+/// refused. The time is read from the concrete `Evm` by `prove` and its
+/// field is private, so the functions below cannot be given any other time.
 #[must_use]
-pub struct OwnerCall { granted: bool }
+pub struct OwnerCall { granted: bool, now: Instant }
 
 /// The moment from which `who` may be paid. Second zero, which is also
 /// what storage nobody wrote holds, means not approved.
@@ -107,10 +109,12 @@ pub fn founding(_ ctx: Evm, who: Address) -> Option<Approval> {
     Option::Some(Approval { who, from: now })
 }
 
-/// An `OwnerCall` when the caller of the current call is `owner`.
+/// An `OwnerCall` when the caller of the current call is `owner`,
+/// carrying the chain's time.
 pub fn prove(_ owner: Owner, ctx: Evm) -> Option<OwnerCall> {
     if owner.address != Address::zero() && ctx.caller() == owner.address {
-        Option::Some(OwnerCall { granted: true })
+        let now = Instant::at(ctx.timestamp().as_seconds().downcast_saturate())
+        Option::Some(OwnerCall { granted: true, now })
     } else {
         Option::None
     }
@@ -132,8 +136,9 @@ impl Terms {
         self.rules.schedule.window_secs == Seconds::of(0)
     }
 
-    /// The kernel's `amend`.
-    pub fn amend(self, _ proof: own OwnerCall, proposed: Policy, now: Instant) -> Terms {
+    /// The kernel's `amend`, at the time the proof carries.
+    pub fn amend(self, _ proof: own OwnerCall, proposed: Policy) -> Terms {
+        let now = proof.now
         let proof = kernel_proof(proof)
         if self.blank() {
             return self
@@ -141,8 +146,9 @@ impl Terms {
         Terms { rules: amend(proof, rules: self.rules, proposed, now) }
     }
 
-    /// The kernel's `cancel`.
-    pub fn cancel(self, _ proof: own OwnerCall, now: Instant) -> Terms {
+    /// The kernel's `cancel`, at the time the proof carries.
+    pub fn cancel(self, _ proof: own OwnerCall) -> Terms {
+        let now = proof.now
         let proof = kernel_proof(proof)
         if self.blank() {
             return self
@@ -152,22 +158,22 @@ impl Terms {
 
     /// The policy in force, paused, applied at once; anything queued is
     /// dropped.
-    pub fn pause(self, _ proof: own OwnerCall, now: Instant) -> Terms {
-        var stopped = self.rules.current(now)
+    pub fn pause(self, _ proof: own OwnerCall) -> Terms {
+        var stopped = self.rules.current(now: proof.now)
         stopped.paused = true
-        self.amend(proof, proposed: stopped, now)
+        self.amend(proof, proposed: stopped)
     }
 
-    /// The kernel's `approve_from` for `who`, with this vault's schedule.
-    /// `current` is what is stored for `who` now.
+    /// The kernel's `approve_from` for `who`, with this vault's schedule,
+    /// at the time the proof carries. `current` is what is stored for `who` now.
     pub fn approve_from(
         self,
         _ proof: own OwnerCall,
         who: Address,
         current: Approval,
         approved: bool,
-        now: Instant,
     ) -> Approval {
+        let now = proof.now
         let proof = kernel_proof(proof)
         if self.blank() {
             return current

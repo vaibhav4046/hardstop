@@ -962,7 +962,6 @@ contract Reopener uses (ctx: Ctx) {
                         valid_until: Instant::at(FAR_FUTURE),
                         paused: false,
                     },
-                    now,
                 )
             spare.rules().current(now).per_payment
         }

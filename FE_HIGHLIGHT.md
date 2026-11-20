@@ -20,7 +20,7 @@ ok   refused: Pay writing terms
 ok   refused: Pay approving a recipient
 ...
 ok   refused: amend applying a raise at once
-                                   (55 lines starting ok: 26 refused, 8 controls, 21 source checks)
+                                   (55 lines starting ok: 27 refused, 7 controls, 21 source checks)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
                                    (CI runs both on every push, plus the patched compiler: job patched-fe;
@@ -36,12 +36,13 @@ Output pasted from a run on 2026-11-20. [CI runs](https://github.com/vaibhav4046
 | The agent's `Pay` cannot change the rules or approve a recipient | `terms`, `approved_from` without `mut` in `Pay`'s `uses` | assign either in `Pay`: 8-0018, 8-0066 |
 | No handler can make new rules except through the cooling period | sealed `Terms` (private field) | build or write `Terms`: 2-0003; store a plain `Rules`: 8-0000 |
 | No handler can approve a recipient at once | sealed `Approval` | store a date: 8-0000; build an `Approval`: 2-0003 |
+| Owner changes happen at the chain's own time | `OwnerCall` carries the block time in a private field, read by `prove` from the concrete `Evm`; `Terms`'s functions take no time argument | a made-up time passed to `amend`: 8-0023; a hand-made proof with a made-up time: 2-0003 |
 | Owner actions need the real owner, once | sealed `OwnerCall`, `own`, not `Copy`, `#[must_use]`, `prove` takes the concrete `Evm` | hand-made proof or `Owner`: 2-0003; `authorize`'s proof or a stand-in `Ctx` passed to `prove`: 8-0000; no proof: 8-0012; reuse: 16-0002; drop: 8-0082 |
 | Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Terms` or `Approval` kept in a second storage field and put back (both are `Copy`); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches all three edits; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
 | Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide` | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires each of those lines exactly as written, once, and catches four edits that change them |
-| Not covered by the compiler | the time an owner handler gives the kernel (a made-up time matures a raise at once); a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller | edits compile and pass `fe test` (CI shows the made-up time compiling); a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits |
+| Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
 | Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug, [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
 The first five rows are edits that
