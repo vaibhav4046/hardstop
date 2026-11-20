@@ -11,7 +11,7 @@ push, and check that commit's CI run is green.
 | Repository | https://github.com/vaibhav4046/hardstop |
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
-| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and two open pull requests, #2041 and #2042 (not yet merged) |
+| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and two pull requests: #2042 approved by a Fe maintainer on 2026-11-20, #2041 open; neither merged yet |
 | Live app | https://hardstop-omega.vercel.app |
 | Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A longer silent walkthrough with test output and receipts: https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
@@ -85,8 +85,8 @@ a verdict allowed. An edit that pays the caller more compiles, even in a
 `Pay` without `mut call`, because any type can implement Fe 26.6's `Call`;
 the tests catch it, not the compiler. That last gap is a Fe bug (a private
 trait is not visibility-checked in an `impl` header or a bound), reported
-as argotorg/fe#2036, and pull request argotorg/fe#2042 (open, not yet
-merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
+as argotorg/fe#2036, and pull request argotorg/fe#2042 (approved by a Fe
+maintainer on 2026-11-20, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
 it in the compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
 (2-0003), HARDSTOP's 95 tests still pass, and the Fe suite passes apart
 from one language-server test that fails on unmodified `master` too.

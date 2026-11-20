@@ -5,8 +5,10 @@ official starter (`fe-lang/builders-challenge-starter`) links its issue tracker;
 there is commit `5b3f96a`, the one `fe --version` reports. `fe-lang/fe` is a fork with issues
 turned off.
 
-**Posted on 2026-11-19**, with the owner's approval, as six issues and two pull requests. All are
-open; none is merged or reviewed yet.
+**Posted on 2026-11-19**, with the owner's approval, as six issues and two pull requests. On
+2026-11-20 a Fe maintainer (micahscopes) approved #2042: "Thanks for catching this! My initial
+look suggests this is ready to go, but I'm doing a more thorough review." Nothing is merged yet;
+the other pull request and the issues have no reply yet.
 
 | Draft | Posted as | Fix |
 |---|---|---|

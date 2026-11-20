@@ -93,8 +93,8 @@ uses it, not every path, so the vault does not have one. The script keeps
 both edits as controls that must compile on Fe 26.6.
 
 The forged `Call` is a compiler bug, and it is fixed in pull request
-[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) (open, not yet
-merged; the same patch is
+[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) (approved by a Fe
+maintainer on 2026-11-20, not yet merged; the same patch is
 [`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch)):
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not
