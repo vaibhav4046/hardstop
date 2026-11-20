@@ -51404,8 +51404,11 @@ async function apply(sim, action, id) {
       const amount2 = BigInt(action.amount);
       const nonce = BigInt(action.nonce);
       const outcome = await sim.pay(action.to, amount2, nonce);
-      const left = await leftToday(sim, await sim.state());
-      return { id, kind: "payment", at, to: action.to, amount: amount2, nonce, outcome, leftToday: left };
+      const state = await sim.state();
+      const left = await leftToday(sim, state);
+      const from = outcome.code === RECIPIENT_NOT_APPROVED ? await sim.approvedFrom(action.to) : 0n;
+      const approvedFrom = from > state.now ? from : void 0;
+      return { id, kind: "payment", at, to: action.to, amount: amount2, nonce, outcome, leftToday: left, ...approvedFrom ? { approvedFrom } : {} };
     }
     case "agentRaise": {
       const { policy } = await sim.state();
@@ -51454,7 +51457,11 @@ function owner(id, at, action, outcome) {
   return { id, kind: "owner", at, action, outcome };
 }
 async function leftToday(sim, state) {
-  return sim.exposure(today(state).resetsAt - 1n);
+  const end = today(state).resetsAt - 1n;
+  return sim.exposure(changeLandsToday(state) ? state.queued.effectiveAt - 1n : end);
+}
+function changeLandsToday(state) {
+  return state.queued !== null && state.queued.effectiveAt > state.now && state.queued.effectiveAt < today(state).resetsAt;
 }
 function today(state) {
   const { anchor: anchor2, windowSecs } = state.schedule;
@@ -51464,12 +51471,13 @@ function today(state) {
     resetsAt: anchor2 + (index + 1n) * windowSecs
   };
 }
-var AGENT_RAISE, LATIN, MIXED_ALPHABETS;
+var AGENT_RAISE, RECIPIENT_NOT_APPROVED, LATIN, MIXED_ALPHABETS;
 var init_session = __esm({
   "src/lib/session.ts"() {
     "use strict";
     init_money();
     AGENT_RAISE = 1000n * USD;
+    RECIPIENT_NOT_APPROVED = 9;
     LATIN = new RegExp("\\p{Script=Latin}", "u");
     MIXED_ALPHABETS = [new RegExp("\\p{Script=Cyrillic}", "u"), new RegExp("\\p{Script=Greek}", "u")];
   }
@@ -51495,6 +51503,14 @@ function verdict(entry, f = FORMAT) {
     };
   }
   const { code, detail } = entry.outcome;
+  if (code !== void 0 && entry.approvedFrom !== void 0) {
+    return {
+      tone: "blocked",
+      stamp: "Blocked",
+      headline: "Blocked: recipient still waiting",
+      sentence: `This recipient can be paid from ${f.time(entry.approvedFrom)}, when its waiting period ends.`
+    };
+  }
   if (code !== void 0) {
     const said = explain(code, detail ?? 0n, f);
     return {

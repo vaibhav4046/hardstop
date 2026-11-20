@@ -18,6 +18,8 @@ import { source } from '@/lib/links'
 /** The one install line shown: the stdio form from web/mcp/clients/claude-code/README.md, on one line. Keep the two in step. */
 export const INSTALL_COMMAND =
   'claude mcp add --env HARDSTOP_AGENT_KEY=<agent key> --env HARDSTOP_VAULT=<vault> --env HARDSTOP_CHAIN_ID=84532 --transport stdio --scope user hardstop -- npx -y github:vaibhav4046/hardstop'
+/** No keys and no vault: the server starts its own practice vault in memory. */
+export const DEMO_COMMAND = 'claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo'
 const SETUP_GUIDE = source('web/mcp/README.md')
 
 // Each logo's own colour, shown on hover (and always on a touch screen).
@@ -33,12 +35,13 @@ const CLIENTS = [
   { file: 'python', name: 'Python', brand: 'linear-gradient(135deg, #3776ab 50%, #ffd43b 50%)' },
 ] as const
 
-export function ConnectAI() {
+/** One command with a copy button that says when it worked. */
+function CommandLine({ command, what }: { command: string; what: string }) {
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(INSTALL_COMMAND)
+      await navigator.clipboard.writeText(command)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -46,6 +49,24 @@ export function ConnectAI() {
       setCopied(false)
     }
   }
+
+  return (
+    <>
+      <div className="connect-line mt-3">
+        {/* Focusable, so the line can be scrolled with the keyboard where it is wider than the screen. */}
+        <code tabIndex={0}>{command}</code>
+        <button type="button" className="btn" onClick={copy} aria-label={copied ? `Copied ${what}` : `Copy ${what}`}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <p className="sr-only" role="status" aria-live="polite">
+        {copied ? `${what[0].toUpperCase()}${what.slice(1)} copied.` : ''}
+      </p>
+    </>
+  )
+}
+
+export function ConnectAI() {
 
   return (
     <section className="wrap band" aria-labelledby="connect-title">
@@ -73,19 +94,17 @@ export function ConnectAI() {
       </ul>
 
       <div className="connect-install card mt-10">
-        <p className="panel-title">
-          Install in Claude Code
+        <p className="panel-title">Try it in Claude Code, with no keys</p>
+        <p className="small soft mt-1">
+          A practice vault in memory, $10 a payment and $20 a day. Ask Claude to pay $15 and watch it refused. On Windows,
+          write <code>cmd /c npx</code> for <code>npx</code>.
         </p>
-        <div className="connect-line mt-3">
-          {/* Focusable, so the line can be scrolled with the keyboard where it is wider than the screen. */}
-          <code tabIndex={0}>{INSTALL_COMMAND}</code>
-          <button type="button" className="btn" onClick={copy}>
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        </div>
-        <p className="sr-only" role="status" aria-live="polite">
-          {copied ? 'Install line copied.' : ''}
+        <CommandLine command={DEMO_COMMAND} what="demo line" />
+        <p className="panel-title mt-8">With your own vault</p>
+        <p className="small soft mt-1">
+          <a href="/protect">Create a vault</a> first; its page then fills in the agent key and vault for you.
         </p>
+        <CommandLine command={INSTALL_COMMAND} what="install line" />
         <p className="small soft mt-4">
           The other assistants, and the tools the agent gets, are in the{' '}
           <a href={SETUP_GUIDE} rel="noopener noreferrer">

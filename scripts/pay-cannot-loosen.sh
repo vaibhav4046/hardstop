@@ -353,6 +353,56 @@ pay_check_catches 'Pay doubling the amount before the transfer' \
 pay_check_catches 'Pay transferring twice' \
   "$PAY" "$TRANSFER" after 'safe_transfer(token, receiver: to, amount)'
 
+# What the compiler does not stop either: a vault that keeps a second copy
+# of its rules or approvals in storage and puts it back later (Terms and
+# Approval are Copy), or a Pay that writes its own ledger. A source check of
+# vault.fe (comments stripped; it reads the text, it is not a compiler
+# guarantee): the name Terms appears only in the import and the one storage
+# field, Approval only in the import, founded and the one map; ledger is
+# assigned only in init and as ledger = next in Pay, and only init builds a
+# Ledger.
+check_state() {
+  awk '
+    { code = " " $0 " "; sub(/\/\/.*/, " ", code) }
+    { terms += gsub(/[^A-Za-z0-9_]Terms[^A-Za-z0-9_]/, "&", code) }
+    { approvals += gsub(/[^A-Za-z0-9_]Approval[^A-Za-z0-9_]/, "&", code) }
+    { built += gsub(/[^A-Za-z0-9_]Ledger *\{/, "&", code) }
+    code ~ /[^A-Za-z0-9_.]ledger *= [^=]/ {
+      writes++
+      if (code !~ /^ +ledger = next *$/ && code !~ /^ +ledger = Ledger \{ window: 0, spent: 0, next_nonce: 0 \} *$/) bad = "ledger written another way: " $0
+    }
+    END {
+      if (bad != "") { print bad; exit 1 }
+      if (terms != 2) { print "Terms named " terms + 0 " times, expected 2 (the import and the one field)"; exit 1 }
+      if (approvals != 3) { print "Approval named " approvals + 0 " times, expected 3 (the import, founded, the one map)"; exit 1 }
+      if (built != 1 || writes != 2) { print "Ledger built " built + 0 " times and ledger written " writes + 0 " times, expected 1 and 2"; exit 1 }
+    }
+  ' "$1"
+}
+if ! why=$(check_state "$ROOT/fe/src/vault.fe"); then
+  echo "FAIL vault.fe: $why"
+  exit 1
+fi
+echo "ok   source check: one stored Terms, one Approval map, and Pay writes its ledger only from the kernel"
+state_check_catches() {
+  local name=$1 edited
+  shift
+  edited=$(mktemp)
+  "$@" > "$edited"
+  if check_state "$edited" >/dev/null; then
+    rm -f "$edited"
+    echo "FAIL source check missed: $name"
+    exit 1
+  fi
+  rm -f "$edited"
+  echo "ok   source check catches: $name"
+}
+with_field() { sed "s/^    mut terms: Terms,\$/    mut terms: Terms,\n    $1/" "$ROOT/fe/src/vault.fe"; }
+state_check_catches 'a second stored Terms, to put old rules back later' with_field 'mut backup: Terms,'
+state_check_catches 'a second Approval map, to put old approvals back later' with_field 'mut kept: StorageMap<Address, Approval>,'
+state_check_catches 'Pay resetting what was spent today' \
+  edit_handler "$PAY" "$TRANSFER" after 'ledger = Ledger { window: next.window, spent: 0, next_nonce: next.next_nonce }'
+
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no
 #    error other than code $4 (by default "static assertion failed", 8-0081).

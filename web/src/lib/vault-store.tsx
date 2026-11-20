@@ -249,6 +249,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const { openByAddress } = await import('./live/launch.ts')
       const vault = await openByAddress(wallet, network, link.vault)
       await openLive(vault, linkSession(link), [], false, true)
+      // Asked without a prompt: only an account the wallet already shares to this site.
+      const [account] = ((await wallet.request({ method: 'eth_accounts' }).catch(() => [])) as string[]) ?? []
+      if (account && account.toLowerCase() !== vault.owner) {
+        dispatch({
+          type: 'problem',
+          message: `The wallet connected here (${account.slice(0, 6)}…${account.slice(-4)}) is not this vault's owner (${vault.owner.slice(0, 6)}…${vault.owner.slice(-4)}). You can look, but only the owner's wallet can change anything.`,
+        })
+      }
     },
     [openLive],
   )

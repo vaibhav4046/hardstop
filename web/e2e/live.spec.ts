@@ -15,10 +15,11 @@ import { expect, newest, overflow, press, receipts, REPO, shot, test } from './h
 const OWNER = '0x00000000000000000000000000000000000a11ce'
 const LIVE_KEY = 'hardstop.live.v1'
 
-/** Gives the page a wallet backed by `network`. */
-async function connect(page: Page, network: FakeNetwork): Promise<void> {
+/** Gives the page a wallet backed by `network`; `shown` replaces the account it shares with the site. */
+async function connect(page: Page, network: FakeNetwork, shown?: string): Promise<void> {
   await page.exposeFunction('__wallet', async (args: { method: string; params?: unknown[] }) => {
     try {
+      if (shown && args.method === 'eth_accounts') return { ok: [shown] }
       return { ok: await network.request(args) }
     } catch (error) {
       const { code, message, data } = error as { code?: number; message?: string; data?: string }
@@ -220,6 +221,22 @@ test.describe('A vault on a test network', () => {
     await expect.poll(async () => (await sim.state()).queued).toBeNull()
     // Nothing about a vault opened from a link is saved: the visitor's own vault, if any, is untouched.
     expect(await page.evaluate((key) => localStorage.getItem(key), LIVE_KEY)).toBeNull()
+  })
+
+  test('a link opened with a wallet that is not the owner says so', async ({ page }) => {
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const network = await FakeNetwork.create(OWNER, now)
+    const chain = NETWORKS.find((candidate) => candidate.chainId === FAKE_CHAIN_ID)!
+    const live = await launchVault(
+      network,
+      chain,
+      { owner: OWNER, agent: OWNER, perPayment: 10_000_000n, perWindow: 20_000_000n, validUntil: now + 86_400n * 30n, windowSecs: 86_400n, coolingSecs: 86_400n, payees: [], funding: 0n, now },
+      () => {},
+      1,
+    )
+    await connect(page, network, '0x000000000000000000000000000000000000beef')
+    await page.goto(`/activity?chain=${FAKE_CHAIN_ID}&vault=${live.vault}`)
+    await expect(page.getByText("The wallet connected here (0x0000…beef) is not this vault's owner", { exact: false })).toBeVisible()
   })
 
   test('a link that names no vault this site can open says so', async ({ page }) => {

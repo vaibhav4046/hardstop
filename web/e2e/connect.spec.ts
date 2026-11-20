@@ -34,14 +34,17 @@ test.describe('Connect your AI', () => {
     await claude.hover()
     await expect.poll(colour).toBe('rgb(217, 119, 87)')
 
-    // The copy button puts exactly the line on screen on the clipboard, and says so.
-    const line = (await section.locator('code').textContent()) ?? ''
+    // First the line that needs nothing, then the one for your own vault. Each copy button puts exactly its line on the clipboard, and says so.
+    const [demo, install] = await section.locator('.connect-line code').allTextContents()
+    expect(demo).toBe('claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo')
     // The documented order: Claude's options, then the server name, then `--` and the command.
-    expect(line).toMatch(/^claude mcp add --env HARDSTOP_AGENT_KEY=.* --transport stdio .*hardstop -- npx -y github:vaibhav4046\/hardstop$/)
-    await section.getByRole('button', { name: 'Copy' }).click()
-    await expect(section.getByRole('button', { name: 'Copied' })).toBeVisible()
-    await expect(section.getByRole('status')).toHaveText('Install line copied.')
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(line)
+    expect(install).toMatch(/^claude mcp add --env HARDSTOP_AGENT_KEY=.* --transport stdio .*hardstop -- npx -y github:vaibhav4046\/hardstop$/)
+    await section.getByRole('button', { name: 'Copy install line' }).click()
+    await expect(section.getByRole('button', { name: 'Copied install line' })).toBeVisible()
+    await expect(section.getByRole('status').filter({ hasText: 'copied' })).toHaveText('Install line copied.')
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(install)
+    await section.getByRole('button', { name: 'Copy demo line' }).click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(demo)
 
     await expect(section.getByRole('link', { name: 'full setup guide' })).toHaveAttribute(
       'href',

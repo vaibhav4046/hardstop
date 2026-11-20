@@ -38,8 +38,9 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 - `fe/src/kernel.fe`: pure `decide`, `amend`, `cancel` and `exposure`, with
   no `uses` clause, compiled for both the EVM and native from one source.
 - `fe/src/vault.fe`: the contract. The agent's whole authority is the `Pay`
-  handler, which takes the rules without `mut`, so a `Pay` that loosened a
-  rule would not compile.
+  handler, which takes the rules and the approvals without `mut`, so a
+  `Pay` that wrote either would not compile. (`Pay` does write its own
+  spending ledger; a CI source check pins that write to the kernel's verdict.)
 - `fe/src/kernel/sealed.fe`: what the vault stores (`Terms`, `Owner`,
   `Approval`) and the proof it needs (`OwnerCall`), with fields only the
   kernel can see.
@@ -57,9 +58,10 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 approved_from, mut ledger, mut call, mut log)`: the rules appear without
 `mut`, so the agent's only handler cannot change them.
 
-The cooling period is a compiler guarantee for the rules. The vault stores
-them as `Terms`, whose field only `fe/src/kernel/sealed.fe` can see, so no
-handler can build terms, store a hand-built `Rules` or write a field. New
+The cooling period is a compiler guarantee for how rules are made. The
+vault stores them as `Terms`, whose field only `fe/src/kernel/sealed.fe`
+can see, so no handler can build terms, store a hand-built `Rules` or write
+a field. New
 terms come only from `open` and from `Terms::amend`, `cancel` and `pause`,
 which apply the kernel's cooling period. Two runtime checks complete it:
 `open` works only while the contract is being deployed, and zeroed storage
@@ -67,7 +69,12 @@ cannot be amended. Recipient approvals are sealed the same way: the map
 stores `Approval`s, which only `founding` (at deployment) and
 `Terms::approve_from` (owner proof, cooling period) make, so storing a date
 or a hand-built approval does not compile. An approval copied under another
-address compiles but approves no one (a runtime check, tested).
+address compiles but approves no one (a runtime check, tested). What the
+compiler does not stop: a vault that keeps an older `Terms` or `Approval`
+in a second storage field and puts it back later, since both types are
+`Copy`. A CI source check requires exactly one stored `Terms` and one
+approval map (and catches that edit), and three tests fail if a cancel ever
+undoes a pause, a lowered limit or a removed recipient.
 
 The owner proof is bound to the real caller by the compiler. Changing the
 terms, approving a recipient and withdrawing each need an `OwnerCall`, which
@@ -90,7 +97,7 @@ trait is not visibility-checked in an `impl` header or a bound), reported
 as argotorg/fe#2036, and pull request argotorg/fe#2042 (approved by a Fe
 maintainer on 2026-11-20, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
 it in the compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
-(2-0003), HARDSTOP's 95 tests still pass, and the Fe suite passes apart
+(2-0003), HARDSTOP's 98 tests still pass, and the Fe suite passes apart
 from one language-server test that fails on unmodified `master` too.
 
 The ratchet's laws are checked when the kernel compiles. `amend`,
@@ -113,8 +120,8 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works
 
-- `fe test`: 95 passed on the EVM; 52 passed natively.
-- Web: 88 unit tests (including the MCP server and watcher) and 60 browser
+- `fe test`: 98 passed on the EVM; 52 passed natively.
+- Web: 88 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

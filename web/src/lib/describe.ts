@@ -40,6 +40,14 @@ export function verdict(entry: Extract<Entry, { kind: 'payment' | 'agentRaise' }
     }
   }
   const { code, detail } = entry.outcome
+  if (code !== undefined && entry.approvedFrom !== undefined) {
+    return {
+      tone: 'blocked',
+      stamp: 'Blocked',
+      headline: 'Blocked: recipient still waiting',
+      sentence: `This recipient can be paid from ${f.time(entry.approvedFrom)}, when its waiting period ends.`,
+    }
+  }
   if (code !== undefined) {
     const said = explain(code, detail ?? 0n, f)
     return {

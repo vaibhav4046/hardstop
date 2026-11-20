@@ -130,8 +130,9 @@ test.describe('Persona B: Arjun, SaaS founder', () => {
     const added = page.locator('details li').filter({ hasText: 'Stock photos' })
     await expect(added.locator('.tag')).toContainText(/Can be paid from \d{1,2} \w{3} \d{4}, \d{2}:\d{2}/)
     slip = await request(page, '5', 'Stock photos')
-    await expect(slip.locator('h3')).toContainText('Blocked: unknown recipient')
-    await expect(slip).toContainText('added so recently that its waiting period has not ended')
+    // Approved but still waiting: the receipt says until when, not "unknown".
+    await expect(slip.locator('h3')).toContainText('Blocked: recipient still waiting')
+    await expect(slip).toContainText(/This recipient can be paid from \d{1,2} \w{3} \d{4}, \d{2}:\d{2}, when its waiting period ends\./)
     await shot(page, 'B-04-recipient-waiting')
     await skipDays(page, 1)
     await expect(added).toContainText('Can be paid')

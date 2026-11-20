@@ -696,3 +696,31 @@ says it is an upper limit when a scheduled change takes effect that day
 (the contract's `exposure` counts the new rules as starting a fresh day);
 the hero's moving door redraws when the page comes back into view (a user
 saw it blank white after the app pane was hidden).
+
+### Two fresh judges, and what changed, 20 Nov
+
+An Fe judge (82/100) found two edits that compile and break a headline
+claim, and both were confirmed here: a vault that keeps an older `Terms` in
+a second storage field and puts it back (old rules return without a cooling
+period; `Terms` and `Approval` are `Copy`), and a `Pay` that resets its own
+ledger. Neither was caught by the tests or the refusal script before.
+Now: three Fe tests (`a_cancel_after_a_pause_keeps_the_agent_paused`,
+`a_cancel_after_lowering_a_limit_keeps_it_low`,
+`a_cancel_after_removing_a_recipient_keeps_it_removed`), two of which fail
+under the judge's exact edit (checked: 96 passed, 2 failed); and a source
+check in `scripts/pay-cannot-loosen.sh` that allows one stored `Terms`, one
+approval map and only `ledger = next` in `Pay`, with three edits it must
+catch. The docs now list both cases under what the compiler does not cover,
+and no longer say a `Pay` that "loosened a rule" would not compile.
+
+A product judge (78/100) and a check here found: "Left today" stayed at the
+old figure after a pause (an animated number that only finishes on animation
+frames, which a hidden tab or pane does not run; the true value now lands
+by timer too); "Left today" now means what the agent can spend under the
+rules in force, with a scheduled change that lands today shown on its own
+line as an upper limit; a recipient still in its waiting period now reads
+"can be paid from …" instead of "unknown recipient"; a waiting resume says
+the agent resumes; a "Pause now" button sits by the balance; the home page
+leads with a no-keys demo command; the /protect form moves the cursor to a
+new recipient and clears an error once it is fixed; a vault opened by link
+says so when the connected wallet is not its owner.

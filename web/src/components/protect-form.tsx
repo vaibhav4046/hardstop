@@ -48,7 +48,8 @@ export function ProtectForm() {
   const [cooling, setCooling] = useState(DAY)
   const [funding, setFunding] = useState('100')
   const [rows, setRows] = useState<Row[]>([{ id: 0, name: 'Cloud hosting' }])
-  const [errors, setErrors] = useState<Errors>({})
+  // After the first press of Review, errors follow the form: one that is fixed goes away at once.
+  const [hasTried, setTried] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [phase, setPhase] = useState<'edit' | 'checking' | 'review' | 'creating' | 'failed'>('edit')
   const [chainId, setChainId] = useState(NETWORKS[0].chainId)
@@ -94,11 +95,21 @@ export function ProtectForm() {
     return Object.fromEntries(Object.entries(found).filter(([, message]) => message)) as Errors
   }
 
+  const errors: Errors = hasTried ? validate() : {}
+
+  // A recipient just added gets the cursor, so its name can be typed straight away.
+  const isAdding = useRef(false)
+  useEffect(() => {
+    if (!isAdding.current) return
+    isAdding.current = false
+    document.getElementById(`recipient-${rows.length - 1}`)?.focus()
+  }, [rows])
+
   /** Deploys a throwaway vault with these exact rules so the review can show the contract's own worst-case number. */
   async function review(event: FormEvent) {
     event.preventDefault()
     const found = validate()
-    setErrors(found)
+    setTried(true)
     if (Object.keys(found).length > 0) {
       summaryRef.current?.focus()
       return
@@ -372,7 +383,10 @@ export function ProtectForm() {
           <button
             type="button"
             className="btn mt-4"
-            onClick={() => setRows([...rows, { id: nextId.current++, name: '' }])}
+            onClick={() => {
+              isAdding.current = true
+              setRows([...rows, { id: nextId.current++, name: '' }])
+            }}
           >
             Add a recipient
           </button>

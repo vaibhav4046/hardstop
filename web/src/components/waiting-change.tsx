@@ -17,6 +17,8 @@ export function WaitingChange() {
   if (queued === null) return null
 
   const live = vault.live
+  // A waiting change that would end a pause is, to the owner, the agent coming back.
+  const resumes = vault.view?.state.policy.paused === true && !queued.paused
   return (
     <div className="wrap">
       <section className="notice waiting-change mt-4" role="status" aria-labelledby="waiting-change-title">
@@ -24,9 +26,10 @@ export function WaitingChange() {
           A change that loosens your vault&rsquo;s rules is waiting
         </h2>
         <p className="mt-1">
-          From {formatTime(queued.effectiveAt)} the agent could pay up to {formatUsd(queued.perPayment)} at a time and{' '}
-          {formatUsd(queued.perWindow)} a day{queued.paused ? ', though it stays paused' : ''}. If you did not ask for
-          this, cancel it before then.
+          {resumes ? `The agent is paused and resumes at ${formatTime(queued.effectiveAt)}: from then` : `From ${formatTime(queued.effectiveAt)}`}{' '}
+          the agent could pay up to {formatUsd(queued.perPayment)} at a time and {formatUsd(queued.perWindow)} a day
+          {queued.paused ? ', though it stays paused' : ''}. If you did not ask for this, cancel it before then
+          {resumes ? ' and it stays paused' : ''}.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button

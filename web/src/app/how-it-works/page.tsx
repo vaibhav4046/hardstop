@@ -149,7 +149,8 @@ export default function HowItWorks() {
           <p>
             Because nothing can get looser before the cooling period ends, the vault can work out the most the agent
             could possibly take between now and then: what is left of today&rsquo;s limit, plus a full day&rsquo;s
-            limit for each new day that starts in that time.
+            limit for each new day that starts in that time. If a looser change is already waiting and takes effect in
+            that time, it counts that change too, from the moment it takes effect.
           </p>
           <p>
             The <Link href="/activity">activity page</Link> shows that figure at all times. It is a ceiling on what the

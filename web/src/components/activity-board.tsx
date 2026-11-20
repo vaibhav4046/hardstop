@@ -225,9 +225,16 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
               ? 'The agent is paused, so nothing is left for it to spend.'
               : `Today's allowance of ${formatUsd(policy.perWindow)} resets on ${formatTime(day.resetsAt)}.`}
             {leftShown < view.leftToday && ` The rules allow ${formatUsd(view.leftToday)} more today; the figure is capped at what the vault holds.`}
-            {queued !== null && queued.effectiveAt < day.resetsAt &&
-              ` A scheduled change takes effect today, and the vault counts it as if it started a fresh day, so this is an upper limit.`}
+            {view.leftTodayIfChanged !== null &&
+              queued !== null &&
+              ` If the scheduled change is not cancelled, from ${formatTime(queued.effectiveAt)} the vault allows up to ${formatUsd(view.leftTodayIfChanged < vaultBalance ? view.leftTodayIfChanged : vaultBalance)} more today (an upper limit).`}
           </p>
+          {/* The owner's emergency stop, where the money is shown: the full controls are further down. */}
+          {!policy.paused && (
+            <button type="button" className="btn mt-4" disabled={isBusy} onClick={() => void run({ type: 'pause' })}>
+              Pause now
+            </button>
+          )}
         </div>
 
         {!isSaved && (

@@ -140,8 +140,12 @@ const JUDGED: Record<string, string> = {
     'Display: whether to show the "capped at what the vault holds" note under Left today.',
   'components/activity-board.tsx|{worstShown < view.worstCase && (': 'Display: whether to show the "capped at what the vault holds" note.',
   'components/activity-board.tsx|{view.worstCaseUntil >= day.resetsAt && !policy.paused && (': 'Display: whether to show the "more than one day" note.',
-  'components/activity-board.tsx|{queued !== null && queued.effectiveAt < day.resetsAt &&':
-    'Display: whether to say that "Left today" is an upper limit because a scheduled change takes effect today. Both times are read from the contract.',
+  'lib/session.ts|const approvedFrom = from > state.now ? from : undefined':
+    'Wording: whether a refused recipient is still waiting (the receipt then says until when). The refusal itself is the contract\'s.',
+  "components/activity-board.tsx|` If the scheduled change is not cancelled, from ${formatTime(queued.effectiveAt)} the vault allows up to ${formatUsd(view.leftTodayIfChanged < vaultBalance ? view.leftTodayIfChanged : vaultBalance)} more today (an upper limit).`}":
+    'Display: caps the figure at the balance, as "Left today" is. Both numbers are read from the contract.',
+  'lib/session.ts|return state.queued !== null && state.queued.effectiveAt > state.now && state.queued.effectiveAt < today(state).resetsAt':
+    'Which moment to ask the contract about: whether a waiting change lands later today. The answer is still the contract\'s exposure.',
   'components/activity-board.tsx|{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (': 'Display: whether to show the "upper limit" note.',
   'components/agent-panel.tsx|.findLast((entry) => entry.outcome.code === 0)':
     'Reads a verdict the contract already gave (code 0 = paid) to pick which request the replay button resends. Does not produce one.',

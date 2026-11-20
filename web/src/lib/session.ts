@@ -58,6 +58,8 @@ export type Entry =
       outcome: PayOutcome
       /** The contract's `exposure(now)` right after: what the agent can still move this instant. */
       leftToday: bigint
+      /** Refused because the recipient is approved but its waiting period has not ended: from when it can be paid. */
+      approvedFrom?: bigint
     }
   | { id: number; kind: 'agentRaise'; at: bigint; outcome: Outcome }
   | {
@@ -77,13 +79,18 @@ export type Entry =
 export type View = {
   vault: Hex
   state: State
-  /** `exposure(now)`: the most the agent can move this instant. */
+  /** What the agent can still spend today under the rules in force now (see `leftToday`). */
   leftToday: bigint
+  /** When a waiting change takes effect before the day resets: the contract's `exposure` to the end of the day, counting that change. An upper limit. Null otherwise. */
+  leftTodayIfChanged: bigint | null
   /** `exposure(worstCaseUntil)`: the most it can move before anything the owner signs now could loosen the rules. */
   worstCase: bigint
   worstCaseUntil: bigint
   recipients: (Recipient & { approvedFrom: bigint })[]
 }
+
+/** The verdict code for a recipient that is not approved, or not yet (fe/src/kernel.fe, `Reason::RecipientNotApproved`). */
+const RECIPIENT_NOT_APPROVED = 9
 
 /** The class is passed in so that this module does not pull the EVM into the first page load. */
 export type SimClass = { create(setup: Setup): Promise<Sim> }
@@ -130,8 +137,12 @@ export async function apply(sim: Sim, action: Action, id: number): Promise<Entry
       const amount = BigInt(action.amount)
       const nonce = BigInt(action.nonce)
       const outcome = await sim.pay(action.to, amount, nonce)
-      const left = await leftToday(sim, await sim.state())
-      return { id, kind: 'payment', at, to: action.to, amount, nonce, outcome, leftToday: left }
+      const state = await sim.state()
+      const left = await leftToday(sim, state)
+      // "Not approved" covers a recipient still waiting out its cooling period too; the receipt says which.
+      const from = outcome.code === RECIPIENT_NOT_APPROVED ? await sim.approvedFrom(action.to) : 0n
+      const approvedFrom = from > state.now ? from : undefined
+      return { id, kind: 'payment', at, to: action.to, amount, nonce, outcome, leftToday: left, ...(approvedFrom ? { approvedFrom } : {}) }
     }
     case 'agentRaise': {
       const { policy } = await sim.state()
@@ -213,6 +224,7 @@ export async function snapshot(sim: Sim, session: Session): Promise<View> {
     vault: sim.vault,
     state,
     leftToday: await leftToday(sim, state),
+    leftTodayIfChanged: changeLandsToday(state) ? await sim.exposure(today(state).resetsAt - 1n) : null,
     worstCase: await sim.exposure(worstCaseUntil),
     worstCaseUntil,
     recipients,
@@ -220,13 +232,22 @@ export async function snapshot(sim: Sim, session: Session): Promise<View> {
 }
 
 /**
- * What the agent can still spend before the day resets, as the contract's own
- * `exposure` reports it. Asked up to the last second of the day, not up to
- * "now": on a real network the call runs in a block a second or two after the
- * clock was read, and an end that is already in the past answers 0.
+ * What the agent can still spend today under the rules in force now, as the
+ * contract's own `exposure` reports it: asked up to the last second of the
+ * day, or up to the second before a waiting change takes effect if that comes
+ * first. (`exposure` counts a waiting change as if it began a fresh day, an
+ * upper bound; see `changeLandsToday`.) Not asked up to "now": on a real
+ * network the call runs in a block a second or two after the clock was read,
+ * and an end that is already in the past answers 0.
  */
 export async function leftToday(sim: Sim, state: State): Promise<bigint> {
-  return sim.exposure(today(state).resetsAt - 1n)
+  const end = today(state).resetsAt - 1n
+  return sim.exposure(changeLandsToday(state) ? state.queued!.effectiveAt - 1n : end)
+}
+
+/** A waiting change takes effect later today. */
+export function changeLandsToday(state: State): boolean {
+  return state.queued !== null && state.queued.effectiveAt > state.now && state.queued.effectiveAt < today(state).resetsAt
 }
 
 /**

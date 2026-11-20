@@ -33,8 +33,14 @@ export function Amount({ value }: { value: bigint }) {
       text.nodeValue = formatUsd(isCounting ? (between / CENT) * CENT : value)
       if (isCounting) frame = requestAnimationFrame(step)
     })
+    // Frames do not run in a hidden tab or pane: the true value lands anyway, just after the count would have ended.
+    const settle = window.setTimeout(() => {
+      cancelAnimationFrame(frame)
+      text.nodeValue = formatUsd(value)
+    }, COUNT_MS + 100)
     return () => {
       cancelAnimationFrame(frame)
+      clearTimeout(settle)
       text.nodeValue = formatUsd(value)
     }
   }, [value])
