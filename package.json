@@ -1,0 +1,16 @@
+{
+  "name": "hardstop-mcp",
+  "version": "0.1.0",
+  "description": "HARDSTOP's MCP server as one file: an AI agent's spending tools, limited by a Fe vault it cannot change. Try: npx -y github:vaibhav4046/hardstop --demo",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "hardstop-mcp": "web/mcp/dist/hardstop-mcp.mjs"
+  },
+  "files": [
+    "web/mcp/dist/hardstop-mcp.mjs"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

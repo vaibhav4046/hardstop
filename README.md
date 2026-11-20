@@ -26,7 +26,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 33 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `81` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `82` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 58 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -236,7 +236,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 81 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 82 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 58 browser tests against the production build
@@ -318,7 +318,7 @@ substitute for the second.
 
 ## Connect your AI
 
-Any assistant that speaks MCP can become a vault's agent: Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code, or Python agents. `web/mcp/server.ts` gives it five tools: status, preview, pay, recipients, and asking the owner for more. There are no owner tools, and the server never holds the owner's key, so the AI cannot loosen its own limits. `web/mcp/watch.ts` watches the vault 24/7 for the owner and alerts on waiting loosenings, payments, refusals, pauses and the end date. To try it with nothing set up, run `cd web && HARDSTOP_FAKE=1 node mcp/server.ts`. Setup for each client is in [`web/mcp/README.md`](web/mcp/README.md).
+Any assistant that speaks MCP can become a vault's agent: Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code, or Python agents. `web/mcp/server.ts` gives it five tools: status, preview, pay, recipients, and asking the owner for more. There are no owner tools, and the server never holds the owner's key, so the AI cannot loosen its own limits. `web/mcp/watch.ts` watches the vault 24/7 for the owner and alerts on waiting loosenings, payments, refusals, pauses and the end date. To try it with nothing installed but Node 20+, add the demo to Claude Code in one line, `claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo`, or run that `npx` command in any MCP client's config (a one-file build of the server; the demo is an in-memory network, nothing real). From a clone: `cd web && HARDSTOP_FAKE=1 node mcp/server.ts`. Setup for each client is in [`web/mcp/README.md`](web/mcp/README.md).
 
 **AI agents against a real vault (Base Sepolia, 2026-11-18).** Two Claude
 agents were given only the five MCP tools (called through the real server

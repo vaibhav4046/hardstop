@@ -11,7 +11,8 @@
     "e2e": "playwright test",
     "sync:artifacts": "node ../scripts/sync-artifacts.mjs",
     "mcp": "node mcp/server.ts",
-    "mcp:watch": "node mcp/watch.ts"
+    "mcp:watch": "node mcp/watch.ts",
+    "bundle:mcp": "node scripts/bundle-mcp.mjs"
   },
   "dependencies": {
     "@ethereumjs/block": "^10.1.3",
@@ -36,6 +37,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.187.0",
+    "esbuild": "^0.25.12",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",

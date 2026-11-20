@@ -4,7 +4,7 @@
 // Run from web/, with the HARDSTOP_* variables set (see mcp/README.md):
 //   node mcp/server.ts                       stdio, for clients that start it themselves
 //   node mcp/server.ts --http --port 8787    Streamable HTTP at http://127.0.0.1:8787/mcp
-//   HARDSTOP_FAKE=1 node mcp/server.ts       a demo on an in-memory network
+//   HARDSTOP_FAKE=1 node mcp/server.ts       a demo on an in-memory network (or: --demo)
 //
 // There are deliberately no owner tools. Proposing, cancelling, pausing,
 // approving recipients and withdrawing all need the owner's key, which this
@@ -373,10 +373,16 @@ export const createServer = (options: Options = {}): McpServer => hardstop(optio
 
 async function main(): Promise<void> {
   const { values } = parseArgs({
-    options: { http: { type: 'boolean' }, port: { type: 'string', default: '8787' }, host: { type: 'string', default: '127.0.0.1' } },
+    options: {
+      http: { type: 'boolean' },
+      demo: { type: 'boolean' },
+      port: { type: 'string', default: '8787' },
+      host: { type: 'string', default: '127.0.0.1' },
+    },
   })
   let options: Options = {}
-  if (process.env.HARDSTOP_FAKE === '1') {
+  // --demo is the same as HARDSTOP_FAKE=1, for one-line installs (npx) where setting a variable is awkward.
+  if (process.env.HARDSTOP_FAKE === '1' || values.demo) {
     const { demo, DEMO_NAME } = await import('./demo.ts')
     options = { ...(await demo()), networkName: DEMO_NAME }
     process.stderr.write('hardstop: demo mode, an in-memory network with a freshly launched vault. Nothing is real.\n')

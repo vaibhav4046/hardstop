@@ -58,6 +58,11 @@ jobs:
       - name: Install web dependencies
         working-directory: web
         run: npm ci
+      - name: The committed one-file MCP server is what this source bundles to
+        working-directory: web
+        run: |
+          node scripts/bundle-mcp.mjs
+          git diff --exit-code -- mcp/dist/hardstop-mcp.mjs
       - name: Vault bytecode vs native kernel, and time-travel tests
         working-directory: web
         run: npm test
