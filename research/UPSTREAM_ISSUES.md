@@ -7,7 +7,8 @@ turned off.
 
 **Posted on 2026-11-19**, with the owner's approval, as six issues and two pull requests. On
 2026-11-20 a Fe maintainer (micahscopes) approved #2042: "Thanks for catching this! My initial
-look suggests this is ready to go, but I'm doing a more thorough review." Nothing is merged yet;
+look suggests this is ready to go, but I'm doing a more thorough review." Fe's own CI then
+passed on it (lint, tests on Ubuntu and Windows, native ARM64, wasm). Nothing is merged yet;
 the other pull request and the issues have no reply yet.
 
 | Draft | Posted as | Fix |
