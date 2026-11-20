@@ -47,7 +47,7 @@ export function HostileRun() {
         </figure>
       </div>
 
-      <div className="table-scroll mt-10">
+      <div className="table-scroll mt-10" tabIndex={0} role="region" aria-label="What the agent tried, scrollable">
         <table className="ledger min-w-[34rem]">
           <caption className="sr-only">What the agent tried and what the vault answered, in the order it tried them</caption>
           <thead>

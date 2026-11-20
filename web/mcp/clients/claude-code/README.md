@@ -2,7 +2,7 @@
 
 Verified against https://code.claude.com/docs/en/mcp (checked 2026-11-18).
 
-Prereq: Node 24+, then `npm ci` in `web/`.
+Prereq: Node 20+ for the npx form below (nothing to clone). From a clone: Node 24+ and `npm ci` in `web/`.
 
 ## stdio (recommended)
 

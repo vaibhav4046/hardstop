@@ -298,7 +298,7 @@
   .connect-line code {
     flex: 1;
     min-width: 0;
-    overflow-x: auto;
+    overflow-wrap: anywhere;
     padding: 0.75rem 1rem;
     border: 1px solid rgb(255 255 255 / 0.1);
     border-radius: var(--radius-field);
@@ -306,7 +306,8 @@
     color: var(--color-gold);
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    white-space: nowrap;
+    white-space: normal;
+    line-height: 1.6;
   }
 
   .connect-line .btn {

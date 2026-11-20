@@ -27,12 +27,12 @@ What HARDSTOP does that the verified competitors do not (see
    researchers actually observed: the cap logic held, the *cap-change* path
    did not.
 2. **A worst-case number.** `exposure` is a pure function that returns the
-   most the agent can move between two moments. It is exact when nothing is
-   queued, and it holds no matter what the owner signs during the cooling
-   period.
+   most the agent can move between two moments. It is an upper bound,
+   reached by a greedy agent when nothing is queued, and it holds no matter
+   what the owner signs during the cooling period.
 3. **The attacker is written in Fe too.** `adversary.fe` plays seeded hostile
    games against the kernel, checks every verdict against a second statement
-   of the rules, and is itself tested against eight deliberately broken
+   of the rules, and is itself tested against fifteen deliberately broken
    kernels. It runs on the EVM and natively from one source.
 
 Cost: no Safe integration, no calldata/selector rules. HARDSTOP is a
@@ -68,8 +68,8 @@ wrong party. To change any of them, withdraw and create a new vault.
 
 ## D7. Fixed windows, not rolling
 
-Window `n` is `[anchor + n*len, anchor + (n+1)*len)`. Simple, cheap, and makes
-`exposure` exact. Known cost: an agent can spend a full window's cap at the
+Window `n` is `[anchor + n*len, anchor + (n+1)*len)`. Simple, cheap, and keeps
+`exposure` a simple sum (reached exactly when nothing is queued). Known cost: an agent can spend a full window's cap at the
 end of one window and again at the start of the next. `exposure` counts this
 correctly; the UI must not describe the cap as "per rolling 24 hours".
 
@@ -87,10 +87,10 @@ was refused as "paused", which the vault logs, instead of "not the agent",
 which the vault reverts. The caller check now comes first. Reason codes are
 unchanged.
 
-## D11. The engine under attack is a trait with three functions
+## D11. The engine under attack is a trait with four functions
 
-`Engine` has `decide`, `amend` and `exposure`; the last two default to the
-real kernel. A broken copy overrides only what it breaks, so the campaign
+`Engine` has `decide`, `amend`, `exposure` and `cancel`; the last three
+default to the real kernel. A broken copy overrides only what it breaks, so the campaign
 can be pointed at a wrong bound or a wrong ratchet, not only a wrong
 verdict. Cost: the campaign is generic over `E` and slightly harder to read.
 

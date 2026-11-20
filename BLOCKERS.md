@@ -7,15 +7,12 @@
    owner has that link.
 2. **Deploying the web app.** Done: https://hardstop-omega.vercel.app, on the
    owner's Vercel account. Redeploy with `npx vercel deploy --prod` in `web/`.
-3. **Optional, plain-language policy drafting.** Needs an LLM API key set as
-   a server environment variable. Without it the manual form is the only way
-   to create a policy, which is the intended fallback.
 4. **On-chain receipts for the current contract build.** Done 2026-11-19:
    test ETH from the Coinbase faucet on the owner's account, and `web/scripts/base-sepolia-evidence.ts`
    installed the current launcher and re-ran the evidence (README).
 5. **Fe compiler feedback.** Posted on 2026-11-19 with the owner's
-   approval: six issues (argotorg/fe #2035 to #2040) and two pull requests
-   (#2041, #2042). Replies and review comments go to the owner's GitHub
+   approval: six issues (argotorg/fe #2035 to #2040) and three pull requests
+   (#2041, #2042, and #2048 on 2026-11-20). #2048 was merged on 2026-11-20. Replies and review comments go to the owner's GitHub
    account; answering them is the owner's call.
 6. **MetaMask's site scanner** warns "Continue at your own risk" on connect.
    A review ticket was filed with MetaMask support on 2026-11-18; the reply

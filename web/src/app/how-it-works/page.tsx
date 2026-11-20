@@ -25,7 +25,7 @@ export default function HowItWorks() {
         <h2 id="who-title" className="section-title">
           Who can do what
         </h2>
-        <div className="card table-scroll mt-8 max-w-[62rem]">
+        <div className="card table-scroll mt-8 max-w-[62rem]" tabIndex={0} role="region" aria-label="Who can do what, scrollable">
           <table className="ledger min-w-[34rem]">
             <thead>
               <tr>
@@ -117,7 +117,7 @@ export default function HowItWorks() {
               </p>
               <p>
                 So every loosening waits out a cooling period that is fixed when the vault is created. During the wait
-                the old rules stay in force and you can cancel. Lowering a limit or pausing also cancels a waiting change.
+                the old rules stay in force and you can cancel. Lowering a limit or pausing also cancels a waiting change to the limits; a new recipient still waiting stays until you remove it.
               </p>
             </div>
           </div>

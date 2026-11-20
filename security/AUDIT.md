@@ -83,7 +83,7 @@ without it; the attackers' own proofs of concept now fail.
 - Whether the broken versions survive the JS-EVM tests: that was reasoned,
   not run.
 
-## What changed in the numbers
+## What changed in the numbers (first review, 2026-11-17)
 
 | | Before review | After |
 |---|---|---|

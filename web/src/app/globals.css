@@ -630,6 +630,8 @@
     display: inline-flex;
     align-items: center;
     min-height: 2.75rem;
+    /* Still a full-height target, centred on the line of text beside it. */
+    margin-block: calc((1.5em - 2.75rem) / 2);
   }
 
   /* In the error summary each message is a link to its field. */

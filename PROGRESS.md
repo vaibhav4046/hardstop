@@ -1,9 +1,9 @@
 # Progress
 
-Updated 2026-11-19. Submission deadline: 2026-11-24 23:59 UTC. The README is
+Updated 2026-11-20. Submission deadline: 2026-11-24 23:59 UTC. The README is
 the reference; this page only says where things stand.
 
-## Verified on 2026-11-19 (this commit's tree)
+## Verified on 2026-11-20 (this commit's tree)
 
 | Check | Result |
 |---|---|
@@ -37,16 +37,17 @@ the reference; this page only says where things stand.
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.
 - Six Fe compiler issues filed upstream with reproductions (argotorg/fe
-  #2035 to #2040), and two open pull requests (#2041, #2042; the patches are
-  also in `research/fe-patches/`): unknown attributes become errors, and a
+  #2035 to #2040), and three pull requests (#2041, #2042, #2048; the first two
+  patches are also in `research/fe-patches/`): unknown attributes become errors, and a
   private trait is visibility-checked in `impl` headers and bounds, which
   stops user code forging `std`'s `Call` and `Ctx`. With the second patch,
   `fe test` passes (98) and the refusal script requires both forgeries to be
   refused; the Fe suite passes 2672, with 1 failure that also happens on
-  unmodified `master` on Windows. Posted 2026-11-19; not yet reviewed or merged.
+  unmodified `master` on Windows. Posted 2026-11-19 and 20. #2048 (block time
+  and number in `fe test`) was merged on 2026-11-20; #2042 was approved and a
+  maintainer added a test to it the same day; not yet merged.
 
 ## Needs the owner
 
-See [`BLOCKERS.md`](BLOCKERS.md): the final submission, test ETH for
-on-chain receipts of the current build, and the
+See [`BLOCKERS.md`](BLOCKERS.md): the final submission and the
 MetaMask scanner review (ticket filed 2026-11-18).

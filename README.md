@@ -8,7 +8,7 @@ loss is a number you can read before anything goes wrong.
 **Demo video (2 min, narrated, with music and captions):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 (also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)).
 The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.
-A longer silent walkthrough (1 min 47 s) with the test output and on-chain receipts:
+A silent walkthrough (1 min 47 s, recorded 2026-11-19, showing that day's counts: 92 Fe tests, 33 script checks) with the test output and on-chain receipts:
 [watch](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4)
 ([`web/public/demo/hardstop-walkthrough.mp4`](web/public/demo/hardstop-walkthrough.mp4)).
 
@@ -30,7 +30,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The whole site works in a browser | `cd web && npm run e2e` | 61 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
-| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2042 approved by a Fe maintainer and green in Fe's CI on 2026-11-20, not yet merged; #2041 and #2048 open; the job is green |
+| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2048 merged into Fe on 2026-11-20; #2042 approved by a Fe maintainer, who added a test of his own to it the same day, not yet merged; #2041 open; the job is green |
 | Every command in this table runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
 
 What the compiler does not cover, and why: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -51,12 +51,16 @@ Two things about that result shaped this project:
 
 - The cap arithmetic was never broken. The **cap-change path** was.
 - Those were lab trials with real USDC, not customer losses. Recorded
-  real-world agent losses are few; the largest we could verify is one
-  incident of roughly $150,000 to $200,000 in May 2026. Industry-wide crypto
+  real-world agent losses are few; the largest realised loss we could
+  verify is one incident valued at $155,000 to $174,000 ($150,000 to
+  $200,000 in a second source) in May 2026. A February 2026 transfer had a
+  paper value of $441,780, of which the recipient sold part for about
+  $40,000. Industry-wide crypto
   theft figures are not agent losses and are not used here.
 
 Every figure on the site was re-opened at its source on 2026-11-18: 49
-sources, 48 confirmed on the page, kept apart as controlled tests, recorded
+figures from 35 source pages, 48 confirmed on the source's page (the
+site's evidence page cites 12 of those sources), kept apart as controlled tests, recorded
 incidents, adoption signals and excluded figures. See
 [`research/EVIDENCE_DATA.md`](research/EVIDENCE_DATA.md) (with corrections to
 the earlier [`research/SOURCE_REGISTER.md`](research/SOURCE_REGISTER.md)) and
@@ -140,14 +144,15 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 `own`, `#[must_use]`) bound to the real caller; and `static_assert`s run the
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
-refuse each attack (26 refusals, plus 6 control edits that must still
-compile and 6 source-check lines, in
+refuse each attack (26 refusals, plus 7 control edits that must still
+compile and 14 source-check lines, in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source
 check (it reads the text; it is not a compiler guarantee) requires `Pay`'s
 only transfer to be exactly `safe_transfer(token, receiver: to, amount)`,
-right after the ledger is updated, and catches four edits that compile.
+right after the ledger is updated, pins what `Pay` tells the kernel, and
+catches eight edits that compile.
 
 The full account, with every error code and limit:
 [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -159,10 +164,13 @@ upstream with reproductions on 2026-11-19 (argotorg/fe
 [`research/UPSTREAM_ISSUES.md`](research/UPSTREAM_ISSUES.md)), including
 [one](https://github.com/argotorg/fe/issues/2036) where a private trait can be implemented
 from any ingot, which lets user code forge `std`'s sealed `Call` and `Ctx`
-capabilities. Two are fixed in open pull requests against Fe `master`
-([#2042](https://github.com/argotorg/fe/pull/2042) and
-[#2041](https://github.com/argotorg/fe/pull/2041); #2042 was approved by a
-Fe maintainer on 2026-11-20, and neither is merged yet; the same patches are in [`research/fe-patches/`](research/fe-patches/)):
+capabilities. Three have fixes from this project:
+[#2048](https://github.com/argotorg/fe/pull/2048), which lets `fe test` set
+the block time and number, was merged into Fe on 2026-11-20;
+[#2042](https://github.com/argotorg/fe/pull/2042) was approved by a Fe
+maintainer, and another added a test of his own to it, on 2026-11-20, not
+yet merged; [#2041](https://github.com/argotorg/fe/pull/2041) is open. The
+first two compiler patches are also in [`research/fe-patches/`](research/fe-patches/):
 `2-private-trait-visibility.patch` makes a private trait named outside its
 module "not visible" (2-0003) in an `impl` header, a bound, a `where`
 clause or a super-trait, which closes the forged `Call` and `Ctx`; and
@@ -251,7 +259,7 @@ Every command above except the `decide` example, the browser suite included, run
 
 ### Results
 
-Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
+Measured from 2026-11-17 to 2026-11-20; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
 
 | What | Result |
 |---|---|
@@ -262,17 +270,17 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | Exposure promise under attack | taken 2,938 times in 200 games: 347 with a raise waiting, 565 with money already spent, reached exactly 100 times, never exceeded |
 | Contract vs native kernel (`web/tests/differential.test.ts`) | 2,400 payment requests (336 allowed, 1,951 denied, 113 reverted) and 480 exposure queries: agreed on all |
 | Tests against the compiled contract with a controllable clock | 15 passed |
-| Launcher, and the wallet path against a stand-in wallet (`launcher.test.ts`, `live.test.ts`) | 7 and 9 passed |
+| Launcher, and the wallet path against a stand-in wallet (`launcher.test.ts`, `live.test.ts`) | 7 and 13 passed |
 | The same wallet code on Base Sepolia, a public test network (2026-11-18, previous contracts) | launcher installed ([tx](https://sepolia.basescan.org/tx/0x3dd92270ec0c9a8056440ba8e98c633a8b1402b28a1d568ce275293d89ec8099)), vault created ([tx](https://sepolia.basescan.org/tx/0xc663ffe148aea8c9f7fbe3546741f7873de40347d45883f66958c22732ab2e62)), agent paid $4 ([tx](https://sepolia.basescan.org/tx/0x5e7e7a1e17e13c02d86e965a53a533c50494df8799f7b7fb007c4495a4edbc5a)), agent refused $80 over its per-payment limit ([tx](https://sepolia.basescan.org/tx/0xa95cc234253064fc29c13ce7e35be61106e3b20c86a67f0e8e5d56e4d8672967)), agent's attempt to raise its own limit refused before sending. All four succeeded; vault left with $96, recipient $4 |
 | A vault opened by clicking through MetaMask on the live site (2026-11-18, previous contracts) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
 | Current contracts on Base Sepolia (2026-11-19: sealed recipient approvals; `amend` and `cancel` run at compile time) | launcher `0xed8a5d83c64f71b6d027742124239dccbf018e44` installed ([tx](https://sepolia.basescan.org/tx/0x58562f4e482baed273c2e0225b20e284e3df80e0a1b2ce7416f3d5dc5630b006)), vault `0xf7d0b1e9872c21d33eec5dc9624deba0023a0d31` created ([tx](https://sepolia.basescan.org/tx/0x7ae1d584feb6ab2dbfe8b984c5c68e86e6233c51d76dccfe69e4409e4b6590af)); agent paid $4 twice ([tx](https://sepolia.basescan.org/tx/0xe554cac5920a34eb11ac2a72b507f2d84de15015824903971b0aba4f239e870a), [tx](https://sepolia.basescan.org/tx/0x4b73992ea966035c9e7c0c236ad3fb8a496a39665c35d4dcc15e4e379684b675)), was refused $80 with code 10 ([tx](https://sepolia.basescan.org/tx/0x295fa1da2b7401216a6db2e4585cebaa463329087d6bf5e4adb9e82e025cba2f)), and its self-raise reverted `NotOwner` before sending; owner proposed $40 a day ([tx](https://sepolia.basescan.org/tx/0xd4ed323d36488cdaf27ca7f3aba79e693db9d16a9d0bdeb1b892890c6e9c0dfd)), cancelled it ([tx](https://sepolia.basescan.org/tx/0x36edf95a9f3969f15d933c40fc7d7d3863c2d7124a161f49fa7e17c12f6175f6)) and paused ([tx](https://sepolia.basescan.org/tx/0x075024aeefd70212df65ca45109de1a55347d70da2e0dd51f7e98b782c9eb30f)). Vault left with $92, recipient $8, limit still $20 a day. Its code hash is the current build's (`web/mcp/vault.ts`). Script: `web/scripts/base-sepolia-evidence.ts`, the site's own `launchVault` with a throwaway test key |
-| Previous contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint; recipient approvals not sealed) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions in the gas table below |
+| Previous contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint; recipient approvals not sealed) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions: install [tx](https://sepolia.basescan.org/tx/0xc08665972a57e4ab9f383ceee7330cc6fa523db86a33c55d2734ea1c56a76163), create [tx](https://sepolia.basescan.org/tx/0x7d562ad1aceae4911ec7369e976d3d9a3d09b01458033d60e6183e71980ce9c5), first payment [tx](https://sepolia.basescan.org/tx/0xbff1564f660d8f5adbff43765e3fe92ff3b1be8655769d8387b02e01d675fbf6) |
 | Vault runtime size | 8,079 bytes for the current contracts, read from Base Sepolia with `eth_getCode` (the previous contracts: 7,958) |
 | Browser suite (`npm run e2e`, Chromium, production build) | 61 tests, all passing (61 of 61 on 2026-11-20); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
-| Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
-| First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |
+| Click "Agent pays $4" to receipt on screen | median 39 ms, max 73 ms (local EVM simulation, not on-chain latency; `qa/metrics/perf-unthrottled-pay-click.json`) |
+| First and largest contentful paint, home page | median 180 ms unthrottled; 2,556 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown (`qa/metrics/perf-*-home-load.json`) |
 
 **Gas, measured on Base Sepolia** (total `gasUsed` from each receipt,
 2026-11-19, current contracts: launcher `0xed8a5d83c64f71b6d027742124239dccbf018e44`. The same

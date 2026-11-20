@@ -1,6 +1,6 @@
 # HARDSTOP for AI assistants (MCP)
 
-This folder makes any AI assistant that speaks the Model Context Protocol an agent of a HARDSTOP vault. Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code and Python agent frameworks all work. The assistant can check its limits, preview a payment, pay, and ask its owner for more. It cannot do anything else.
+This folder makes any AI assistant that speaks the Model Context Protocol an agent of a HARDSTOP vault. There are ready setups for Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code and Python agent frameworks; the Install table below says which were run (the desktop apps were not). The assistant can check its limits, preview a payment, pay, and ask its owner for more. It cannot do anything else.
 
 - `server.ts`: the MCP server, over stdio (default) or Streamable HTTP (`--http`).
 - `watch.ts`: a 24/7 watcher for the owner, which reads the vault and raises alerts.
@@ -20,7 +20,7 @@ An agent that wants more room calls `hardstop_request_more`. That tool drafts a 
 
 ## Setup
 
-You need Node 24 or later, and `npm ci` run once in `web/`. The server runs as TypeScript directly, with no build step.
+With `npx -y github:vaibhav4046/hardstop`: Node 20 or later, nothing to clone. From a clone: Node 24 or later and `npm ci` once in `web/`; the server then runs as TypeScript directly, with no build step.
 
 | Variable | |
 |---|---|
@@ -99,9 +99,9 @@ Each tool returns a plain-language answer first, then the same facts as JSON (`s
 |---|---|
 | `hardstop_status` | Shows the limits in force (per payment, per window, end date, paused), what has been spent and what is left in the current window, when it resets, the vault's balance, the agent's ETH for network fees, any waiting change and when it takes effect, and the worst case over the next window, from the contract's `exposure`. Changes nothing. |
 | `hardstop_preview_payment { to, amount_usd }` | Shows what the vault would answer right now. Sends nothing and costs nothing. |
-| `hardstop_pay { to, amount_usd, nonce? }` | Sends `pay` signed with the agent's key. The nonce defaults to the ledger's next number. Returns `result` `paid` or `refused` with the reason in plain words, what is left in the window, and an explorer link. A refusal is recorded on chain too, so the owner sees it, and it costs a small fee. `reverted` means the payment was sent and mined but undone (the vault changed between the check and inclusion, for example the owner withdrew): nothing was paid, and the link shows it. `not_sent` means no transaction left the server. Payments are sent one at a time. |
+| `hardstop_pay { to, amount_usd, nonce?, repeat? }` | Sends `pay` signed with the agent's key. The nonce defaults to the ledger's next number. Returns `result` `paid` or `refused` with the reason in plain words, what is left in the window, and an explorer link. A refusal is recorded on chain too, so the owner sees it, and it costs a small fee. `reverted` means the payment was sent and mined but undone (the vault changed between the check and inclusion, for example the owner withdrew): nothing was paid, and the link shows it. `not_sent` means no transaction left the server. Payments are sent one at a time. |
 | `hardstop_recipients` | Lists the recipients named in `HARDSTOP_RECIPIENTS`, each checked with `approvedFrom` on chain: approved, approved from a later time, or not approved. |
-| `hardstop_request_more { reason, per_payment_usd?, per_day_usd? }` | Drafts a request to the owner, with the current limits, the ask, the reason and the link to the Activity page. Sends nothing and changes nothing. |
+| `hardstop_request_more { reason, per_payment_usd?, per_day_usd?, recipient? }` | Drafts a request to the owner, with the current limits, the ask (higher limits, a recipient to approve, or both), the reason as one quoted line, and a link that opens this vault for its owner. Sends nothing and changes nothing. |
 | resource `hardstop://status` | The same text as `hardstop_status`. |
 
 `to` takes an address, or the name of a recipient from `HARDSTOP_RECIPIENTS`. Amounts are dollars with at most two decimals, such as `4` or `"12.50"`.

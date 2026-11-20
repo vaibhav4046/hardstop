@@ -131,7 +131,7 @@ export default function Developers() {
           refused. The names come from <code className="mono">Reason</code> in kernel.fe; the sentences are what this
           site shows a person, with sample amounts and dates filled in.
         </p>
-        <div className="card table-scroll mt-8">
+        <div className="card table-scroll mt-8" tabIndex={0} role="region" aria-label="Reason codes, scrollable">
           <table className="ledger min-w-[36rem]">
             <thead>
               <tr>

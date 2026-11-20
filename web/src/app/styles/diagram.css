@@ -523,3 +523,21 @@
     opacity: 0;
   }
 }
+
+/* Under reduced motion nothing moves, and every animation above is what
+   makes a part visible. Show the end of the story instead: the three answers
+   listed, the bar down, the $4 request delivered. */
+@media (prefers-reduced-motion: reduce) {
+  .vd-verdicts > p {
+    grid-area: auto;
+    opacity: 1;
+  }
+
+  .vd-bar {
+    transform: none;
+  }
+
+  .vd-onward {
+    transform: var(--stop);
+  }
+}

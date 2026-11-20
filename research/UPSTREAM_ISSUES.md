@@ -8,14 +8,16 @@ turned off.
 **Posted on 2026-11-19**, with the owner's approval, as six issues and two pull requests. On
 2026-11-20 a Fe maintainer (micahscopes) approved #2042: "Thanks for catching this! My initial
 look suggests this is ready to go, but I'm doing a more thorough review." Fe's own CI then
-passed on it (lint, tests on Ubuntu and Windows, native ARM64, wasm). Nothing is merged yet;
-the other pull request and the issues have no reply yet.
+passed on it (lint, tests on Ubuntu and Windows, native ARM64, wasm). Later that day another
+maintainer (sbillig) added a commit of his own to #2042 ("Test forged capability seals and
+private modules"), and approved and merged #2048 ("Looks good, thank you!"), which closed
+#2039. #2041 and the other issues have no reply yet.
 
 | Draft | Posted as | Fix |
 |---|---|---|
 | 1, `pub(in path)` | [argotorg/fe#2037](https://github.com/argotorg/fe/issues/2037) | |
 | 2, `#[cfg]` predicates | [argotorg/fe#2038](https://github.com/argotorg/fe/issues/2038) | |
-| 3, block timestamp in `fe test` | [argotorg/fe#2039](https://github.com/argotorg/fe/issues/2039) | pull request [argotorg/fe#2048](https://github.com/argotorg/fe/pull/2048) (posted 2026-11-20) |
+| 3, block timestamp in `fe test` | [argotorg/fe#2039](https://github.com/argotorg/fe/issues/2039) (closed) | pull request [argotorg/fe#2048](https://github.com/argotorg/fe/pull/2048), merged 2026-11-20 |
 | 4, unknown attributes | [argotorg/fe#2035](https://github.com/argotorg/fe/issues/2035) | pull request [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041) |
 | 5, `#[must_use]` and bindings | [argotorg/fe#2040](https://github.com/argotorg/fe/issues/2040) | |
 | 6, private traits and the capability seal | [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036) | pull request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) |
@@ -280,7 +282,7 @@ Version: `fe 26.6.0 (5b3f96a)`.
 the keys `fe test` reads. New uitest snapshots (`unknown_attr`, `attr_test_args`); no existing
 snapshot changes. `cargo test --workspace --exclude fe-bench` on Windows: 2672 passed, 1 failed
 (`mock_lsp_checks_for_the_project_target`, which fails the same way on unmodified `master` there).
-HARDSTOP builds and passes `fe test` (92) with the patched compiler. Posted as [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041).
+HARDSTOP builds and passes `fe test` (92 then; 98 now) with the patched compiler. Posted as [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041).
 
 **Suggested labels:** `type: bug` (or `type: ui/ux`), `comp: analyzer`
 
@@ -483,7 +485,7 @@ already calls: `impl` headers, generic-parameter bounds, `where` clauses, super-
 associated-type bounds. New uitest `name_resolution/trait_ref_visibility` (five refusals; a
 private trait used in its own module or a child module, a `pub` trait and a `pub(super)` one
 stay accepted). std still builds: its one `impl EvmCapabilitySeal for Evm` is in the trait's
-module. With the patched compiler HARDSTOP passes `fe test` (92), and
+module. With the patched compiler HARDSTOP passes `fe test` (92 then; 98 now), and
 `scripts/pay-cannot-loosen.sh` requires the forged `Call` and stand-in `Ctx` to be refused at
 the seal. `cargo test --workspace --exclude fe-bench --no-fail-fast` on Windows, with both
 patches: 2672 passed, 1 failed (`mock_lsp_checks_for_the_project_target`, which fails the same

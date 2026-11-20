@@ -51,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           </main>
         </VaultProvider>
         <footer className="wrap">
-          <div className="colophon grid gap-x-16 gap-y-6 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="colophon grid gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,1fr)_auto]">
             <div>
               <p className="wordmark">
                 <Logo id="logo-foot" />
@@ -63,7 +63,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                 be used for real money.
               </p>
             </div>
-            <ul className="flex flex-wrap content-start gap-x-8 md:justify-end">
+            <ul className="flex flex-wrap content-start gap-x-8 lg:justify-end">
               <li>
                 <Link href="/how-it-works">How it works</Link>
               </li>
@@ -72,6 +72,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
               </li>
               <li>
                 <Link href="/developers">Developers</Link>
+              </li>
+              <li>
+                <a href="/demo/hardstop-demo.mp4">Demo film (2 min)</a>
               </li>
               <li>
                 <a href={GITHUB}>GitHub</a>

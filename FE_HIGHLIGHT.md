@@ -83,7 +83,7 @@ out, or log.
 What the compiler does not check here is the transfer. `decide` says
 whether `to` may receive `amount`; the `safe_transfer` after it is ordinary
 code, and an edit that sends the caller a thousand times `amount` compiles.
-Only the tests catch it. Taking `mut call` away from `Pay` would not change
+The tests catch it, and so does the script's source check. Taking `mut call` away from `Pay` would not change
 that in Fe 26.6: `Call`'s methods have default bodies and its seal trait,
 `std::evm::effects::EvmCapabilitySeal`, is private but can be implemented
 from any ingot (Fe does not check a private trait's visibility in an `impl`;
@@ -96,7 +96,7 @@ both edits as controls that must compile on Fe 26.6.
 
 The forged `Call` is a compiler bug, and it is fixed in pull request
 [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) (approved by a Fe
-maintainer on 2026-11-20, not yet merged; the same patch is
+maintainer on 2026-11-20, with a test added by another, not yet merged; the same patch is
 [`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch)):
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not

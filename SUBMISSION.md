@@ -11,9 +11,9 @@ push, and check that commit's CI run is green.
 | Repository | https://github.com/vaibhav4046/hardstop |
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
-| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2042 approved by a Fe maintainer on 2026-11-20 and green in Fe's CI, #2041 and #2048 open; none merged yet |
+| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20; #2042 approved by a Fe maintainer, who added a test of his own to it the same day, not yet merged; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A longer silent walkthrough with test output and receipts: https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A silent walkthrough with test output and receipts (recorded 2026-11-19, showing that day's counts: 92 Fe tests, 33 script checks): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -95,7 +95,7 @@ compiler guarantee) requires `Pay`'s only transfer to be exactly
 `safe_transfer(token, receiver: to, amount)`, not the compiler. That last gap is a Fe bug (a private
 trait is not visibility-checked in an `impl` header or a bound), reported
 as argotorg/fe#2036, and pull request argotorg/fe#2042 (approved by a Fe
-maintainer on 2026-11-20, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
+maintainer on 2026-11-20, with a test added by another, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
 it in the compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
 (2-0003), HARDSTOP's 98 tests still pass, and the Fe suite passes apart
 from one language-server test that fails on unmodified `master` too.
@@ -130,15 +130,15 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
   (2026-11-19): the launcher installed, a vault created, two payments, $80
   refused with code 10, a self-raise reverted, a raise proposed, cancelled
   and paused, and the gas of every call, each with its transaction link, in
-  the README. Earlier builds ran there too: seven vaults, one opened by
+  the README. Earlier builds ran there too, including a vault opened by
   clicking through MetaMask on the live site.
 
 ## Honest limits
 
 Test networks only; unaudited; MetaMask's site scanner currently warns
 before connecting (a review was requested on 2026-11-18); a waiting raise is
-shown on every page of the site, but nothing is sent to an owner who is not
-on it. Full list in the README's "Limitations".
+shown on every page of the site, but the site sends nothing; alerts
+elsewhere need the optional self-hosted watcher running. Full list in the README's "Limitations".
 
 ## AI assistance
 

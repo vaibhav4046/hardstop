@@ -120,7 +120,7 @@ export function Incidents() {
       </ol>
       <details className="disclosure mt-6">
         <summary>Show as a table</summary>
-        <div className="table-scroll mt-4">
+        <div className="table-scroll mt-4" tabIndex={0} role="region" aria-label="Recorded losses, scrollable">
           <table className="ledger min-w-[34rem]">
             <caption className="sr-only">
               Recorded losses involving AI agents, oldest first
@@ -183,7 +183,7 @@ export function Adoption() {
       </div>
       <details className="disclosure mt-6">
         <summary>Show as a table</summary>
-        <div className="table-scroll mt-4">
+        <div className="table-scroll mt-4" tabIndex={0} role="region" aria-label="Agent payment volumes, scrollable">
           <table className="ledger">
             <caption className="sr-only">Payments over x402 by month</caption>
             <thead>

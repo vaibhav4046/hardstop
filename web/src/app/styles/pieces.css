@@ -400,3 +400,19 @@
     padding-bottom: 0;
   }
 }
+
+/* On a phone a table wraps to the screen rather than hiding columns off to
+   the side. Outside any layer, so it wins over the min-width utilities. */
+@media (max-width: 40rem) {
+  .table-scroll {
+    min-width: 0;
+  }
+
+  .table-scroll > .ledger {
+    min-width: 0;
+  }
+
+  .table-scroll > .ledger :is(th, td) {
+    overflow-wrap: break-word;
+  }
+}

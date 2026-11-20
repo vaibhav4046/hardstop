@@ -13,7 +13,7 @@ test.describe('Connect your AI', () => {
     await section.scrollIntoViewIfNeeded()
 
     // One logo per assistant, served from this site and actually drawn.
-    const clients = section.getByRole('list', { name: 'Works with' }).getByRole('listitem')
+    const clients = section.getByRole('list', { name: 'Setups for' }).getByRole('listitem')
     await expect(clients).toHaveText(CLIENTS)
     const logos = section.locator('.connect-logo')
     await expect(logos).toHaveCount(CLIENTS.length)

@@ -79,7 +79,7 @@ export function ConnectAI() {
         its own limit.
       </p>
 
-      <ul className="connect-clients" aria-label="Works with">
+      <ul className="connect-clients" aria-label="Setups for">
         {CLIENTS.map((client) => (
           <li key={client.file}>
             {/* The logo file is the shape; the colour is painted through it, grey until hovered. */}
@@ -110,7 +110,7 @@ export function ConnectAI() {
           <a href={SETUP_GUIDE} rel="noopener noreferrer">
             full setup guide
           </a>
-          . Works with: these assistants can install it; none of their makers has reviewed or endorses HARDSTOP.
+          . Setups for: these assistants can install it (the guide says which were run); none of their makers has reviewed or endorses HARDSTOP.
         </p>
       </div>
     </section>
