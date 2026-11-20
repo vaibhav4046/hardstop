@@ -10,11 +10,13 @@ use ingot::adversary::{
     ALLOWED_WRONGLY,
     BAD_LEDGER,
     DENIED_WRONGLY,
+    LOOSENED_AT_ONCE,
     OK,
     OVER_EXPOSURE,
 }
 use ingot::kernel::{
     amend,
+    cancel,
     decide,
     exposure,
     loosens,
@@ -417,11 +419,14 @@ fn catches_an_exposure_bound_that_counts_stale_spending() {
     )
 }
 
+/// Caught the moment the raise lands, before any payment goes over the
+/// promise: the campaign checks every owner call against the policy in force
+/// that second. (Before that check existed, this was caught as OVER_EXPOSURE.)
 #[test]
 fn catches_a_raise_applied_without_waiting() {
     assert!(
         campaign<AmendSkipsCooling>(seed: SEED, cases: 200, steps: STEPS).violation
-            == OVER_EXPOSURE,
+            == LOOSENED_AT_ONCE,
     )
 }
 
@@ -430,5 +435,26 @@ fn catches_a_raise_that_jumps_the_queue() {
     assert!(
         campaign<AmendKeepsOldMaturity>(seed: SEED, cases: 200, steps: STEPS).violation
             == OVER_EXPOSURE,
+    )
+}
+
+/// Cancels against the rules one second later: a raise cancelled in the last
+/// second before it matures is in force at once, and for good.
+struct CancelsLate {}
+
+impl Engine for CancelsLate {
+    fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
+        decide(rules, ledger, request, now)
+    }
+
+    fn cancel(_ proof: own OwnerProof, rules: Rules, now: Instant) -> Rules {
+        cancel(proof, rules, now: now + Seconds::of(1))
+    }
+}
+
+#[test]
+fn catches_a_cancel_that_lands_a_raise_at_once() {
+    assert!(
+        campaign<CancelsLate>(seed: SEED, cases: 200, steps: STEPS).violation == LOOSENED_AT_ONCE,
     )
 }

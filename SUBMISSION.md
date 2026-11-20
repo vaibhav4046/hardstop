@@ -47,9 +47,9 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
   14 deliberately broken kernels on both targets.
 - `fe/src/launcher.fe`: creates a vault in one transaction. It is installed
   through the deterministic deployment proxy, so on any network where it is
-  installed it has the same address. The current one is not installed on
-  any network yet; the site installs it on first use (one extra wallet
-  approval). The previous one is on Base Sepolia.
+  installed it has the same address. The current one is installed on Base
+  Sepolia (2026-11-19); on another network the site installs it on first
+  use (one extra wallet approval).
 
 ## Fe highlight
 
@@ -88,7 +88,7 @@ trait is not visibility-checked in an `impl` header or a bound), reported
 as argotorg/fe#2036, and pull request argotorg/fe#2042 (open, not yet
 merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
 it in the compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
-(2-0003), HARDSTOP's 92 tests still pass, and the Fe suite passes apart
+(2-0003), HARDSTOP's 95 tests still pass, and the Fe suite passes apart
 from one language-server test that fails on unmodified `master` too.
 
 The ratchet's laws are checked when the kernel compiles. `amend`,
@@ -111,8 +111,8 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works
 
-- `fe test`: 92 passed on the EVM; 49 passed natively.
-- Web: 73 unit tests (including the MCP server and watcher) and 58 browser
+- `fe test`: 95 passed on the EVM; 52 passed natively.
+- Web: 77 unit tests (including the MCP server and watcher) and 58 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

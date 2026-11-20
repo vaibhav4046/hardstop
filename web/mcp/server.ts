@@ -48,6 +48,9 @@ const INSTRUCTIONS = `This server lets you spend from a HARDSTOP vault as its ag
 
 type Reply = { text: string; json: Record<string, unknown> }
 
+/** How long an identical payment counts as a possible duplicate of one already paid. */
+const REPEAT_WINDOW_MS = 10 * 60 * 1000
+
 /** A tool result: the plain sentence first, then the same facts as JSON for programs. */
 const ok = ({ text, json }: Reply): CallToolResult => ({
   content: [
@@ -111,6 +114,26 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
     const next = line.then(work)
     line = next.catch(() => undefined)
     return next
+  }
+
+  // Payments already made, by recipient and amount, so that a retry after a lost reply is not paid again.
+  const recentlyPaid = new Map<string, { at: number; nonce: bigint; tx?: Hex }>()
+  const payKey = (to: Hex, units: bigint) => to.toLowerCase() + '|' + units
+  /** Why this payment must not be sent now, as the reply to give, or undefined to go ahead. */
+  const notSendable = (to: Hex, name: string | undefined, units: bigint, repeat: boolean, signal: AbortSignal): Reply | undefined => {
+    const held = (reason: string, sentence: string): Reply => ({
+      text: `Not sent: ${formatUsd(units)} to ${name ?? to}. ${sentence}
+No transaction was sent.`,
+      json: { paid: false, result: 'not_sent', reason, explanation: sentence, to, amount_usd: usd(units), nonce: null, left_today_usd: null, transaction: null, explorer: null },
+    })
+    if (signal.aborted) return held('Cancelled', 'The request was cancelled before anything was sent.')
+    const last = recentlyPaid.get(payKey(to, units))
+    if (repeat || !last || Date.now() - last.at > REPEAT_WINDOW_MS) return undefined
+    const ago = Math.max(1, Math.round((Date.now() - last.at) / 1000))
+    return held(
+      'PossibleDuplicate',
+      `This exact payment was already paid ${ago} seconds ago (request ${last.nonce}${last.tx ? ', transaction ' + last.tx : ''}). If a reply was lost, it went through. To pay it again on purpose, call hardstop_pay with repeat: true.`,
+    )
   }
 
   const run = async (work: (v: Vault) => Promise<Reply>): Promise<CallToolResult> => {
@@ -182,19 +205,22 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
       {
         title: 'Pay from the vault',
         description:
-          'Ask the vault to pay amount_usd to `to`, signed with your agent key. The contract decides: it pays if every limit allows it and refuses otherwise. A refusal is still recorded on the network (so the owner sees it) and costs a small network fee; use hardstop_preview_payment first if unsure. Returns result paid, refused, reverted (sent and mined, but undone by the network: nothing was paid) or not_sent (no transaction left this server), the reason in plain words, what is left in the current spending window, and a link to the transaction. Leave nonce out unless told otherwise; it defaults to the next request number.',
+          'Ask the vault to pay amount_usd to `to`, signed with your agent key. The contract decides: it pays if every limit allows it and refuses otherwise. A refusal is still recorded on the network (so the owner sees it) and costs a small network fee; use hardstop_preview_payment first if unsure. Returns result paid, refused, reverted (sent and mined, but undone by the network: nothing was paid) or not_sent (no transaction left this server), the reason in plain words, what is left in the current spending window, and a link to the transaction. Leave nonce out unless told otherwise; it defaults to the next request number. The same payment (same recipient and amount) already paid in the last 10 minutes is not sent again unless repeat is true, so a retry after a lost reply cannot pay twice; a request you cancel before it is sent is not sent.',
         inputSchema: {
           to: z.string().describe('Recipient address (0x...) or the name of a known recipient.'),
           amount_usd: amount,
           nonce: z.number().int().min(0).optional().describe('Request number. Defaults to the next one the vault expects.'),
+          repeat: z.boolean().optional().describe('Set true only to pay the same recipient the same amount again within 10 minutes, on purpose.'),
         },
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
       },
-      ({ to, amount_usd, nonce }) =>
+      ({ to, amount_usd, nonce, repeat }, extra) =>
         run((v) =>
           oneAtATime(async () => {
             const recipient = resolve(v, to)
             const units = dollars(amount_usd, 'amount_usd')
+            const held = notSendable(recipient.address, recipient.name, units, repeat === true, extra.signal)
+            if (held) return held
             if ((await v.chain.agentGas()) === 0n) {
               throw new Error(
                 `The agent ${v.sim.agent} has no ETH left to pay network fees on ${v.config.network.name}, so nothing was sent. Ask the owner to send it a little test ETH.`,
@@ -202,10 +228,14 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
             }
             await v.chain.refresh(true)
             const number = nonce === undefined ? (await v.sim.state()).ledger.nextNonce : BigInt(nonce)
+            // Checked again just before sending: the client may have given up while this waited.
+            const late = notSendable(recipient.address, recipient.name, units, repeat === true, extra.signal)
+            if (late) return late
             const entry = await apply(v.sim, { type: 'pay', to: recipient.address, amount: units.toString(), nonce: number.toString() }, 0)
             if (entry.kind !== 'payment') throw new Error('The vault answered something other than a payment.')
             const said = verdict(entry, formatFor(v))
             const paid = said.tone === 'paid'
+            if (paid) recentlyPaid.set(payKey(recipient.address, units), { at: Date.now(), nonce: number, tx: entry.outcome.tx })
             // A transaction that was mined and reverted was sent; only one that never left was not.
             const result = paid ? 'paid' : said.tone === 'blocked' ? 'refused' : entry.outcome.tx ? 'reverted' : 'not_sent'
             const label = { paid: 'Paid', refused: 'Refused', reverted: 'Sent, reverted (nothing was paid)', not_sent: 'Not sent' }[result]

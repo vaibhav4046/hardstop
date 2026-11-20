@@ -12,7 +12,7 @@ With Fe 26.6.0 on your path, from the repository root:
 
 ```
 $ cd fe && fe test
-test result: ok. 92 passed; 0 failed
+test result: ok. 95 passed; 0 failed
 
 $ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
 ok   control: Pay may write its own ledger
@@ -99,7 +99,7 @@ merged; the same patch is
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not
 visible" (2-0003), as a private function or struct already is. With the
-patched compiler, HARDSTOP still passes `fe test` (92), and the refusal
+patched compiler, HARDSTOP still passes `fe test` (95), and the refusal
 script, which checks whichever compiler it is given, requires the forged
 `Call` and the stand-in `Ctx` below to be refused at the seal instead of
 compiling. CI and the deployed contracts use the unpatched 26.6 release.

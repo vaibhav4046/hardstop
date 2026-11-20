@@ -43,6 +43,23 @@ now fixed, each with a test that fails without the fix:
 | 9 | Low | **"Is this a real vault" checked the code, not what it stores.** A hand-made deployment of the same code could hold an owner equal to the agent, or a zero owner, which the constructor refuses. | `connect` refuses a vault whose owner, agent or token is zero, or whose owner is its agent. It still does not check which launcher made the vault. | `vault code with storage no launcher could have written is refused: owner equal to the agent, or zero` |
 | 10 | Info | **Two sentences overstated.** "Any later tightening cancels a queued loosening" does not hold for a recipient in its cooling period (only removing it does), and the exposure bound was called "exact" with nothing queued, which item 7 had already retracted. | README and THREAT_MODEL.md corrected. | (wording) |
 
+## Third review, 2026-11-20
+
+Three AI attackers worked at once, each told to break one part and to report
+only what it could reproduce with a test that passes only if the attack works:
+the Fe contracts, the TypeScript side (MCP server, watcher, wallet path) and
+the live site in a browser. None moved money past the vault's limits on the
+real code. Each finding below is fixed, and each fix has a test that fails
+without it; the attackers' own proofs of concept now fail.
+
+| # | Severity | Finding | Fix | Test that now pins it |
+|---|---|---|---|---|
+| 11 | Medium | **A payment whose reply was lost could be paid twice.** An MCP client that timed out (and sent a cancel) left `hardstop_pay` running; the agent's ordinary retry got the next request number and paid again. A payment queued behind it was sent too, though its client had given up. One $4 intent became $11 spent. | `hardstop_pay` checks the client's cancel before sending, and holds a payment identical (same recipient and amount) to one paid in the last 10 minutes unless the agent passes `repeat: true`. | `a payment whose reply was lost is not paid twice by an ordinary retry, ...` (web/tests/mcp.test.ts) |
+| 12 | Medium | **"4,99" was read as $499.** `parseUsd` deleted every comma, so a European decimal comma paid a hundred times the amount (within the caps), in the MCP tools and in the owner's forms ("12,50" became $1,250.00). | A comma is accepted only as a thousands separator in groups of three; anything else is refused. | `a comma is read only as a thousands separator, never as a decimal point` (web/tests/money.test.ts) |
+| 13 | Low/Medium | **A watcher far behind read its whole backlog before alerting.** After a long outage, one check made hundreds of event requests before the "raise waiting" alert; after refused ranges the range never grew back. | At most eight ranges per check, the rest on later checks; the range doubles back to 1,000 blocks after each success. | `a watcher far behind still reports a waiting raise at its first check, ...`, `after the network refuses a few ranges, the range grows back to 1,000 blocks` |
+| 14 | Medium (test gap) | **Removing a recipient during its cooling period was never tested.** A kernel that ignored such a removal passed all 92 Fe tests and the 15 contract tests. | New test; the broken kernel now fails it. | `removing_a_recipient_while_it_cools_is_instant` (fe/src/tests.fe) |
+| 15 | Low/Medium (test gap) | **A cancel that lands a raise at once was caught only by a fixed digest.** `cancel` was not part of the adversary's `Engine`, and no check compared the policy in force before and after an owner call. | `cancel` is in `Engine`; the campaign now flags any owner call that loosens the policy in force that same second (`LOOSENED_AT_ONCE`); a fifteenth broken kernel, `CancelsLate`, must be caught. 20,000 native games, 800,000 requests: no violation on the real kernel. | `catches_a_cancel_that_lands_a_raise_at_once`, `cancelling_a_raise_in_its_last_second_keeps_the_old_cap` |
+
 ## What it tried and could not break
 
 - Making `Pay` write the policy: the compiler refuses

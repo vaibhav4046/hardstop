@@ -791,3 +791,62 @@ fn exposure_owner_promise_needs_a_queue_built_by_amend() {
     let amended = amend(owner(), rules: rules(), proposed: higher(), now: at(T0))
     assert!(!loosens(amended.queued.policy, to: amended.active))
 }
+
+/// A raise the owner never wanted, cancelled in the last second before it
+/// would take effect: the old cap stays, then and later.
+#[test]
+fn cancelling_a_raise_in_its_last_second_keeps_the_old_cap() {
+    let rules = Rules {
+        schedule: Schedule {
+            anchor: Instant::at(T0),
+            window_secs: Seconds::of(DAY),
+            cooling_secs: Seconds::of(DAY),
+        },
+        active: Policy {
+            per_payment: 10,
+            per_window: 20,
+            valid_until: Instant::at(T0 + 30 * DAY),
+            paused: false,
+        },
+        queued: Queued::none(),
+    }
+    let raise = Policy {
+        per_payment: 500,
+        per_window: 1000,
+        valid_until: Instant::at(T0 + 30 * DAY),
+        paused: false,
+    }
+    let waiting = amend(owner(), rules, proposed: raise, now: Instant::at(T0))
+    let cancelled = cancel(owner(), rules: waiting, now: Instant::at(T0 + DAY - 1))
+    assert!(!cancelled.queued.is_some())
+    for at in [T0 + DAY - 1, T0 + DAY, T0 + 5 * DAY] {
+        assert!(cancelled.current(now: Instant::at(at)).per_payment == 10)
+    }
+}
+
+/// A recipient added by mistake and removed while it is still cooling is
+/// never payable: removal is instant, like any tightening.
+#[test]
+fn removing_a_recipient_while_it_cools_is_instant() {
+    let schedule = Schedule {
+        anchor: Instant::at(T0),
+        window_secs: Seconds::of(DAY),
+        cooling_secs: Seconds::of(DAY),
+    }
+    let pending = approve_from(
+        owner(),
+        schedule,
+        current: Instant::at(0),
+        approved: true,
+        now: Instant::at(T0),
+    )
+    assert!(pending == Instant::at(T0 + DAY))
+    let removed = approve_from(
+        owner(),
+        schedule,
+        current: pending,
+        approved: false,
+        now: Instant::at(T0 + 10),
+    )
+    assert!(removed == Instant::at(0))
+}

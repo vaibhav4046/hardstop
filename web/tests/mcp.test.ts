@@ -10,7 +10,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import type { Hex } from 'viem'
 import { createServer } from '../mcp/server.ts'
 import { attach, launchVault } from '../src/lib/live/launch.ts'
-import { NETWORKS } from '../src/lib/live/wallet.ts'
+import { NETWORKS, type Wallet } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
 import type { Setup } from '../src/lib/hardstop/sim.ts'
 import { FAKE_CHAIN_ID, FakeNetwork } from './fake-network.ts'
@@ -77,6 +77,53 @@ test('the server offers exactly the five agent tools and the status resource, an
   const missing = (await client.callTool({ name: 'hardstop_propose', arguments: {} })) as CallToolResult
   assert.equal(missing.isError, true)
   assert.match(text(missing), /not found/i)
+})
+
+/** A congested network: each receipt shows up only on its third poll, about three seconds at the server's pace. */
+function slowReceipts(network: FakeNetwork): Wallet {
+  const polls = new Map<string, number>()
+  return {
+    request: async (args) => {
+      if (args.method === 'eth_getTransactionReceipt') {
+        const hash = String(args.params?.[0])
+        const n = (polls.get(hash) ?? 0) + 1
+        polls.set(hash, n)
+        if (n < 3) return null
+      }
+      return network.request(args)
+    },
+  }
+}
+
+test('a payment whose reply was lost is not paid twice by an ordinary retry, and a queued one the client gave up on is not sent', async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, 1)
+  const owner = await attach(network, live, 1)
+  const server = createServer({ wallet: slowReceipts(network), env: { HARDSTOP_AGENT_KEY: live.agentKey, HARDSTOP_VAULT: live.vault, HARDSTOP_CHAIN_ID: String(FAKE_CHAIN_ID) } })
+  const client = new Client({ name: 'agent', version: '0' })
+  const [a, b] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(a), client.connect(b)])
+  await client.callTool({ name: 'hardstop_status', arguments: {} })
+  const pay = (args: Record<string, unknown>, timeout = 60_000) =>
+    client.callTool({ name: 'hardstop_pay', arguments: args }, undefined, { timeout }) as Promise<CallToolResult>
+
+  // The first $4 is sent; the client gives up after one second, before the receipt. A $3 queued behind it is given up on too.
+  const first = pay({ to: PAYEE, amount_usd: 4 }, 1000)
+  const queued = pay({ to: PAYEE, amount_usd: 3 }, 1000)
+  await Promise.all([assert.rejects(first, /timed out/i), assert.rejects(queued, /timed out/i)])
+
+  // The agent saw an error and retries the same payment: it is held, not paid again.
+  const retry = await pay({ to: PAYEE, amount_usd: 4 })
+  assert.equal(data(retry).result, 'not_sent', text(retry))
+  assert.equal(data(retry).reason, 'PossibleDuplicate')
+  assert.match(text(retry), /already paid .*repeat: true/s)
+  assert.equal(await owner.sim.balanceOf(PAYEE), 4n * USD, 'one $4 payment, and the $3 the client gave up on was never sent')
+  assert.equal((await owner.sim.state()).ledger.nextNonce, 1n)
+
+  // Asked for on purpose, the same payment goes through.
+  const again = await pay({ to: PAYEE, amount_usd: 4, repeat: true })
+  assert.equal(data(again).result, 'paid', text(again))
+  assert.equal(await owner.sim.balanceOf(PAYEE), 8n * USD)
 })
 
 test('status, a paid payment, refusals over the limit and to a stranger, and status again', async () => {

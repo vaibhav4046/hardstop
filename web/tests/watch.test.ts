@@ -347,3 +347,55 @@ test('with HARDSTOP_WATCH_CURSOR a restart resumes where the last run stopped, f
   const blind = new Watcher(await connect(config, network))
   assert.deepEqual(kinds(await blind.check()), ['watching'])
 })
+
+/** The stand-in network, seen as if the chain were `ahead` blocks further on, with event queries that can be made to fail. */
+async function farBehind(coolingSecs = 3600n) {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, { ...SETUP, coolingSecs }, () => {}, 1)
+  const { sim } = await attach(network, live, 1)
+  const state = { ahead: 0n, failNext: 0, ranges: [] as bigint[] }
+  const wallet: Wallet = {
+    request: async (args) => {
+      if (args.method === 'eth_blockNumber') return `0x${(BigInt((await network.request(args)) as string) + state.ahead).toString(16)}`
+      if (args.method === 'eth_getLogs') {
+        const [{ fromBlock, toBlock }] = args.params as { fromBlock: Hex; toBlock: Hex }[]
+        state.ranges.push(BigInt(toBlock) - BigInt(fromBlock) + 1n)
+        if (state.failNext > 0) {
+          state.failNext--
+          throw new Error('query returned more than 10000 results')
+        }
+      }
+      return network.request(args)
+    },
+  }
+  const config = readConfig({ HARDSTOP_VAULT: live.vault })
+  return { sim, state, vault: await connect(config, wallet) }
+}
+
+test('a watcher far behind still reports a waiting raise at its first check, and catches up a bounded amount per check', async () => {
+  const { sim, state, vault } = await farBehind()
+  state.ahead = 300_000n // about a week of Base Sepolia blocks
+  await sim.propose(PROPOSAL)
+  const watcher = new Watcher(vault, 3n * DAY, 1n) // a saved cursor from a week ago
+  const alerts = await watcher.check()
+  assert.ok(kinds(alerts).includes('loosening_waiting'), 'the raise is reported at once')
+  assert.ok(state.ranges.length <= 8, `one check read ${state.ranges.length} ranges`)
+  const before = watcher.cursor!
+  await watcher.check()
+  assert.ok(watcher.cursor! > before, 'the next check carries on from where this one stopped')
+})
+
+test('after the network refuses a few ranges, the range grows back to 1,000 blocks', async () => {
+  const { state, vault } = await farBehind()
+  const watcher = new Watcher(vault)
+  await watcher.check()
+  for (let i = 1; i <= 9; i++) {
+    state.ahead = BigInt(i)
+    state.failNext = 1
+    await watcher.check()
+  }
+  state.ahead = 20_000n
+  state.ranges.length = 0
+  for (let i = 0; i < 6; i++) await watcher.check()
+  assert.ok(state.ranges.some((n) => n === 1_000n), `ranges after recovery: ${state.ranges.slice(0, 12).join(',')}`)
+})

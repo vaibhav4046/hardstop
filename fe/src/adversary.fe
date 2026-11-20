@@ -28,6 +28,7 @@ use ingot::kernel::{
     cancel,
     decide,
     exposure,
+    loosens,
     Decision,
     Instant,
     Ledger,
@@ -40,9 +41,9 @@ use ingot::kernel::{
     Seconds,
 }
 
-/// The three kernel functions a vault relies on. An implementation supplies
-/// `decide`; `amend` and `exposure` default to the real kernel's, so a broken
-/// copy overrides only the part it breaks.
+/// The four kernel functions a vault relies on. An implementation supplies
+/// `decide`; `amend`, `exposure` and `cancel` default to the real kernel's, so
+/// a broken copy overrides only the part it breaks.
 pub trait Engine {
     fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision
 
@@ -52,6 +53,10 @@ pub trait Engine {
 
     fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
         exposure(rules, ledger, now, until)
+    }
+
+    fn cancel(_ proof: own OwnerProof, rules: Rules, now: Instant) -> Rules {
+        cancel(proof, rules, now)
     }
 }
 
@@ -112,6 +117,9 @@ pub const BAD_LEDGER: u8 = 3
 pub const OVER_EXPOSURE: u8 = 4
 /// A refusal carried a code outside the documented range.
 pub const BAD_CODE: u8 = 5
+/// An owner call made the policy in force at that same second looser. Only
+/// waiting out the cooling period may do that.
+pub const LOOSENED_AT_ONCE: u8 = 6
 
 pub struct Report {
     pub cases: u64,
@@ -335,6 +343,7 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
             }
 
             // The owner changes its mind now and then.
+            let in_force = rules.current(now: at)
             let owner = rng.below(12)
             if owner == 0 {
                 rules = E::amend(
@@ -344,7 +353,7 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                     now: at,
                 )
             } else if owner == 1 {
-                rules = cancel(as_owner(), rules, now: at)
+                rules = E::cancel(as_owner(), rules, now: at)
             } else if owner == 2 && rules.queued.is_some() && !rules.queued.matured(now: at) {
                 // Not content with the raise that is waiting, the owner asks
                 // for a bigger one.
@@ -355,6 +364,8 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
             }
 
             let policy = rules.current(now: at)
+            // Whatever the owner just did, nothing in force this second got looser.
+            let loosened_now = loosens(in_force, to: policy)
             let in_window = now >= anchor && (now - anchor) / window_secs == ledger.window
             let spent: u256 = if in_window { ledger.spent } else { 0 }
             let left: u256 = if spent >= policy.per_window {
@@ -416,6 +427,9 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
                 },
             }
 
+            if violation == OK && loosened_now {
+                violation = LOOSENED_AT_ONCE
+            }
             if violation != OK && report.violation == OK {
                 report.violation = violation
                 report.at_case = case

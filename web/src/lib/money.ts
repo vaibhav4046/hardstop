@@ -21,9 +21,13 @@ export function formatUsd(units: bigint): string {
 
 /** "4", "4.5", "$1,000.00" to base units. Null when the text is not a dollar amount. */
 export function parseUsd(text: string): bigint | null {
-  const match = /^\$?(\d{1,9})(?:\.(\d{1,2}))?$/.exec(text.trim().replace(/,/g, ''))
+  // A comma is only a thousands separator, in groups of three ("1,000.50"). "4,99" is refused,
+  // not read as 499: a European decimal comma must never pay a hundred times the amount.
+  const match = /^\$?(\d{1,3}(?:,\d{3})+|\d{1,9})(?:\.(\d{1,2}))?$/.exec(text.trim())
   if (!match) return null
-  return BigInt(match[1]) * USD + BigInt((match[2] ?? '').padEnd(6, '0'))
+  const whole = match[1].replace(/,/g, '')
+  if (whole.length > 9) return null
+  return BigInt(whole) * USD + BigInt((match[2] ?? '').padEnd(6, '0'))
 }
 
 /** Base units as text for a form field: "10.00". */

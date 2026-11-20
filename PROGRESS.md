@@ -8,12 +8,12 @@ the reference; this page only says where things stand.
 | Check | Result |
 |---|---|
 | `fe fmt --check` | clean |
-| `fe test` (EVM) | 92 passed, 0 failed |
-| `fe test --backend native` (WSL) | 49 passed, 0 failed |
+| `fe test` (EVM) | 95 passed, 0 failed |
+| `fe test --backend native` (WSL) | 52 passed, 0 failed |
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
 | `scripts/pay-cannot-loosen.sh` | 33 lines starting `ok`: 26 compiler refusals, 6 controls that must compile, 1 source check |
 | Committed web artifacts vs a fresh build | identical |
-| `npm test` (web) | 73 passed, 0 failed, 0 skipped |
+| `npm test` (web) | 77 passed, 0 failed, 0 skipped |
 | `npx tsc --noEmit` | clean |
 | Browser suite | 58 tests; green in CI (GitHub Actions) |
 | Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app |
@@ -21,7 +21,7 @@ the reference; this page only says where things stand.
 ## Done
 
 - Policy kernel (`decide`, `amend`, `cancel`, `exposure`), vault, launcher,
-  test token, a seeded attacker in Fe with 14 broken kernels it must catch,
+  test token, a seeded attacker in Fe with 15 broken kernels it must catch,
   and a native CLI from the same source.
 - The compiler enforces the rules: sealed `Terms` and `Approval` that only
   the kernel makes, a use-once `OwnerCall` bound to the real caller, and
@@ -41,7 +41,7 @@ the reference; this page only says where things stand.
   also in `research/fe-patches/`): unknown attributes become errors, and a
   private trait is visibility-checked in `impl` headers and bounds, which
   stops user code forging `std`'s `Call` and `Ctx`. With the second patch,
-  `fe test` passes (92) and the refusal script requires both forgeries to be
+  `fe test` passes (95) and the refusal script requires both forgeries to be
   refused; the Fe suite passes 2672, with 1 failure that also happens on
   unmodified `master` on Windows. Posted 2026-11-19; not yet reviewed or merged.
 

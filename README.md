@@ -22,11 +22,11 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `92 passed; 0 failed` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `95 passed; 0 failed` |
 | The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 33 lines starting `ok` |
-| The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `49 passed` |
+| The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `73` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `77` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 58 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -185,7 +185,7 @@ fe/src/
   token.fe            EVM only. 6-decimal test token.
   cli.fe              native only. decide / exposure / batch / campaign.
   tests.fe            kernel tests, run on both targets
-  adversary_tests.fe  campaign + 14 broken kernels, run on both targets
+  adversary_tests.fe  campaign + 15 broken kernels, run on both targets
   vault_tests.fe      vault tests, EVM
   launcher_tests.fe   launcher tests, EVM
 
@@ -226,8 +226,8 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 92 tests on the EVM
-fe test --backend native          # the 49 kernel + adversary tests again, natively
+fe test                           # 95 tests on the EVM
+fe test --backend native          # the 52 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
 ./out/hardstop campaign 5206533097626292048 20000 40
@@ -236,7 +236,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 73 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 77 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 58 browser tests against the production build
@@ -252,10 +252,10 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 92 passed, 0 failed |
-| `fe test --backend native` | 49 passed, 0 failed |
+| `fe test` (EVM) | 95 passed, 0 failed |
+| `fe test --backend native` | 52 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
-| Adversary vs broken kernels | 14 of 14 mutants caught, on both targets |
+| Adversary vs broken kernels | 15 of 15 mutants caught, on both targets (the 15th, a cancel that lands a raise at once, added after the third review) |
 | Exposure promise under attack | taken 2,938 times in 200 games: 347 with a raise waiting, 565 with money already spent, reached exactly 100 times, never exceeded |
 | Contract vs native kernel (`web/tests/differential.test.ts`) | 2,400 payment requests (336 allowed, 1,951 denied, 113 reverted) and 480 exposure queries: agreed on all |
 | Tests against the compiled contract with a controllable clock | 15 passed |
@@ -345,8 +345,9 @@ approved recipient):
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
   The current launcher, `0xed8a5d83c64f71b6d027742124239dccbf018e44`, is
-  not installed on either yet: the site installs it on first use, which
-  takes one extra wallet approval. Earlier launchers stay on Base Sepolia
+  installed on Base Sepolia (2026-11-19, transactions in the results table);
+  on Sepolia the site installs it on first use, which takes one extra wallet
+  approval. Earlier launchers stay on Base Sepolia
   with the vaults opened through them (five, listed in
   [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md#launchers-on-base-sepolia)). A
   launcher's address follows from its code, so every change to the

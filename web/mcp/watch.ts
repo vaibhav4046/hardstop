@@ -48,6 +48,8 @@ export type Alert = { kind: string; at: string; vault: Hex; message: string } & 
 
 /** Most blocks asked for in one eth_getLogs; public RPCs limit the range. A watcher that fell behind asks several times in one check. */
 const MAX_BLOCKS = 1_000n
+/** Most eth_getLogs requests in one check. A watcher far behind catches up over several checks, so the alerts from the vault's rules (a raise waiting) are never held up by a long backlog. */
+const MAX_RANGES_PER_CHECK = 8
 /** Seconds per block, to turn the cooling period into a number of blocks to look back at start. Unknown chains (the test network) count one second. */
 const BLOCK_SECS: Record<number, bigint> = { 84532: 2n, 11155111: 12n }
 /** Longest wait between attempts while the network is failing; never more than half the vault's cooling period either. */
@@ -121,7 +123,7 @@ export class Watcher {
     const events: { event: VaultEvent; tx: Record<string, unknown> }[] = []
     let next = from
     let unreadable: unknown
-    while (next <= latest) {
+    for (let ranges = 0; next <= latest && ranges < MAX_RANGES_PER_CHECK; ranges++) {
       const to = latest < next + this.span - 1n ? latest : next + this.span - 1n
       let logs: RawLog[]
       try {
@@ -134,6 +136,8 @@ export class Watcher {
         if (this.span > 1n) this.span /= 2n
         break
       }
+      // A range the network answered: the next one may be larger again, up to the most a public RPC allows.
+      if (this.span < MAX_BLOCKS) this.span = this.span * 2n > MAX_BLOCKS ? MAX_BLOCKS : this.span * 2n
       const catchUp = next <= catchUpTo
       for (const log of logs) for (const e of this.decode(log)) events.push(catchUp ? { ...e, tx: { ...e.tx, catch_up: true } } : e)
       next = to + 1n
