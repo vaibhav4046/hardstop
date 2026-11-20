@@ -374,6 +374,27 @@ function run(canvas: HTMLCanvasElement, renderer: WebGLRenderer, { onReady, onLo
   seen.observe(canvas)
   const resized = new ResizeObserver(fit)
   resized.observe(canvas)
+  // A hidden page (a background tab, a pane that was closed) can have its
+  // drawn frame thrown away; the browser may then show the canvas blank or
+  // white. Draw again at once when it is shown.
+  const onShown = () => {
+    if (document.visibilityState !== 'visible') return
+    last = 0
+    schedule()
+  }
+  document.addEventListener('visibilitychange', onShown)
+  addEventListener('pageshow', onShown)
+  // The observer above is not told about every way a page comes back into
+  // view (an app pane shown again from zero height, say). Once a second,
+  // check for ourselves and start drawing again if the door is on screen.
+  const watchdog = window.setInterval(() => {
+    if (frame || document.visibilityState !== 'visible') return
+    const box = canvas.getBoundingClientRect()
+    if (box.width === 0 || box.bottom <= 0 || box.top >= innerHeight) return
+    isVisible = true
+    last = 0
+    schedule()
+  }, 1000)
   addEventListener('scroll', onScroll, { passive: true })
   addEventListener('pointermove', onPointer, { passive: true })
 
@@ -386,6 +407,9 @@ function run(canvas: HTMLCanvasElement, renderer: WebGLRenderer, { onReady, onLo
     resized.disconnect()
     removeEventListener('scroll', onScroll)
     removeEventListener('pointermove', onPointer)
+    clearInterval(watchdog)
+    document.removeEventListener('visibilitychange', onShown)
+    removeEventListener('pageshow', onShown)
     canvas.removeEventListener('webglcontextlost', onContextLost)
     for (const owner of [scene, dither.scene]) {
       owner.traverse((object) => {
