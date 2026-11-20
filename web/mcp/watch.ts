@@ -346,9 +346,11 @@ export type Deliver = (alert: Alert) => Promise<void>
 export function deliverer(env: Env, write: (line: string) => void = (line) => process.stdout.write(line)): Deliver {
   const webhook = env.HARDSTOP_ALERT_WEBHOOK?.trim()
   const desktopOn = env.HARDSTOP_DESKTOP_NOTIFY === '1'
+  const ntfy = ntfyAddress(env.HARDSTOP_ALERT_NTFY)
   return async (alert) => {
     write(`${JSON.stringify(alert)}\n`)
     if (desktopOn) desktop(`HARDSTOP: ${alert.kind.replace(/_/g, ' ')}`, alert.message)
+    if (ntfy) await push(ntfy, alert)
     if (!webhook) return
     try {
       const response = await fetch(webhook, {
@@ -365,6 +367,44 @@ export function deliverer(env: Env, write: (line: string) => void = (line) => pr
 }
 
 const warn = (text: string) => process.stderr.write(`hardstop-watch: ${text}\n`)
+
+/** Alerts the owner must act on before a cooling period ends: pushed as urgent, with a link to where they can. */
+const ACT_NOW = new Set(['loosening_waiting', 'loosening_withdrawn', 'loosening_in_force', 'recipient_approved'])
+
+/** HARDSTOP_ALERT_NTFY: an ntfy topic address (https://ntfy.sh/<topic>, or a self-hosted server). http only to this machine. */
+function ntfyAddress(text: string | undefined): URL | undefined {
+  const value = text?.trim()
+  if (!value) return undefined
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error('HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic, such as https://ntfy.sh/<a long, secret topic name>.')
+  }
+  const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) {
+    throw new Error('HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic (http is allowed only to this machine).')
+  }
+  return url
+}
+
+/** One phone notification through ntfy: the message as plain text, a title, and a priority. Best effort, like the webhook. */
+async function push(url: URL, alert: Alert): Promise<void> {
+  const urgent = ACT_NOW.has(alert.kind)
+  const headers: Record<string, string> = {
+    'content-type': 'text/plain; charset=utf-8',
+    title: `HARDSTOP: ${alert.kind.replace(/_/g, ' ')}`,
+    priority: urgent ? 'urgent' : 'default',
+    tags: urgent ? 'warning' : 'moneybag',
+  }
+  if (urgent) headers.click = OWNER_PAGE
+  try {
+    const response = await fetch(url, { method: 'POST', headers, body: alert.message, signal: AbortSignal.timeout(10_000) })
+    if (!response.ok) warn(`ntfy answered HTTP ${response.status}.`)
+  } catch (error) {
+    warn(`could not reach ntfy: ${plain(error)}`)
+  }
+}
 
 const WINDOWS_TOAST = `
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null

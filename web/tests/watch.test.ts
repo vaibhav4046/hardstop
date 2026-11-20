@@ -146,6 +146,38 @@ test('alerts go to stdout as one JSON line each and to the webhook', async () =>
   assert.deepEqual(received, [alert])
 })
 
+test('with HARDSTOP_ALERT_NTFY each alert is a phone push: plain text, a title, urgent when the owner must act, a link to act', async () => {
+  const received: { headers: Record<string, unknown>; body: string }[] = []
+  const server = createServer((request, response) => {
+    let body = ''
+    request.on('data', (chunk) => (body += chunk))
+    request.on('end', () => {
+      received.push({ headers: request.headers, body })
+      response.end('ok')
+    })
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as { port: number }
+  const deliver = deliverer({ HARDSTOP_ALERT_NTFY: `http://127.0.0.1:${port}/my-vault-alerts` }, () => {})
+  await deliver({ kind: 'loosening_waiting', at: '2027-01-15T08:00:00.000Z', vault: PAYEE, message: 'Looser rules are waiting: $50.00 per day. Cancel it before then.' })
+  await deliver({ kind: 'paid', at: '2027-01-15T08:01:00.000Z', vault: PAYEE, message: 'Paid $4.00 to Cloud hosting.' })
+  server.close()
+  assert.equal(received.length, 2)
+  assert.equal(received[0].body, 'Looser rules are waiting: $50.00 per day. Cancel it before then.')
+  assert.equal(received[0].headers.title, 'HARDSTOP: loosening waiting')
+  assert.equal(received[0].headers.priority, 'urgent')
+  assert.equal(received[0].headers.click, 'https://hardstop-omega.vercel.app/activity')
+  assert.equal(received[1].headers.priority, 'default')
+  assert.equal(received[1].headers.click, undefined)
+})
+
+test('HARDSTOP_ALERT_NTFY must be an https address, or http only to this machine', () => {
+  assert.throws(() => deliverer({ HARDSTOP_ALERT_NTFY: 'http://ntfy.example.com/topic' }), /https/)
+  assert.throws(() => deliverer({ HARDSTOP_ALERT_NTFY: 'not a url' }), /https/)
+  deliverer({ HARDSTOP_ALERT_NTFY: 'https://ntfy.sh/some-long-secret-topic' })
+  deliverer({ HARDSTOP_ALERT_NTFY: 'http://127.0.0.1:8080/topic' })
+})
+
 const PROPOSAL = { perPayment: 10n * USD, perWindow: 50n * USD, validUntil: SETUP.validUntil, paused: false }
 
 test('a raise proposed and cancelled between two checks is still reported, as a sign of a stolen owner key', async () => {

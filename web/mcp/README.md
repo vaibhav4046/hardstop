@@ -118,7 +118,7 @@ Each tool returns a plain-language answer first, then the same facts as JSON (`s
 - **a pause, a resume or a stricter rule** (`paused`, `resumed`, `rules_changed`), **recipients added or removed** (`recipient_approved`, `recipient_removed`), and **withdrawals** (`withdrawn`).
 - **the end date** coming (`ending_soon`, three days before) and passing (`expired`). Each is reported once.
 
-Each alert is one line of JSON on stdout. It also goes as a POST to `HARDSTOP_ALERT_WEBHOOK` if that is set, and to a desktop notification if `HARDSTOP_DESKTOP_NOTIFY=1` (Windows toast, macOS `osascript`, Linux `notify-send`). If the network fails, the watcher says so once (`watch_error`), retries with doubling waits up to 10 minutes or half the cooling period, whichever is shorter, and says when it recovers (`watch_recovered`). If only the vault's events cannot be read (a public RPC refusing a block range with too many logs), it still checks the rules and reports a waiting loosening every time, says so once (`events_unreadable`), retries the events with half the range, and reports them, none lost, when it can (`events_readable`). SIGINT and SIGTERM stop it cleanly.
+Each alert is one line of JSON on stdout. It also goes to your phone if `HARDSTOP_ALERT_NTFY` is set to an [ntfy](https://ntfy.sh) topic address (for example `https://ntfy.sh/<a long, secret topic name>`; subscribe to the same topic in the ntfy app): plain text with a title, sent as urgent with a link to the Activity page when you must act before a cooling period ends (a raise waiting, a recipient approved, a loosening that came and went). It also goes as a POST to `HARDSTOP_ALERT_WEBHOOK` if that is set, and to a desktop notification if `HARDSTOP_DESKTOP_NOTIFY=1` (Windows toast, macOS `osascript`, Linux `notify-send`). If the network fails, the watcher says so once (`watch_error`), retries with doubling waits up to 10 minutes or half the cooling period, whichever is shorter, and says when it recovers (`watch_recovered`). If only the vault's events cannot be read (a public RPC refusing a block range with too many logs), it still checks the rules and reports a waiting loosening every time, says so once (`events_unreadable`), retries the events with half the range, and reports them, none lost, when it can (`events_readable`). SIGINT and SIGTERM stop it cleanly.
 
 **After a restart** the first check also reports what happened while no watcher was running: it reads the vault's events from one cooling period back (anything still cancellable), marked `catch_up: true`. Set `HARDSTOP_WATCH_CURSOR` to a file path and the watcher saves the next block to read after every check, then resumes from there, however long it was down; without it, events from the last cooling period that a previous run already reported are reported again.
 
@@ -138,6 +138,7 @@ node mcp/watch.ts >> hardstop-alerts.jsonl
 [Service]
 WorkingDirectory=/ABSOLUTE/PATH/TO/hardstop/web
 Environment=HARDSTOP_VAULT=0xYOUR_VAULT_ADDRESS HARDSTOP_CHAIN_ID=84532
+Environment=HARDSTOP_ALERT_NTFY=https://ntfy.sh/YOUR_LONG_SECRET_TOPIC
 Environment=HARDSTOP_ALERT_WEBHOOK=https://example.com/your-hook
 Environment=HARDSTOP_WATCH_CURSOR=/var/lib/hardstop-watch/cursor
 StateDirectory=hardstop-watch
