@@ -225,6 +225,8 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
               ? 'The agent is paused, so nothing is left for it to spend.'
               : `Today's allowance of ${formatUsd(policy.perWindow)} resets on ${formatTime(day.resetsAt)}.`}
             {leftShown < view.leftToday && ` The rules allow ${formatUsd(view.leftToday)} more today; the figure is capped at what the vault holds.`}
+            {queued !== null && queued.effectiveAt < day.resetsAt &&
+              ` A scheduled change takes effect today, and the vault counts it as if it started a fresh day, so this is an upper limit.`}
           </p>
         </div>
 

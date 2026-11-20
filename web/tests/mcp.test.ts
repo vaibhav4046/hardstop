@@ -336,3 +336,45 @@ test('a vault with a one-hour window is described per hour, never per day', asyn
   // The words; the JSON field names (per_day_usd, left_today_usd...) are kept and documented.
   for (const result of [status, paid, full, more]) assert.doesNotMatch(text(result).split('\n{')[0], /per day|today|24 hours|tomorrow/i)
 })
+
+test('found while an agent did real work: no fee spent on payments that cannot go through, and clear asks', async () => {
+  const { call, network, live } = await setUp()
+
+  // Zero is refused here, before a transaction.
+  const zero = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 0 })
+  assert.equal(zero.isError, true)
+  assert.match(text(zero), /more than zero/)
+  assert.equal(network.relayed.length, 0)
+
+  // A mixed-case address whose checksum does not match is a typo; all lower case is fine.
+  const checksummed = '0x52908400098527886E0F7030069857D2E4169EE7'.replace('EE7', 'Ee7')
+  const typo = await call('hardstop_preview_payment', { to: checksummed, amount_usd: 1 })
+  assert.equal(typo.isError, true)
+  assert.match(text(typo), /checksum that does not match/)
+  const lower = await call('hardstop_preview_payment', { to: checksummed.toLowerCase(), amount_usd: 1 })
+  assert.equal(lower.isError, undefined, text(lower))
+
+  // $10 then $6 leaves $4 today: repeating the $6 is held, and the reply says a repeat would be refused anyway.
+  assert.equal(data(await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 10 })).result, 'paid')
+  assert.equal(data(await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 6 })).result, 'paid')
+  const sent = network.relayed.length
+  const again = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 6 })
+  assert.equal(data(again).result, 'not_sent')
+  assert.match(text(again), /already paid 1 second ago|already paid \d+ seconds ago/)
+  assert.match(text(again), /Paying it again now would be refused anyway: Only \$4\.00 is left today\./)
+  assert.doesNotMatch(text(again), /repeat: true/)
+  assert.equal(network.relayed.length, sent)
+
+  // Asking for less than now is not a request; a recipient can be asked for, and the link names it.
+  const less = await call('hardstop_request_more', { reason: 'Need less.', per_day_usd: 5 })
+  assert.equal(less.isError, true)
+  assert.match(text(less), /per_day_usd \$5\.00 is not more than the current \$20\.00/)
+  const domain = '0x00000000000000000000000000000000000d0a17'
+  const ask = await call('hardstop_request_more', { reason: 'The domain renewal is due.', recipient: domain })
+  assert.equal(ask.isError, undefined, text(ask))
+  assert.match(text(ask), new RegExp(`approve a new recipient: ${domain}`))
+  assert.ok(text(ask).includes(`/activity?chain=${FAKE_CHAIN_ID}&vault=${live.vault}&who=${domain}`), text(ask))
+  assert.equal((data(ask).requested as Record<string, unknown>).recipient, domain)
+  const approved = await call('hardstop_request_more', { reason: 'Again.', recipient: 'Cloud hosting' })
+  assert.match(text(approved), /already approved/)
+})

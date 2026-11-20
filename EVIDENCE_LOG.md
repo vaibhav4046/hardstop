@@ -674,3 +674,25 @@ From a review of the live site and of what agent-payment builders ask for:
 - Every "Connect your AI" setup now runs `npx -y github:vaibhav4046/hardstop`,
   and `--watch` runs the watcher from the same command: nothing to clone.
 - `/evidence` shows the 20 Nov hostile-agent run, labelled as one run.
+
+### A Claude agent doing real work, and a walk through the site, 20 Nov
+
+A Claude agent drove the MCP server (demo vault, and the published npx
+build) through multi-step tasks: paying a set of bills, splitting a bill,
+retries, asking the owner for more, odd inputs. No money moved outside the
+rules; retries never paid twice. Fixed from what it found, with a test in
+`tests/mcp.test.ts`: a $0 payment is refused before a transaction; a
+mixed-case address with a wrong checksum is refused as a typo; when a
+payment is held as a possible duplicate and a deliberate repeat would be
+refused anyway (the day's limit), the reply says so instead of advising
+`repeat: true`; `hardstop_request_more` takes a recipient to approve (and
+the owner link names it) and refuses asks that are not higher than now;
+in demo mode the draft no longer links to a page that cannot exist.
+
+Walking the site as a visitor: "Only $0.00 is left today" now reads
+"Nothing is left today: the limit is used up"; a change that tightens one
+limit and loosens another now says both parts in its receipt; "Left today"
+says it is an upper limit when a scheduled change takes effect that day
+(the contract's `exposure` counts the new rules as starting a fresh day);
+the hero's moving door redraws when the page comes back into view (a user
+saw it blank white after the app pane was hidden).

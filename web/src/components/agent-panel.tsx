@@ -80,7 +80,7 @@ export function AgentPanel({ view, entries, isBusy, run }: Props) {
           Send the last paid request again
         </button>
         <button type="button" className="btn sm:col-span-2" disabled={isBusy} onClick={() => run({ type: 'agentRaise' })}>
-          Raise its own limit to {formatUsd(AGENT_RAISE)}
+          Raise its own limit to {formatUsd(AGENT_RAISE)} a payment and a day
         </button>
       </div>
 

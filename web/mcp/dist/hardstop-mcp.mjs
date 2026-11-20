@@ -43592,248 +43592,6 @@ var init_stdio2 = __esm({
   }
 });
 
-// src/lib/hardstop/reasons.ts
-function reasonName(code) {
-  const name = REASON_NAMES[code];
-  if (name === void 0) throw new Error(`unknown reason code ${code}`);
-  return name;
-}
-function explain(code, detail, f) {
-  const name = reasonName(code);
-  const say = (headline, sentence) => ({
-    allowed: code === ALLOWED,
-    name,
-    headline,
-    sentence
-  });
-  switch (name) {
-    case "Allowed":
-      return say("Paid", `Inside every limit. ${f.money(detail)} left ${f.window}.`);
-    case "InvalidPolicy":
-      return say("Blocked", "This vault was created with a broken schedule, so nothing can be paid from it.");
-    case "Paused":
-      return say("Blocked: paused", "You paused this agent. Nothing it asks for is paid until you resume it.");
-    case "NotAgent":
-      return say("Blocked: not your agent", "This request did not come from the agent you authorised.");
-    case "NotYetActive":
-      return say("Blocked: too early", `These rules start on ${f.time(detail)}.`);
-    case "Expired":
-      return say("Blocked: expired", `The agent's permission ended on ${f.time(detail)}.`);
-    case "WrongNonce":
-      return say(
-        "Blocked: repeat request",
-        `This request was already used, or came out of order. The agent must send a new one (request ${detail}).`
-      );
-    case "NonceExhausted":
-      return say("Blocked", "This vault has used up its request numbers. Create a new one.");
-    case "ZeroAmount":
-      return say("Blocked: nothing to pay", "The agent asked to pay an amount of zero.");
-    case "RecipientNotApproved":
-      return say(
-        "Blocked: unknown recipient",
-        "This recipient is not on your approved list, or was added so recently that its waiting period has not ended."
-      );
-    case "OverPaymentLimit":
-      return say("Blocked: too large", `One payment may be at most ${f.money(detail)}.`);
-    case "OverWindowLimit":
-      return say("Blocked: limit reached", `Only ${f.money(detail)} is left ${f.window}.`);
-  }
-}
-var ALLOWED, REASON_NAMES;
-var init_reasons = __esm({
-  "src/lib/hardstop/reasons.ts"() {
-    "use strict";
-    ALLOWED = 0;
-    REASON_NAMES = [
-      "Allowed",
-      "InvalidPolicy",
-      "Paused",
-      "NotAgent",
-      "NotYetActive",
-      "Expired",
-      "WrongNonce",
-      "NonceExhausted",
-      "ZeroAmount",
-      "RecipientNotApproved",
-      "OverPaymentLimit",
-      "OverWindowLimit"
-    ];
-  }
-});
-
-// src/lib/money.ts
-function formatUsd(units) {
-  const whole = units / USD;
-  const fraction = units % USD;
-  const digits = fraction % 10000n === 0n ? (fraction / 10000n).toString().padStart(2, "0") : fraction.toString().padStart(6, "0").replace(/0+$/, "");
-  return `$${whole.toLocaleString("en-US")}.${digits}`;
-}
-function parseUsd(text) {
-  const match = /^\$?(\d{1,3}(?:,\d{3})+|\d{1,9})(?:\.(\d{1,2}))?$/.exec(text.trim());
-  if (!match) return null;
-  const whole = match[1].replace(/,/g, "");
-  if (whole.length > 9) return null;
-  return BigInt(whole) * USD + BigInt((match[2] ?? "").padEnd(6, "0"));
-}
-function formatTime(seconds, timeZone) {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone
-  }).format(new Date(Number(seconds) * 1e3));
-}
-function formatDuration(seconds) {
-  const say = (count, unit) => `${count} ${unit}${count === 1n ? "" : "s"}`;
-  if (seconds > 86400n && seconds % 86400n === 0n) return say(seconds / 86400n, "day");
-  if (seconds % 3600n === 0n) return say(seconds / 3600n, "hour");
-  if (seconds % 60n === 0n) return say(seconds / 60n, "minute");
-  return say(seconds, "second");
-}
-var USD, MAX_INPUT, inputValue, FORMAT;
-var init_money = __esm({
-  "src/lib/money.ts"() {
-    "use strict";
-    USD = 1000000n;
-    MAX_INPUT = 1000000n * USD;
-    inputValue = (units) => formatUsd(units).slice(1).replace(/,/g, "");
-    FORMAT = {
-      money: formatUsd,
-      time: (seconds) => formatTime(seconds),
-      window: "today"
-    };
-  }
-});
-
-// src/lib/session.ts
-async function apply(sim, action, id) {
-  const at = sim.chain.now;
-  switch (action.type) {
-    case "pay": {
-      const amount2 = BigInt(action.amount);
-      const nonce = BigInt(action.nonce);
-      const outcome = await sim.pay(action.to, amount2, nonce);
-      const left = await leftToday(sim, await sim.state());
-      return { id, kind: "payment", at, to: action.to, amount: amount2, nonce, outcome, leftToday: left };
-    }
-    case "agentRaise": {
-      const { policy } = await sim.state();
-      const raised = { ...policy, perPayment: AGENT_RAISE, perWindow: AGENT_RAISE, paused: false };
-      return { id, kind: "agentRaise", at, outcome: await sim.propose(raised, sim.agent) };
-    }
-    case "skip": {
-      const seconds = BigInt(action.seconds);
-      sim.chain.advance(seconds);
-      return { id, kind: "skip", at: sim.chain.now, seconds };
-    }
-    case "propose":
-      return dropping(
-        sim,
-        () => sim.propose({
-          perPayment: BigInt(action.perPayment),
-          perWindow: BigInt(action.perDay),
-          validUntil: BigInt(action.validUntil),
-          paused: action.paused
-        })
-      ).then(({ outcome, dropped }) => ({ ...owner(id, at, action, outcome), dropped }));
-    case "cancel":
-      return owner(id, at, action, await sim.cancelQueued());
-    case "pause":
-      return dropping(sim, () => sim.pause()).then(({ outcome, dropped }) => ({ ...owner(id, at, action, outcome), dropped }));
-    case "addRecipient":
-      return owner(id, at, action, await sim.setRecipient(action.address, true));
-    case "removeRecipient":
-      return owner(id, at, action, await sim.setRecipient(action.address, false));
-    case "withdraw":
-      return owner(id, at, action, await sim.withdraw(BigInt(action.amount)));
-  }
-}
-async function dropping(sim, call) {
-  const before = (await sim.state()).queued;
-  const outcome = await call();
-  const after = (await sim.state()).queued;
-  return { outcome, dropped: outcome.ok && before !== null && after === null };
-}
-function owner(id, at, action, outcome) {
-  return { id, kind: "owner", at, action, outcome };
-}
-async function leftToday(sim, state) {
-  return sim.exposure(today(state).resetsAt - 1n);
-}
-function today(state) {
-  const { anchor: anchor2, windowSecs } = state.schedule;
-  const index = (state.now - anchor2) / windowSecs;
-  return {
-    spent: state.ledger.window === index ? state.ledger.spent : 0n,
-    resetsAt: anchor2 + (index + 1n) * windowSecs
-  };
-}
-var AGENT_RAISE, LATIN, MIXED_ALPHABETS;
-var init_session = __esm({
-  "src/lib/session.ts"() {
-    "use strict";
-    init_money();
-    AGENT_RAISE = 1000n * USD;
-    LATIN = new RegExp("\\p{Script=Latin}", "u");
-    MIXED_ALPHABETS = [new RegExp("\\p{Script=Cyrillic}", "u"), new RegExp("\\p{Script=Greek}", "u")];
-  }
-});
-
-// src/lib/describe.ts
-function verdict(entry, f = FORMAT) {
-  const { outcome } = entry;
-  if (entry.kind === "agentRaise") {
-    if (outcome.revert === "NotOwner") {
-      return {
-        tone: "blocked",
-        stamp: "Rejected",
-        headline: "The agent tried to change the rules",
-        sentence: "Rejected. Only you can change the rules."
-      };
-    }
-    return {
-      tone: "plain",
-      stamp: outcome.ok ? "Accepted" : "Refused",
-      headline: outcome.ok ? "Accepted" : "Refused",
-      sentence: outcome.ok ? `The vault accepted a request to raise the limits to ${formatUsd(AGENT_RAISE)}.` : `The vault refused this request (${outcome.revert}).`
-    };
-  }
-  const { code, detail } = entry.outcome;
-  if (code !== void 0) {
-    const said = explain(code, detail ?? 0n, f);
-    return {
-      tone: said.allowed ? "paid" : "blocked",
-      stamp: said.allowed ? "Paid" : "Blocked",
-      headline: said.headline,
-      sentence: said.sentence
-    };
-  }
-  if (outcome.tx) {
-    return {
-      tone: "plain",
-      stamp: "Reverted",
-      headline: "Sent, reverted",
-      sentence: "The payment was sent, but the network reverted it, so nothing was paid and nothing was counted against your limits. The vault changed after the payment was checked; usually the owner withdrew funds in between."
-    };
-  }
-  return {
-    tone: "plain",
-    stamp: "Not sent",
-    headline: "Payment failed",
-    sentence: "The vault could not send this payment, so nothing was paid and nothing was counted against your limits. Usually this means the vault holds less than the amount requested."
-  };
-}
-var init_describe = __esm({
-  "src/lib/describe.ts"() {
-    "use strict";
-    init_reasons();
-    init_money();
-    init_session();
-  }
-});
-
 // node_modules/abitype/dist/esm/regex.js
 function execTyped(regex, string4) {
   const match = regex.exec(string4);
@@ -51507,12 +51265,266 @@ var init_esm2 = __esm({
     init_decodeFunctionResult();
     init_encodeDeployData();
     init_encodeFunctionData();
+    init_getAddress();
     init_getContractAddress();
     init_toHex();
     init_keccak256();
     init_recoverTransactionAddress();
     init_parseTransaction();
     init_formatEther();
+  }
+});
+
+// src/lib/hardstop/reasons.ts
+function reasonName(code) {
+  const name = REASON_NAMES[code];
+  if (name === void 0) throw new Error(`unknown reason code ${code}`);
+  return name;
+}
+function explain(code, detail, f) {
+  const name = reasonName(code);
+  const say = (headline, sentence) => ({
+    allowed: code === ALLOWED,
+    name,
+    headline,
+    sentence
+  });
+  switch (name) {
+    case "Allowed":
+      return say(
+        "Paid",
+        detail === 0n ? `Inside every limit. Nothing more can be paid ${f.window}.` : `Inside every limit. ${f.money(detail)} left ${f.window}.`
+      );
+    case "InvalidPolicy":
+      return say("Blocked", "This vault was created with a broken schedule, so nothing can be paid from it.");
+    case "Paused":
+      return say("Blocked: paused", "You paused this agent. Nothing it asks for is paid until you resume it.");
+    case "NotAgent":
+      return say("Blocked: not your agent", "This request did not come from the agent you authorised.");
+    case "NotYetActive":
+      return say("Blocked: too early", `These rules start on ${f.time(detail)}.`);
+    case "Expired":
+      return say("Blocked: expired", `The agent's permission ended on ${f.time(detail)}.`);
+    case "WrongNonce":
+      return say(
+        "Blocked: repeat request",
+        `This request was already used, or came out of order. The agent must send a new one (request ${detail}).`
+      );
+    case "NonceExhausted":
+      return say("Blocked", "This vault has used up its request numbers. Create a new one.");
+    case "ZeroAmount":
+      return say("Blocked: nothing to pay", "The agent asked to pay an amount of zero.");
+    case "RecipientNotApproved":
+      return say(
+        "Blocked: unknown recipient",
+        "This recipient is not on your approved list, or was added so recently that its waiting period has not ended."
+      );
+    case "OverPaymentLimit":
+      return say("Blocked: too large", `One payment may be at most ${f.money(detail)}.`);
+    case "OverWindowLimit":
+      return say(
+        "Blocked: limit reached",
+        detail === 0n ? `Nothing is left ${f.window}: the limit is used up.` : `Only ${f.money(detail)} is left ${f.window}.`
+      );
+  }
+}
+var ALLOWED, REASON_NAMES;
+var init_reasons = __esm({
+  "src/lib/hardstop/reasons.ts"() {
+    "use strict";
+    ALLOWED = 0;
+    REASON_NAMES = [
+      "Allowed",
+      "InvalidPolicy",
+      "Paused",
+      "NotAgent",
+      "NotYetActive",
+      "Expired",
+      "WrongNonce",
+      "NonceExhausted",
+      "ZeroAmount",
+      "RecipientNotApproved",
+      "OverPaymentLimit",
+      "OverWindowLimit"
+    ];
+  }
+});
+
+// src/lib/money.ts
+function formatUsd(units) {
+  const whole = units / USD;
+  const fraction = units % USD;
+  const digits = fraction % 10000n === 0n ? (fraction / 10000n).toString().padStart(2, "0") : fraction.toString().padStart(6, "0").replace(/0+$/, "");
+  return `$${whole.toLocaleString("en-US")}.${digits}`;
+}
+function parseUsd(text) {
+  const match = /^\$?(\d{1,3}(?:,\d{3})+|\d{1,9})(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!match) return null;
+  const whole = match[1].replace(/,/g, "");
+  if (whole.length > 9) return null;
+  return BigInt(whole) * USD + BigInt((match[2] ?? "").padEnd(6, "0"));
+}
+function formatTime(seconds, timeZone) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone
+  }).format(new Date(Number(seconds) * 1e3));
+}
+function formatDuration(seconds) {
+  const say = (count, unit) => `${count} ${unit}${count === 1n ? "" : "s"}`;
+  if (seconds > 86400n && seconds % 86400n === 0n) return say(seconds / 86400n, "day");
+  if (seconds % 3600n === 0n) return say(seconds / 3600n, "hour");
+  if (seconds % 60n === 0n) return say(seconds / 60n, "minute");
+  return say(seconds, "second");
+}
+var USD, MAX_INPUT, inputValue, FORMAT;
+var init_money = __esm({
+  "src/lib/money.ts"() {
+    "use strict";
+    USD = 1000000n;
+    MAX_INPUT = 1000000n * USD;
+    inputValue = (units) => formatUsd(units).slice(1).replace(/,/g, "");
+    FORMAT = {
+      money: formatUsd,
+      time: (seconds) => formatTime(seconds),
+      window: "today"
+    };
+  }
+});
+
+// src/lib/session.ts
+async function apply(sim, action, id) {
+  const at = sim.chain.now;
+  switch (action.type) {
+    case "pay": {
+      const amount2 = BigInt(action.amount);
+      const nonce = BigInt(action.nonce);
+      const outcome = await sim.pay(action.to, amount2, nonce);
+      const left = await leftToday(sim, await sim.state());
+      return { id, kind: "payment", at, to: action.to, amount: amount2, nonce, outcome, leftToday: left };
+    }
+    case "agentRaise": {
+      const { policy } = await sim.state();
+      const raised = { ...policy, perPayment: AGENT_RAISE, perWindow: AGENT_RAISE, paused: false };
+      return { id, kind: "agentRaise", at, outcome: await sim.propose(raised, sim.agent) };
+    }
+    case "skip": {
+      const seconds = BigInt(action.seconds);
+      sim.chain.advance(seconds);
+      return { id, kind: "skip", at: sim.chain.now, seconds };
+    }
+    case "propose":
+      return dropping(
+        sim,
+        () => sim.propose({
+          perPayment: BigInt(action.perPayment),
+          perWindow: BigInt(action.perDay),
+          validUntil: BigInt(action.validUntil),
+          paused: action.paused
+        })
+      ).then(({ outcome, dropped, changedNow }) => ({ ...owner(id, at, action, outcome), dropped, changedNow }));
+    case "cancel":
+      return owner(id, at, action, await sim.cancelQueued());
+    case "pause":
+      return dropping(sim, () => sim.pause()).then(({ outcome, dropped }) => ({ ...owner(id, at, action, outcome), dropped }));
+    case "addRecipient":
+      return owner(id, at, action, await sim.setRecipient(action.address, true));
+    case "removeRecipient":
+      return owner(id, at, action, await sim.setRecipient(action.address, false));
+    case "withdraw":
+      return owner(id, at, action, await sim.withdraw(BigInt(action.amount)));
+  }
+}
+async function dropping(sim, call) {
+  const before = await sim.state();
+  const outcome = await call();
+  const after = await sim.state();
+  const same = (a, b) => a.perPayment === b.perPayment && a.perWindow === b.perWindow && a.validUntil === b.validUntil && a.paused === b.paused;
+  return {
+    outcome,
+    dropped: outcome.ok && before.queued !== null && after.queued === null,
+    changedNow: outcome.ok && !same(before.policy, after.policy)
+  };
+}
+function owner(id, at, action, outcome) {
+  return { id, kind: "owner", at, action, outcome };
+}
+async function leftToday(sim, state) {
+  return sim.exposure(today(state).resetsAt - 1n);
+}
+function today(state) {
+  const { anchor: anchor2, windowSecs } = state.schedule;
+  const index = (state.now - anchor2) / windowSecs;
+  return {
+    spent: state.ledger.window === index ? state.ledger.spent : 0n,
+    resetsAt: anchor2 + (index + 1n) * windowSecs
+  };
+}
+var AGENT_RAISE, LATIN, MIXED_ALPHABETS;
+var init_session = __esm({
+  "src/lib/session.ts"() {
+    "use strict";
+    init_money();
+    AGENT_RAISE = 1000n * USD;
+    LATIN = new RegExp("\\p{Script=Latin}", "u");
+    MIXED_ALPHABETS = [new RegExp("\\p{Script=Cyrillic}", "u"), new RegExp("\\p{Script=Greek}", "u")];
+  }
+});
+
+// src/lib/describe.ts
+function verdict(entry, f = FORMAT) {
+  const { outcome } = entry;
+  if (entry.kind === "agentRaise") {
+    if (outcome.revert === "NotOwner") {
+      return {
+        tone: "blocked",
+        stamp: "Rejected",
+        headline: "The agent tried to change the rules",
+        sentence: "Rejected. Only you can change the rules."
+      };
+    }
+    return {
+      tone: "plain",
+      stamp: outcome.ok ? "Accepted" : "Refused",
+      headline: outcome.ok ? "Accepted" : "Refused",
+      sentence: outcome.ok ? `The vault accepted a request to raise the limits to ${formatUsd(AGENT_RAISE)}.` : `The vault refused this request (${outcome.revert}).`
+    };
+  }
+  const { code, detail } = entry.outcome;
+  if (code !== void 0) {
+    const said = explain(code, detail ?? 0n, f);
+    return {
+      tone: said.allowed ? "paid" : "blocked",
+      stamp: said.allowed ? "Paid" : "Blocked",
+      headline: said.headline,
+      sentence: said.sentence
+    };
+  }
+  if (outcome.tx) {
+    return {
+      tone: "plain",
+      stamp: "Reverted",
+      headline: "Sent, reverted",
+      sentence: "The payment was sent, but the network reverted it, so nothing was paid and nothing was counted against your limits. The vault changed after the payment was checked; usually the owner withdrew funds in between."
+    };
+  }
+  return {
+    tone: "plain",
+    stamp: "Not sent",
+    headline: "Payment failed",
+    sentence: "The vault could not send this payment, so nothing was paid and nothing was counted against your limits. Usually this means the vault holds less than the amount requested."
+  };
+}
+var init_describe = __esm({
+  "src/lib/describe.ts"() {
+    "use strict";
+    init_reasons();
+    init_money();
+    init_session();
   }
 });
 
@@ -85024,7 +85036,7 @@ No transaction was sent.`,
     const ago = Math.max(1, Math.round((Date.now() - last.at) / 1e3));
     return held(
       "PossibleDuplicate",
-      `This exact payment was already paid ${ago} seconds ago (request ${last.nonce}${last.tx ? ", transaction " + last.tx : ""}). If a reply was lost, it went through. To pay it again on purpose, call hardstop_pay with repeat: true.`
+      `This exact payment was already paid ${ago} second${ago === 1 ? "" : "s"} ago (request ${last.nonce}${last.tx ? ", transaction " + last.tx : ""}). If a reply was lost, it went through. To pay it again on purpose, call hardstop_pay with repeat: true.`
     );
   };
   const run = async (work) => {
@@ -85038,10 +85050,14 @@ No transaction was sent.`,
     const named = v.config.recipients.find((r) => r.name.toLowerCase() === to.trim().toLowerCase());
     if (named) return { address: named.address, name: named.name };
     if (isAddress2(to.trim())) {
-      const address = to.trim().toLowerCase();
+      const typed = to.trim();
+      if (typed.slice(2) !== typed.slice(2).toLowerCase() && typed.slice(2) !== typed.slice(2).toUpperCase() && getAddress(typed) !== typed) {
+        throw new Error(`"${typed}" has a checksum that does not match: a character is probably mistyped. Check the address, or write it all in lower case.`);
+      }
+      const address = typed.toLowerCase();
       return { address, name: v.config.recipients.find((r) => r.address === address)?.name };
     }
-    throw new Error(`"${to.slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows.`);
+    throw new Error(`"${to.slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows. hardstop_recipients lists the names it knows.`);
   };
   return () => {
     const server = new McpServer({ name: "hardstop", version: "0.1.0" }, { instructions: INSTRUCTIONS });
@@ -85099,8 +85115,16 @@ No transaction was sent.`,
         (v) => oneAtATime(async () => {
           const recipient = resolve(v, to);
           const units = dollars(amount_usd, "amount_usd");
+          if (units === 0n) throw new Error("amount_usd must be more than zero: the vault never pays nothing. Nothing was sent.");
           const held = notSendable(recipient.address, recipient.name, units, repeat === true, extra.signal);
-          if (held) return held;
+          if (held) {
+            const { ledger } = await v.sim.state();
+            const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce);
+            const would = explain(answer.code, answer.detail, formatFor(v));
+            if (answer.code === 0) return held;
+            const sentence = `${held.json.explanation.replace(" To pay it again on purpose, call hardstop_pay with repeat: true.", "")} Paying it again now would be refused anyway: ${would.sentence}`;
+            return { text: held.text.replace(held.json.explanation, sentence), json: { ...held.json, explanation: sentence } };
+          }
           if (await v.chain.agentGas() === 0n) {
             throw new Error(
               `The agent ${v.sim.agent} has no ETH left to pay network fees on ${v.config.network.name}, so nothing was sent. Ask the owner to send it a little test ETH.`
@@ -85172,18 +85196,30 @@ No transaction was sent.`,
         inputSchema: {
           reason: external_exports.string().min(1).max(1e3).describe("Why you need more, in a sentence or two."),
           per_payment_usd: amount.optional().describe("The per-payment limit you are asking for, in dollars."),
-          per_day_usd: amount.optional().describe("The limit per spending window you are asking for, in dollars (per day for a vault with a one-day window).")
+          per_day_usd: amount.optional().describe("The limit per spending window you are asking for, in dollars (per day for a vault with a one-day window)."),
+          recipient: external_exports.string().optional().describe("An address (0x...) you need the owner to approve, if any.")
         },
         annotations: { readOnlyHint: true, openWorldHint: false }
       },
-      ({ reason, per_payment_usd, per_day_usd }) => run(async (v) => {
+      ({ reason, per_payment_usd, per_day_usd, recipient }) => run(async (v) => {
         const perPayment = per_payment_usd === void 0 ? void 0 : dollars(per_payment_usd, "per_payment_usd");
         const perDay = per_day_usd === void 0 ? void 0 : dollars(per_day_usd, "per_day_usd");
+        const wanted = recipient === void 0 ? void 0 : resolve(v, recipient);
         const { policy, schedule } = await v.sim.state();
+        for (const [asked, now, what] of [[perPayment, policy.perPayment, "per_payment_usd"], [perDay, policy.perWindow, "per_day_usd"]]) {
+          if (asked !== void 0 && asked <= now) {
+            throw new Error(`${what} ${formatUsd(asked)} is not more than the current ${formatUsd(now)}. Ask only for limits higher than now; nothing was drafted.`);
+          }
+        }
+        if (wanted && await v.sim.approvedFrom(wanted.address) !== 0n) {
+          throw new Error(`${wanted.name ?? wanted.address} is already approved (hardstop_recipients shows from when). Nothing was drafted.`);
+        }
         const { per } = windowWords(schedule.windowSecs);
+        const page = networkName ? null : ownerPage(v, wanted?.address);
         const asks = [
           perPayment !== void 0 && `- per payment: from ${formatUsd(policy.perPayment)} to ${formatUsd(perPayment)}`,
-          perDay !== void 0 && `- ${per}: from ${formatUsd(policy.perWindow)} to ${formatUsd(perDay)}`
+          perDay !== void 0 && `- ${per}: from ${formatUsd(policy.perWindow)} to ${formatUsd(perDay)}`,
+          wanted && `- approve a new recipient: ${wanted.address}${wanted.name ? ` (${wanted.name})` : ""}`
         ].filter(Boolean);
         const text = [
           `Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
@@ -85194,18 +85230,19 @@ ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
           `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
           "",
           `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
-          `To agree, open ${ownerPage(v)} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`
+          `To agree, ${page ? `open ${page} with the owner wallet and` : "the owner would"} ${wanted ? "approve the recipient and propose any new limits" : "propose the new limits"}.${page ? "" : " (This is a demo: the vault exists only inside this server, so it has no page.)"} Looser rules take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`
         ].join("\n");
         return {
           text,
           json: {
             changed: false,
-            owner_page: ownerPage(v),
+            owner_page: page,
             reason: oneLine(reason),
             current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
             requested: {
               per_payment_usd: perPayment === void 0 ? null : usd(perPayment),
-              per_day_usd: perDay === void 0 ? null : usd(perDay)
+              per_day_usd: perDay === void 0 ? null : usd(perDay),
+              recipient: wanted?.address ?? null
             },
             cooling_period_seconds: schedule.coolingSecs.toString()
           }
@@ -85280,6 +85317,7 @@ var init_server3 = __esm({
     init_entry();
     init_mcp();
     init_stdio2();
+    init_esm2();
     init_zod();
     init_describe();
     init_reasons();

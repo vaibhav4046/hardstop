@@ -17,7 +17,7 @@ import { isMain } from './entry.ts'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import type { Hex } from 'viem'
+import { getAddress, type Hex } from 'viem'
 import { z } from 'zod'
 import { verdict } from '../src/lib/describe.ts'
 import { explain, reasonName, type Formatters } from '../src/lib/hardstop/reasons.ts'
@@ -138,7 +138,7 @@ No transaction was sent.`,
     const ago = Math.max(1, Math.round((Date.now() - last.at) / 1000))
     return held(
       'PossibleDuplicate',
-      `This exact payment was already paid ${ago} seconds ago (request ${last.nonce}${last.tx ? ', transaction ' + last.tx : ''}). If a reply was lost, it went through. To pay it again on purpose, call hardstop_pay with repeat: true.`,
+      `This exact payment was already paid ${ago} second${ago === 1 ? '' : 's'} ago (request ${last.nonce}${last.tx ? ', transaction ' + last.tx : ''}). If a reply was lost, it went through. To pay it again on purpose, call hardstop_pay with repeat: true.`,
     )
   }
 
@@ -155,10 +155,15 @@ No transaction was sent.`,
     const named = v.config.recipients.find((r) => r.name.toLowerCase() === to.trim().toLowerCase())
     if (named) return { address: named.address, name: named.name }
     if (isAddress(to.trim())) {
-      const address = to.trim().toLowerCase() as Hex
+      const typed = to.trim()
+      // Mixed case is a checksum (EIP-55): one that does not match is a mistyped address.
+      if (typed.slice(2) !== typed.slice(2).toLowerCase() && typed.slice(2) !== typed.slice(2).toUpperCase() && getAddress(typed) !== typed) {
+        throw new Error(`"${typed}" has a checksum that does not match: a character is probably mistyped. Check the address, or write it all in lower case.`)
+      }
+      const address = typed.toLowerCase() as Hex
       return { address, name: v.config.recipients.find((r) => r.address === address)?.name }
     }
-    throw new Error(`"${to.slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows.`)
+    throw new Error(`"${to.slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows. hardstop_recipients lists the names it knows.`)
   }
 
   return (): McpServer => {
@@ -225,8 +230,17 @@ No transaction was sent.`,
           oneAtATime(async () => {
             const recipient = resolve(v, to)
             const units = dollars(amount_usd, 'amount_usd')
+            if (units === 0n) throw new Error('amount_usd must be more than zero: the vault never pays nothing. Nothing was sent.')
             const held = notSendable(recipient.address, recipient.name, units, repeat === true, extra.signal)
-            if (held) return held
+            if (held) {
+              // Before advising a deliberate repeat, check that the vault would pay it now.
+              const { ledger } = await v.sim.state()
+              const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce)
+              const would = explain(answer.code, answer.detail, formatFor(v))
+              if (answer.code === 0) return held
+              const sentence = `${(held.json as { explanation: string }).explanation.replace(' To pay it again on purpose, call hardstop_pay with repeat: true.', '')} Paying it again now would be refused anyway: ${would.sentence}`
+              return { text: held.text.replace((held.json as { explanation: string }).explanation, sentence), json: { ...held.json, explanation: sentence } }
+            }
             if ((await v.chain.agentGas()) === 0n) {
               throw new Error(
                 `The agent ${v.sim.agent} has no ETH left to pay network fees on ${v.config.network.name}, so nothing was sent. Ask the owner to send it a little test ETH.`,
@@ -313,18 +327,32 @@ No transaction was sent.`,
           reason: z.string().min(1).max(1000).describe('Why you need more, in a sentence or two.'),
           per_payment_usd: amount.optional().describe('The per-payment limit you are asking for, in dollars.'),
           per_day_usd: amount.optional().describe('The limit per spending window you are asking for, in dollars (per day for a vault with a one-day window).'),
+          recipient: z.string().optional().describe('An address (0x...) you need the owner to approve, if any.'),
         },
         annotations: { readOnlyHint: true, openWorldHint: false },
       },
-      ({ reason, per_payment_usd, per_day_usd }) =>
+      ({ reason, per_payment_usd, per_day_usd, recipient }) =>
         run(async (v) => {
           const perPayment = per_payment_usd === undefined ? undefined : dollars(per_payment_usd, 'per_payment_usd')
           const perDay = per_day_usd === undefined ? undefined : dollars(per_day_usd, 'per_day_usd')
+          const wanted = recipient === undefined ? undefined : resolve(v, recipient)
           const { policy, schedule } = await v.sim.state()
+          // Asking for the same or less is not a request: the owner can lower a limit at once, and nothing is needed to keep one.
+          for (const [asked, now, what] of [[perPayment, policy.perPayment, 'per_payment_usd'], [perDay, policy.perWindow, 'per_day_usd']] as const) {
+            if (asked !== undefined && asked <= now) {
+              throw new Error(`${what} ${formatUsd(asked)} is not more than the current ${formatUsd(now)}. Ask only for limits higher than now; nothing was drafted.`)
+            }
+          }
+          if (wanted && (await v.sim.approvedFrom(wanted.address)) !== 0n) {
+            throw new Error(`${wanted.name ?? wanted.address} is already approved (hardstop_recipients shows from when). Nothing was drafted.`)
+          }
           const { per } = windowWords(schedule.windowSecs)
+          // A demo vault lives only in this process: no page on the site can open it.
+          const page = networkName ? null : ownerPage(v, wanted?.address)
           const asks = [
             perPayment !== undefined && `- per payment: from ${formatUsd(policy.perPayment)} to ${formatUsd(perPayment)}`,
             perDay !== undefined && `- ${per}: from ${formatUsd(policy.perWindow)} to ${formatUsd(perDay)}`,
+            wanted && `- approve a new recipient: ${wanted.address}${wanted.name ? ` (${wanted.name})` : ''}`,
           ].filter(Boolean)
           const text = [
             `Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
@@ -334,18 +362,19 @@ No transaction was sent.`,
             `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
             '',
             `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
-            `To agree, open ${ownerPage(v)} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`,
+            `To agree, ${page ? `open ${page} with the owner wallet and` : 'the owner would'} ${wanted ? 'approve the recipient and propose any new limits' : 'propose the new limits'}.${page ? '' : ' (This is a demo: the vault exists only inside this server, so it has no page.)'} Looser rules take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`,
           ].join('\n')
           return {
             text,
             json: {
               changed: false,
-              owner_page: ownerPage(v),
+              owner_page: page,
               reason: oneLine(reason),
               current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
               requested: {
                 per_payment_usd: perPayment === undefined ? null : usd(perPayment),
                 per_day_usd: perDay === undefined ? null : usd(perDay),
+                recipient: wanted?.address ?? null,
               },
               cooling_period_seconds: schedule.coolingSecs.toString(),
             },

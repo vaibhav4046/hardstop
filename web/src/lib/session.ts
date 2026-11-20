@@ -68,6 +68,8 @@ export type Entry =
       outcome: Outcome
       /** A looser change was waiting before this action and is gone after it (a pause or a tightening drops it). */
       dropped?: boolean
+      /** The rules in force changed at once: a proposal's tighter part, or all of it. */
+      changedNow?: boolean
     }
   | { id: number; kind: 'skip'; at: bigint; seconds: bigint }
 
@@ -149,7 +151,7 @@ export async function apply(sim: Sim, action: Action, id: number): Promise<Entry
           validUntil: BigInt(action.validUntil),
           paused: action.paused,
         }),
-      ).then(({ outcome, dropped }) => ({ ...owner(id, at, action, outcome), dropped }))
+      ).then(({ outcome, dropped, changedNow }) => ({ ...owner(id, at, action, outcome), dropped, changedNow }))
     case 'cancel':
       return owner(id, at, action, await sim.cancelQueued())
     case 'pause':
@@ -164,11 +166,17 @@ export async function apply(sim: Sim, action: Action, id: number): Promise<Entry
 }
 
 /** Runs an owner call and says whether a looser change that was waiting before it is gone after it. */
-async function dropping(sim: Sim, call: () => Promise<Outcome>): Promise<{ outcome: Outcome; dropped: boolean }> {
-  const before = (await sim.state()).queued
+async function dropping(sim: Sim, call: () => Promise<Outcome>): Promise<{ outcome: Outcome; dropped: boolean; changedNow: boolean }> {
+  const before = await sim.state()
   const outcome = await call()
-  const after = (await sim.state()).queued
-  return { outcome, dropped: outcome.ok && before !== null && after === null }
+  const after = await sim.state()
+  const same = (a: State['policy'], b: State['policy']) =>
+    a.perPayment === b.perPayment && a.perWindow === b.perWindow && a.validUntil === b.validUntil && a.paused === b.paused
+  return {
+    outcome,
+    dropped: outcome.ok && before.queued !== null && after.queued === null,
+    changedNow: outcome.ok && !same(before.policy, after.policy),
+  }
 }
 
 function owner(id: number, at: bigint, action: OwnerAction, outcome: Outcome): Entry {

@@ -140,6 +140,8 @@ const JUDGED: Record<string, string> = {
     'Display: whether to show the "capped at what the vault holds" note under Left today.',
   'components/activity-board.tsx|{worstShown < view.worstCase && (': 'Display: whether to show the "capped at what the vault holds" note.',
   'components/activity-board.tsx|{view.worstCaseUntil >= day.resetsAt && !policy.paused && (': 'Display: whether to show the "more than one day" note.',
+  'components/activity-board.tsx|{queued !== null && queued.effectiveAt < day.resetsAt &&':
+    'Display: whether to say that "Left today" is an upper limit because a scheduled change takes effect today. Both times are read from the contract.',
   'components/activity-board.tsx|{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (': 'Display: whether to show the "upper limit" note.',
   'components/agent-panel.tsx|.findLast((entry) => entry.outcome.code === 0)':
     'Reads a verdict the contract already gave (code 0 = paid) to pick which request the replay button resends. Does not produce one.',

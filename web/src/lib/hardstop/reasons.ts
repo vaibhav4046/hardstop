@@ -55,7 +55,10 @@ export function explain(code: number, detail: bigint, f: Formatters): Explanatio
   })
   switch (name) {
     case 'Allowed':
-      return say('Paid', `Inside every limit. ${f.money(detail)} left ${f.window}.`)
+      return say(
+        'Paid',
+        detail === 0n ? `Inside every limit. Nothing more can be paid ${f.window}.` : `Inside every limit. ${f.money(detail)} left ${f.window}.`,
+      )
     case 'InvalidPolicy':
       return say('Blocked', 'This vault was created with a broken schedule, so nothing can be paid from it.')
     case 'Paused':
@@ -83,6 +86,9 @@ export function explain(code: number, detail: bigint, f: Formatters): Explanatio
     case 'OverPaymentLimit':
       return say('Blocked: too large', `One payment may be at most ${f.money(detail)}.`)
     case 'OverWindowLimit':
-      return say('Blocked: limit reached', `Only ${f.money(detail)} is left ${f.window}.`)
+      return say(
+        'Blocked: limit reached',
+        detail === 0n ? `Nothing is left ${f.window}: the limit is used up.` : `Only ${f.money(detail)} is left ${f.window}.`,
+      )
   }
 }

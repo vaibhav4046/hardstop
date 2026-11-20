@@ -125,11 +125,11 @@ test.describe('Persona E: adversarial agent', () => {
     await request(page, '10')
     let slip = await request(page, '10')
     await expect(slip.locator('.stamp')).toHaveText('Paid')
-    await expect(slip).toContainText('Inside every limit. $0.00 left today.')
+    await expect(slip).toContainText('Inside every limit. Nothing more can be paid today.')
     slip = await request(page, '0.01')
     await expect(slip.locator('.stamp')).toHaveText('Blocked')
     await expect(slip.locator('h3')).toContainText('Blocked: limit reached')
-    await expect(slip).toContainText('Only $0.00 is left today.')
+    await expect(slip).toContainText('Nothing is left today: the limit is used up.')
     await expect(balance(page)).toHaveText('$80.00')
     await shot(page, 'E-04-splitting')
   })
@@ -230,7 +230,7 @@ test.describe('Persona E: adversarial agent', () => {
     // The next request carries the number the contract expects, and replay still fails.
     const slip = await request(page, '10')
     await expect(slip.locator('.stamp')).toHaveText('Paid')
-    await expect(slip).toContainText('Inside every limit. $0.00 left today.')
+    await expect(slip).toContainText('Inside every limit. Nothing more can be paid today.')
     await expect(await press(page, 'Send the last paid request again')).toContainText('The agent must send a new one (request 3).')
     // Leaving for another page and coming back keeps it too.
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'How it works' }).click()

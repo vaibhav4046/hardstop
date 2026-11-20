@@ -114,7 +114,7 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 ## Evidence it works
 
 - `fe test`: 95 passed on the EVM; 52 passed natively.
-- Web: 87 unit tests (including the MCP server and watcher) and 60 browser
+- Web: 88 unit tests (including the MCP server and watcher) and 60 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
