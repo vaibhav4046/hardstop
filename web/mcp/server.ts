@@ -65,9 +65,14 @@ const failed = (error: unknown): CallToolResult => ({ isError: true, content: [{
 /** The app's wording, with this vault's window in place of "today". */
 const formatFor = (v: Vault): Formatters => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left })
 
+/** The agent's text on one line, so it cannot pass itself off as more of the draft. */
+const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
+
 function dollars(value: number | string, what: string): bigint {
   const units = parseUsd(String(value))
-  if (units === null) throw new Error(`${what} must be a dollar amount such as 4 or 12.50, with at most two decimals.`)
+  if (units === null) {
+    throw new Error(`${what} must be a dollar amount such as 4 or 12.50, with at most two decimals and at most $999,999,999.99.`)
+  }
   return units
 }
 
@@ -209,7 +214,7 @@ No transaction was sent.`,
         inputSchema: {
           to: z.string().describe('Recipient address (0x...) or the name of a known recipient.'),
           amount_usd: amount,
-          nonce: z.number().int().min(0).optional().describe('Request number. Defaults to the next one the vault expects.'),
+          nonce: z.number().int('nonce must be a whole number from 0 to 9007199254740991.').min(0, 'nonce must be a whole number from 0 to 9007199254740991.').optional().describe('Request number. Defaults to the next one the vault expects.'),
           repeat: z.boolean().optional().describe('Set true only to pay the same recipient the same amount again within 10 minutes, on purpose.'),
         },
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
@@ -325,7 +330,7 @@ No transaction was sent.`,
             `Drafted by the agent. Nothing has been changed or sent.`,
             '',
             asks.length ? `The agent asks for:\n${asks.join('\n')}` : 'The agent asks for more room under the current rules.',
-            `Reason given: ${reason.trim()}`,
+            `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
             '',
             `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
             `To agree, open ${OWNER_PAGE} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`,
@@ -335,7 +340,7 @@ No transaction was sent.`,
             json: {
               changed: false,
               owner_page: OWNER_PAGE,
-              reason: reason.trim(),
+              reason: oneLine(reason),
               current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
               requested: {
                 per_payment_usd: perPayment === undefined ? null : usd(perPayment),

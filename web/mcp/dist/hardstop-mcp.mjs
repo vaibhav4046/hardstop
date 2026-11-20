@@ -43752,12 +43752,14 @@ function today(state) {
     resetsAt: anchor2 + (index + 1n) * windowSecs
   };
 }
-var AGENT_RAISE;
+var AGENT_RAISE, LATIN, MIXED_ALPHABETS;
 var init_session = __esm({
   "src/lib/session.ts"() {
     "use strict";
     init_money();
     AGENT_RAISE = 1000n * USD;
+    LATIN = new RegExp("\\p{Script=Latin}", "u");
+    MIXED_ALPHABETS = [new RegExp("\\p{Script=Cyrillic}", "u"), new RegExp("\\p{Script=Greek}", "u")];
   }
 });
 
@@ -84494,7 +84496,9 @@ import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 function dollars(value, what) {
   const units = parseUsd(String(value));
-  if (units === null) throw new Error(`${what} must be a dollar amount such as 4 or 12.50, with at most two decimals.`);
+  if (units === null) {
+    throw new Error(`${what} must be a dollar amount such as 4 or 12.50, with at most two decimals and at most $999,999,999.99.`);
+  }
   return units;
 }
 function hardstop({ env = process.env, wallet, networkName } = {}) {
@@ -84602,7 +84606,7 @@ No transaction was sent.`,
         inputSchema: {
           to: external_exports.string().describe("Recipient address (0x...) or the name of a known recipient."),
           amount_usd: amount,
-          nonce: external_exports.number().int().min(0).optional().describe("Request number. Defaults to the next one the vault expects."),
+          nonce: external_exports.number().int("nonce must be a whole number from 0 to 9007199254740991.").min(0, "nonce must be a whole number from 0 to 9007199254740991.").optional().describe("Request number. Defaults to the next one the vault expects."),
           repeat: external_exports.boolean().optional().describe("Set true only to pay the same recipient the same amount again within 10 minutes, on purpose.")
         },
         annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true }
@@ -84703,7 +84707,7 @@ No transaction was sent.`,
           "",
           asks.length ? `The agent asks for:
 ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
-          `Reason given: ${reason.trim()}`,
+          `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
           "",
           `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
           `To agree, open ${OWNER_PAGE} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`
@@ -84713,7 +84717,7 @@ ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
           json: {
             changed: false,
             owner_page: OWNER_PAGE,
-            reason: reason.trim(),
+            reason: oneLine(reason),
             current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
             requested: {
               per_payment_usd: perPayment === void 0 ? null : usd(perPayment),
@@ -84784,7 +84788,7 @@ async function main() {
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 }
-var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, createServer2;
+var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, oneLine, createServer2;
 var init_server3 = __esm({
   "mcp/server.ts"() {
     init_mcp();
@@ -84807,6 +84811,7 @@ var init_server3 = __esm({
     });
     failed = (error62) => ({ isError: true, content: [{ type: "text", text: plain(error62) }] });
     formatFor = (v) => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left });
+    oneLine = (text) => text.replace(/\s+/g, " ").trim();
     createServer2 = (options = {}) => hardstop(options)();
     if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
       main().catch((error62) => {

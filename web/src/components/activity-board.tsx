@@ -120,6 +120,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
   const day = today(state)
   const usedShare = policy.perWindow === 0n ? 1 : Math.min(1, Number((day.spent * 1000n) / policy.perWindow) / 1000)
   const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance
+  const leftShown = view.leftToday < vaultBalance ? view.leftToday : vaultBalance
   const cooling = formatDuration(schedule.coolingSecs)
 
   return (
@@ -184,7 +185,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
             <div className="text-right">
               <dt className="small soft">Left today</dt>
               <dd className="text-xl font-medium">
-                <Amount value={view.leftToday} />
+                <Amount value={leftShown} />
               </dd>
             </div>
           </dl>
@@ -192,6 +193,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
             {policy.paused
               ? 'The agent is paused, so nothing is left for it to spend.'
               : `Today's allowance of ${formatUsd(policy.perWindow)} resets on ${formatTime(day.resetsAt)}.`}
+            {leftShown < view.leftToday && ` The rules allow ${formatUsd(view.leftToday)} more today; the figure is capped at what the vault holds.`}
           </p>
         </div>
 

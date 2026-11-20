@@ -114,19 +114,24 @@ for (const mode of ['unthrottled', 'throttled'] as const) {
       const lcp: number[] = []
       const ready: number[] = []
       let scripts = { files: 0, transferred: 0, decoded: 0, encodings: [] as string[] }
+      let initialScripts = scripts
       let lcpElement = ''
       for (let run = 0; run < RUNS[mode].load; run++) {
         await fresh(browser, mode, mobile, async (page) => {
           const counter = await countScripts(page)
-          const started = Date.now()
           await page.goto('/', { waitUntil: 'load', ...WAIT })
-          await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible(WAIT)
-          ready.push(Date.now() - started)
           await page.waitForLoadState('networkidle', WAIT)
+          initialScripts = counter.read()
           const painted = await paints(page)
           fcp.push(painted.fcp)
           lcp.push(painted.lcp)
           lcpElement = painted.lcpElement
+          // The practice vault's EVM loads only when the example comes near the screen.
+          const started = Date.now()
+          await page.locator('#live-example').scrollIntoViewIfNeeded()
+          await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible(WAIT)
+          ready.push(Date.now() - started)
+          await page.waitForLoadState('networkidle', WAIT)
           scripts = counter.read()
         })
       }
@@ -136,8 +141,9 @@ for (const mode of ['unthrottled', 'throttled'] as const) {
         firstContentfulPaintMs: summary(fcp),
         largestContentfulPaintMs: summary(lcp),
         largestContentfulPaintElement: lcpElement,
-        exampleVaultReadyMs: { ...summary(ready), note: 'navigation start until the home example shows its balance, i.e. the EVM chunk has loaded and the vault is deployed' },
-        javascript: { ...scripts, note: 'all script responses until network idle, including the EVM chunk the home example loads and anything Next.js prefetches' },
+        exampleVaultReadyMs: { ...summary(ready), note: 'from scrolling to the home example until it shows its balance, i.e. the EVM chunk has loaded and the vault is deployed' },
+        javascriptBeforeScrolling: { ...initialScripts, note: 'all script responses from load until network idle, before the visitor scrolls; the EVM chunk is not among them' },
+        javascript: { ...scripts, note: 'all script responses after scrolling to the home example, including its EVM chunk and anything Next.js prefetches' },
       })
       expect(scripts.transferred).toBeGreaterThan(0)
     })

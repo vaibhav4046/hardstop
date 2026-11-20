@@ -38,7 +38,10 @@ test.describe('Accessibility: axe', () => {
     for (const route of ROUTES) {
       await page.goto(route)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-      if (route === '/') await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
+      if (route === '/') {
+        await page.locator('#live-example').scrollIntoViewIfNeeded()
+        await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
+      }
       await axe(page, `${route} (empty)`)
     }
     await page.goto('/')
@@ -157,6 +160,7 @@ test.describe('Accessibility: keyboard only', () => {
   test('the primary journey with Tab, Shift+Tab, Enter and Space', async ({ page }) => {
     const trail: Focus[] = []
     await page.goto('/')
+    await page.locator('#live-example').scrollIntoViewIfNeeded()
     await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
 
     // The first stop is the skip link, and it is on screen when focused.

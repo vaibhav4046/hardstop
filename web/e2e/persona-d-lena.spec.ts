@@ -134,6 +134,10 @@ const JUDGED: Record<string, string> = {
     "Display: draws the gauge's limit tick red once the drawn bar is full. Decides nothing.",
   'components/activity-board.tsx|const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance':
     'Display: caps the worst-case figure at the balance, and the page says so. Both numbers are read from the contract.',
+  'components/activity-board.tsx|const leftShown = view.leftToday < vaultBalance ? view.leftToday : vaultBalance':
+    'Display: caps "Left today" at the balance, and the page says so. Both numbers are read from the contract.',
+  'components/activity-board.tsx|{leftShown < view.leftToday && ` The rules allow ${formatUsd(view.leftToday)} more today; the figure is capped at what the vault holds.`}':
+    'Display: whether to show the "capped at what the vault holds" note under Left today.',
   'components/activity-board.tsx|{worstShown < view.worstCase && (': 'Display: whether to show the "capped at what the vault holds" note.',
   'components/activity-board.tsx|{view.worstCaseUntil >= day.resetsAt && !policy.paused && (': 'Display: whether to show the "more than one day" note.',
   'components/activity-board.tsx|{queued !== null && queued.effectiveAt <= view.worstCaseUntil && (': 'Display: whether to show the "upper limit" note.',

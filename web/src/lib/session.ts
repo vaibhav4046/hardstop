@@ -251,7 +251,11 @@ export function nameProblem(name: string): string | undefined {
   if (name.trim() === '') return 'Give every recipient a name.'
   if (name.length > 40) return 'Keep each name to 40 characters or fewer.'
   if (HIDDEN_CHARACTERS.test(name)) return 'Names cannot contain invisible or text-direction characters.'
+  if (MIXED_ALPHABETS.some((other) => LATIN.test(name) && other.test(name))) return 'Use one alphabet per name: Latin letters mixed with Cyrillic or Greek can imitate another name.'
 }
+
+const LATIN = /\p{Script=Latin}/u
+const MIXED_ALPHABETS = [/\p{Script=Cyrillic}/u, /\p{Script=Greek}/u]
 
 const isName = (value: unknown): value is string => typeof value === 'string' && value === value.trim() && nameProblem(value) === undefined
 const isRecipient = (value: unknown): value is Recipient => isObject(value) && isName(value.name) && isAddress(value.address)

@@ -295,6 +295,64 @@ fn steal(_ token: Address, to: Address, amount: u256) uses (ctx: Ctx) {
 APPEND=$FORGED_CALL seal_control 'NOT covered by Fe 26.6: Pay paying through a function with no Call in its uses' \
   "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
 
+# A source check closes what the compiler leaves open here (it reads text;
+# it is not a compiler guarantee): in vault.fe, comments stripped, Pay's
+# handler transfers exactly once, with exactly
+# safe_transfer(token, receiver: to, amount), right after ledger = next;
+# it rebinds none of token, to and amount and calls nothing else that can
+# move money; and the only functions given mut Call are the contract and
+# pay_owner (which needs an OwnerCall, so the owner's proof).
+check_pay() {
+  awk '
+    { code = $0; sub(/\/\/.*/, "", code); sub(/[ \t]+$/, "", code) }
+    code ~ /mut Call/ && code !~ /^fn pay_owner\(|^uses \(ctx: Ctx, call: mut Call\)$|^pub contract Vault uses/ { bad = "another function given mut Call: " $0 }
+    code ~ /^uses \(ctx: Ctx, call: mut Call\)$/ && prev !~ /^fn pay_owner\(/ { bad = "mut Call outside pay_owner: " $0 }
+    index(code, "        Pay {") == 1 { inpay = 1; prevcode = ""; prev = code; next }
+    inpay && (code ~ /^        [A-Z][A-Za-z]* \{/ || code == "    }") { inpay = 0 }
+    inpay {
+      if (code ~ /transfer|pay_owner|steal|\.call\(|Call =|with \(/) {
+        transfers++
+        if (code != "                    safe_transfer(token, receiver: to, amount)") bad = "Pay moves money differently: " $0
+        else if (prevcode != "                    ledger = next") bad = "Pay transfers somewhere other than right after ledger = next"
+      }
+      if (code ~ /(let|var) +(mut +)?(token|to|amount)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount) *[-+*\/]?= /) bad = "Pay rebinds token, to or amount: " $0
+      if (code !~ /^ *$/) prevcode = code
+    }
+    { if (code !~ /^ *$/) prev = code }
+    END {
+      if (bad != "") { print bad; exit 1 }
+      if (transfers != 1) { print "expected one transfer in Pay, found " transfers + 0; exit 1 }
+    }
+  ' "$1"
+}
+if ! why=$(check_pay "$ROOT/fe/src/vault.fe"); then
+  echo "FAIL vault.fe: $why"
+  exit 1
+fi
+echo "ok   source check: Pay's only transfer is safe_transfer(token, receiver: to, amount)"
+# The check must catch the edits the compiler lets through.
+pay_check_catches() {
+  local name=$1 edited
+  shift
+  edited=$(mktemp)
+  edit_handler "$@" > "$edited"
+  if check_pay "$edited" >/dev/null; then
+    rm -f "$edited"
+    echo "FAIL source check missed: $name"
+    exit 1
+  fi
+  rm -f "$edited"
+  echo "ok   source check catches: $name"
+}
+pay_check_catches 'Pay paying the caller 1000x the amount' \
+  "$PAY" "$TRANSFER" replace 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
+APPEND=$FORGED_CALL pay_check_catches 'Pay paying through a forged Call' \
+  "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
+pay_check_catches 'Pay doubling the amount before the transfer' \
+  "$PAY" "$TRANSFER" before 'let amount = amount * 2'
+pay_check_catches 'Pay transferring twice' \
+  "$PAY" "$TRANSFER" after 'safe_transfer(token, receiver: to, amount)'
+
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no
 #    error other than code $4 (by default "static assertion failed", 8-0081).

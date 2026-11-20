@@ -65,6 +65,7 @@ test.describe('Moving between pages', () => {
 
   test('labels still point at the right thing after visiting every page, and axe stays clean', async ({ page }) => {
     await page.goto('/')
+    await page.locator('#live-example').scrollIntoViewIfNeeded()
     await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
     const check = async (state: string) => {
       expect(await brokenReferences(page), `label and description references: ${state}`).toEqual([])

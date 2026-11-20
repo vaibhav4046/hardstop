@@ -16,7 +16,7 @@ const RAISED_DAY = 50n * USD
 /** Shown in a panel until the vault has answered for the first time. */
 function Waiting({ hasFailed }: { hasFailed: boolean }) {
   return (
-    <p className="tile soft">
+    <p className="tile soft" data-practice-vault>
       {hasFailed
         ? 'The practice vault could not start in this browser. Use “Try again” in the example above.'
         : 'The practice vault is loading.'}

@@ -119,7 +119,10 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
       for (const route of ROUTES) {
         await page.goto(route)
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-        if (route === '/') await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
+        if (route === '/') {
+          await page.locator('#live-example').scrollIntoViewIfNeeded()
+          await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
+        }
         if (route === '/how-it-works') await openAll(page)
         await check(route)
       }

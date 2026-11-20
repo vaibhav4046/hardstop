@@ -43,8 +43,8 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 - `fe/src/kernel/sealed.fe`: what the vault stores (`Terms`, `Owner`,
   `Approval`) and the proof it needs (`OwnerCall`), with fields only the
   kernel can see.
-- `fe/src/adversary.fe`: a seeded attacker written in Fe; it catches 14 of
-  14 deliberately broken kernels on both targets.
+- `fe/src/adversary.fe`: a seeded attacker written in Fe; it catches 15 of
+  15 deliberately broken kernels on both targets.
 - `fe/src/launcher.fe`: creates a vault in one transaction. It is installed
   through the deterministic deployment proxy, so on any network where it is
   installed it has the same address. The current one is installed on Base
@@ -83,7 +83,9 @@ source check pins it to the constructor's `owner_` argument), whether a
 handler passes on what the owner asked for, and where `Pay` sends the money
 a verdict allowed. An edit that pays the caller more compiles, even in a
 `Pay` without `mut call`, because any type can implement Fe 26.6's `Call`;
-the tests catch it, not the compiler. That last gap is a Fe bug (a private
+the tests catch it, and a CI source check (it reads the text; it is not a
+compiler guarantee) requires `Pay`'s only transfer to be exactly
+`safe_transfer(token, receiver: to, amount)`, not the compiler. That last gap is a Fe bug (a private
 trait is not visibility-checked in an `impl` header or a bound), reported
 as argotorg/fe#2036, and pull request argotorg/fe#2042 (approved by a Fe
 maintainer on 2026-11-20, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
@@ -112,7 +114,7 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 ## Evidence it works
 
 - `fe test`: 95 passed on the EVM; 52 passed natively.
-- Web: 82 unit tests (including the MCP server and watcher) and 58 browser
+- Web: 83 unit tests (including the MCP server and watcher) and 58 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

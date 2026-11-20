@@ -65,8 +65,24 @@ export function HomeVaultProvider({ children }: { children: ReactNode }) {
       })
   }
 
-  // Runs once, after the page has rendered: `boot` only touches a ref and state setters.
-  useEffect(boot, [])
+  // The EVM is most of the page's script, and every part that uses it is well
+  // below the fold, so it loads when one of them comes near the screen (or
+  // on the first request). Runs once: `boot` only touches a ref and state setters.
+  useEffect(() => {
+    const parts = document.querySelectorAll('[data-practice-vault]')
+    if (parts.length === 0 || typeof IntersectionObserver === 'undefined') return boot()
+    const observer = new IntersectionObserver(
+      (seen) => {
+        if (!seen.some((part) => part.isIntersecting)) return
+        observer.disconnect()
+        boot()
+      },
+      { rootMargin: '200px 0px' },
+    )
+    parts.forEach((part) => observer.observe(part))
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function send(make: (state: State) => Action) {
     if (isSending.current) return

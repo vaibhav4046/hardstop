@@ -197,6 +197,7 @@ test.describe('Persona E: adversarial agent', () => {
   test('rapid double-click on the home example', async ({ page }) => {
     await page.goto('/')
     const demo = page.locator('section[aria-labelledby="demo-title"]')
+    await page.locator('#live-example').scrollIntoViewIfNeeded()
     await expect(demo.getByText(/^In the vault: \$100\.00\. Left today: \$20\.00\.$/)).toBeVisible()
     const pay = demo.getByRole('button', { name: 'Agent pays $4' })
     await pay.evaluate((button: HTMLButtonElement) => {
@@ -254,6 +255,7 @@ test.describe('Persona E: adversarial agent', () => {
     // The other pages still work with corrupt data saved.
     await writeSession(page, '{"setup":')
     await page.goto('/')
+    await page.locator('#live-example').scrollIntoViewIfNeeded()
     await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible()
     await page.goto('/protect')
     await expect(page.getByRole('button', { name: 'Review the rules' })).toBeEnabled()
