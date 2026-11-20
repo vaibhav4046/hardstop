@@ -517,8 +517,18 @@ fn raising_a_limit_is_queued_not_applied() uses (evm: mut Evm) {
 #[test]
 fn a_cancel_after_a_pause_keeps_the_agent_paused() uses (evm: mut Evm) {
     let w = world()
-    evm.call(addr: w.vault, gas: GAS, value: Wei::zero(), message: VaultMsg::Pause {})
-    evm.call(addr: w.vault, gas: GAS, value: Wei::zero(), message: VaultMsg::CancelQueued {})
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Pause {},
+    )
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::CancelQueued {},
+    )
     assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 2)
 }
 
@@ -536,7 +546,12 @@ fn a_cancel_after_lowering_a_limit_keeps_it_low() uses (evm: mut Evm) {
             paused: false,
         },
     )
-    evm.call(addr: w.vault, gas: GAS, value: Wei::zero(), message: VaultMsg::CancelQueued {})
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::CancelQueued {},
+    )
     assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 10)
     assert!(agent_pays(w, to: w.shop, amount: 3 * USD, nonce: 0) == 0)
 }
@@ -550,7 +565,12 @@ fn a_cancel_after_removing_a_recipient_keeps_it_removed() uses (evm: mut Evm) {
         value: Wei::zero(),
         message: VaultMsg::SetRecipient { who: w.shop, approved: false },
     )
-    evm.call(addr: w.vault, gas: GAS, value: Wei::zero(), message: VaultMsg::CancelQueued {})
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::CancelQueued {},
+    )
     assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 9)
 }
 
