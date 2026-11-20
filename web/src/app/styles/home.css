@@ -90,10 +90,12 @@
       z-index: -1;
       width: 50%;
       height: 100%;
-      /* The still picture's mask, continued: it is 15% at the middle of the
-         hero, where this canvas starts, and solid by 72% of the hero. */
+      /* The still picture's mask, continued (15% at the middle of the hero,
+         solid by 72%), but starting from nothing at this canvas's own left
+         edge: once the still picture has faded out, a 15% start would show
+         as a vertical line down the middle of the hero. */
       mask-image:
-        linear-gradient(to right, rgb(0 0 0 / 0.15), #000 44%),
+        linear-gradient(to right, transparent, rgb(0 0 0 / 0.15) 8%, #000 44%),
         linear-gradient(to bottom, #000 78%, transparent);
       mask-composite: intersect;
     }

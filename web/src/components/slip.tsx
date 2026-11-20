@@ -122,7 +122,11 @@ export function Slip({ entry, nameOf, vault, isNew = false, explorer }: Props) {
           )}
           <div>
             <dt>Gas used</dt>
-            <dd>{outcome.gasUsed.toLocaleString('en-US')}</dd>
+            <dd>
+              {outcome.gasUsed.toLocaleString('en-US')}
+              {/* The practice chain runs the contract call alone; a network also charges for the transaction itself. */}
+              {explorer === undefined && ' by the contract alone; on a network a transaction adds 21,000 and the cost of its data'}
+            </dd>
           </div>
           <div>
             <dt>Vault address</dt>

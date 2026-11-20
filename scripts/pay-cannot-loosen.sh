@@ -299,14 +299,27 @@ APPEND=$FORGED_CALL seal_control 'NOT covered by Fe 26.6: Pay paying through a f
 # it is not a compiler guarantee): in vault.fe, comments stripped, Pay's
 # handler transfers exactly once, with exactly
 # safe_transfer(token, receiver: to, amount), right after ledger = next;
-# it rebinds none of token, to and amount and calls nothing else that can
-# move money; and the only functions given mut Call are the contract and
-# pay_owner (which needs an OwnerCall, so the owner's proof).
+# it rebinds none of token, to, amount and nonce and calls nothing else that
+# can move money; the only functions given mut Call are the contract and
+# pay_owner (which needs an OwnerCall, so the owner's proof); and what Pay
+# asks the kernel is exactly this, once each: the time from the chain, the
+# stored terms' rules, a Request with the caller compared to the agent and
+# the recipient's own approval, and decide(rules, ledger, request, now).
 check_pay() {
   awk '
     { code = $0; sub(/\/\/.*/, "", code); sub(/[ \t]+$/, "", code) }
     code ~ /mut Call/ && code !~ /^fn pay_owner\(|^uses \(ctx: Ctx, call: mut Call\)$|^pub contract Vault uses/ { bad = "another function given mut Call: " $0 }
     code ~ /^uses \(ctx: Ctx, call: mut Call\)$/ && prev !~ /^fn pay_owner\(/ { bad = "mut Call outside pay_owner: " $0 }
+    BEGIN {
+      need["            let now = seconds(ctx.timestamp())"] = 0
+      need["            let rules = terms.rules()"] = 0
+      need["            let request = Request {"] = 0
+      need["                amount,"] = 0
+      need["                nonce,"] = 0
+      need["                from_agent: ctx.caller() == agent,"] = 0
+      need["                to_approved: cooled(at: approved_from.get(key: to).of(to), now),"] = 0
+      need["            match decide(rules, ledger, request, now) {"] = 0
+    }
     index(code, "        Pay {") == 1 { inpay = 1; prevcode = ""; prev = code; next }
     inpay && (code ~ /^        [A-Z][A-Za-z]* \{/ || code == "    }") { inpay = 0 }
     inpay {
@@ -315,13 +328,16 @@ check_pay() {
         if (code != "                    safe_transfer(token, receiver: to, amount)") bad = "Pay moves money differently: " $0
         else if (prevcode != "                    ledger = next") bad = "Pay transfers somewhere other than right after ledger = next"
       }
-      if (code ~ /(let|var) +(mut +)?(token|to|amount)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount) *[-+*\/]?= /) bad = "Pay rebinds token, to or amount: " $0
+      if (code ~ /(let|var) +(mut +)?(token|to|amount|nonce)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount|nonce) *[-+*\/]?= /) bad = "Pay rebinds token, to, amount or nonce: " $0
+      if (code in need) need[code]++
+      else if (code ~ /decide\(|Request *\{|from_agent|to_approved|(let|var) +(mut +)?(now|rules|request)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(now|rules|request) *= /) bad = "Pay asks the kernel something else: " $0
       if (code !~ /^ *$/) prevcode = code
     }
     { if (code !~ /^ *$/) prev = code }
     END {
       if (bad != "") { print bad; exit 1 }
       if (transfers != 1) { print "expected one transfer in Pay, found " transfers + 0; exit 1 }
+      for (line in need) if (need[line] != 1) { print "expected once in Pay, found " need[line] " times:" line; exit 1 }
     }
   ' "$1"
 }
@@ -329,7 +345,7 @@ if ! why=$(check_pay "$ROOT/fe/src/vault.fe"); then
   echo "FAIL vault.fe: $why"
   exit 1
 fi
-echo "ok   source check: Pay's only transfer is safe_transfer(token, receiver: to, amount)"
+echo "ok   source check: Pay asks the kernel with the stored rules and the real caller, and its only transfer is safe_transfer(token, receiver: to, amount)"
 # The check must catch the edits the compiler lets through.
 pay_check_catches() {
   local name=$1 edited
@@ -352,6 +368,19 @@ pay_check_catches 'Pay doubling the amount before the transfer' \
   "$PAY" "$TRANSFER" before 'let amount = amount * 2'
 pay_check_catches 'Pay transferring twice' \
   "$PAY" "$TRANSFER" after 'safe_transfer(token, receiver: to, amount)'
+# What Pay tells the kernel is ordinary code too: this compiles, and pays anyone.
+ANYONE='to_approved: true,'
+control 'NOT covered by the compiler: Pay telling the kernel every recipient is approved' \
+  "$PAY" 'to_approved: cooled(' replace "$ANYONE"
+pay_check_catches 'Pay telling the kernel every recipient is approved' \
+  "$PAY" 'to_approved: cooled(' replace "$ANYONE"
+pay_check_catches 'Pay telling the kernel every caller is the agent' \
+  "$PAY" 'from_agent: ctx.caller() == agent,' replace 'from_agent: true,'
+pay_check_catches 'Pay deciding against an empty ledger' \
+  "$PAY" 'match decide(rules, ledger, request, now) {' replace \
+  'match decide(rules, Ledger { window: 0, spent: 0, next_nonce: nonce }, request, now) {'
+pay_check_catches 'Pay deciding with rules other than the stored ones' \
+  "$PAY" 'let rules = terms.rules()' replace 'let rules = Rules { schedule: terms.rules().schedule, active: terms.rules().queued.policy, queued: terms.rules().queued }'
 
 # What the compiler does not stop either: a vault that keeps a second copy
 # of its rules or approvals in storage and puts it back later (Terms and

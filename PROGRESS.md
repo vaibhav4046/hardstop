@@ -11,7 +11,7 @@ the reference; this page only says where things stand.
 | `fe test` (EVM) | 98 passed, 0 failed |
 | `fe test --backend native` (WSL) | 52 passed, 0 failed |
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
-| `scripts/pay-cannot-loosen.sh` | 42 lines starting `ok`: 26 compiler refusals, 6 controls that must compile, 10 source-check lines (3 checks, 7 edits they must catch) |
+| `scripts/pay-cannot-loosen.sh` | 47 lines starting `ok`: 26 compiler refusals, 7 controls that must compile, 14 source-check lines (3 checks, 11 edits they must catch) |
 | Committed web artifacts vs a fresh build | identical |
 | `npm test` (web) | 88 passed, 0 failed, 0 skipped |
 | `npx tsc --noEmit` | clean |

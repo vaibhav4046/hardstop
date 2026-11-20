@@ -9,6 +9,7 @@ import { useEffect, useId, useState, type PointerEvent } from 'react'
 import { formatUsd, USD } from '@/lib/money'
 import { exampleSetup } from '@/lib/session'
 import { useHomeVault } from './home-vault'
+import { announcement } from './slip'
 
 const HOURS = 72
 const HOUR = 3600n
@@ -20,7 +21,7 @@ const WIDTH = 720
 const HEIGHT = 320
 const LEFT = 88
 const RIGHT = 20
-const TOP = 20
+const TOP = 36
 const BOTTOM = 44
 const PLOT_W = WIDTH - LEFT - RIGHT
 const PLOT_H = HEIGHT - TOP - BOTTOM
@@ -33,7 +34,7 @@ type Curve = {
 }
 
 export function ExposureChart() {
-  const { view, status, send, restart, exposureAt } = useHomeVault()
+  const { view, entries, status, send, restart, exposureAt } = useHomeVault()
   const [curve, setCurve] = useState<Curve | null>(null)
   const [hour, setHour] = useState(12)
   const id = useId().replace(/:/g, '')
@@ -82,8 +83,14 @@ export function ExposureChart() {
   const steps = curve.atMost.flatMap((sum, h) => (h > 0 && sum !== curve.atMost[h - 1] ? [h] : []))
   // Dotted guides at a quarter, a half and three quarters of what the vault holds.
   const guides = [1n, 2n, 3n].map((quarter) => (curve.holds * quarter) / 4n)
-  // The readout sits right of the marker, or left of it near the right edge.
-  const isTipLeft = x(hour) > WIDTH - 200
+  // The readout hangs below and right of the marker: step figures sit above their dots, so the two do not
+  // meet. Near the right edge it goes left; near the bottom, where there is no room below, it goes above.
+  const isTipLeft = x(hour) > WIDTH - 260
+  const isTipAbove = y(here) > TOP + PLOT_H - 70
+  // Above the marker the readout would cover the figure of a step at the same level: it says the same number, so that figure steps aside.
+  const isUnderReadout = (h: number) => isTipAbove && curve.atMost[h] === here && Math.abs(x(h) - x(hour)) < 280
+  const latest = entries[0]
+  const nameOf = (address: string) => (address === PAYEE.address ? PAYEE.name : 'an address you never approved')
 
   // Pointing at, or dragging along, the chart moves the look-ahead, as the slider does.
   const follow = (event: PointerEvent<SVGSVGElement>) => {
@@ -94,7 +101,7 @@ export function ExposureChart() {
 
   return (
     <div className="chart">
-      <figure>
+      <figure className="chart-figure">
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           role="img"
@@ -148,9 +155,6 @@ export function ExposureChart() {
 
           {/* What a limit that can be raised at once leaves at risk: everything. */}
           <line className="chart-all" x1={LEFT} x2={WIDTH - RIGHT} y1={y(curve.holds)} y2={y(curve.holds)} />
-          <text className="chart-label chart-label-stop" x={WIDTH - RIGHT} y={y(curve.holds) + 16} textAnchor="end">
-            Everything in the vault, {formatUsd(curve.holds)}
-          </text>
 
           <line className="chart-axis" x1={LEFT} x2={WIDTH - RIGHT} y1={y(0n)} y2={y(0n)} />
           {[0, 24, 48, 72].map((h) => (
@@ -173,7 +177,7 @@ export function ExposureChart() {
             fill={`url(#${id}-dots-fine)`}
           />
           <line className="chart-wait" x1={x(curve.coolingHours)} x2={x(curve.coolingHours)} y1={TOP} y2={y(0n)} />
-          <text className="chart-label chart-label-gold" x={LEFT + 10} y={TOP + 18}>
+          <text className="chart-label chart-label-gold" x={LEFT + 10} y={TOP + 26}>
             Locked in
           </text>
 
@@ -185,14 +189,16 @@ export function ExposureChart() {
               <g key={h} className="chart-step">
                 <circle cx={x(h)} cy={y(curve.atMost[h])} r={4} />
                 {/* Near the right edge the figure goes on the left of its dot, so it is never cut off. */}
-                <text
-                  className="chart-label chart-label-gold"
-                  x={x(h) > WIDTH - 90 ? x(h) - 8 : x(h) + 8}
-                  y={y(curve.atMost[h]) - 8}
-                  textAnchor={x(h) > WIDTH - 90 ? 'end' : 'start'}
-                >
-                  {formatUsd(curve.atMost[h])}
-                </text>
+                {!isUnderReadout(h) && (
+                  <text
+                    className="chart-label chart-label-gold"
+                    x={x(h) > WIDTH - 140 ? x(h) - 8 : x(h) + 8}
+                    y={y(curve.atMost[h]) - 8}
+                    textAnchor={x(h) > WIDTH - 140 ? 'end' : 'start'}
+                  >
+                    {formatUsd(curve.atMost[h])}
+                  </text>
+                )}
               </g>
             ))}
           </g>
@@ -200,13 +206,27 @@ export function ExposureChart() {
           <line className="chart-cursor" x1={x(hour)} x2={x(hour)} y1={TOP} y2={y(0n)} />
           <circle className="chart-pulse" cx={x(hour)} cy={y(here)} r={7} />
           <circle className="chart-mark" cx={x(hour)} cy={y(here)} r={5.5} filter={`url(#${id}-glow)`} />
-          <g className="chart-tip" transform={`translate(${isTipLeft ? x(hour) - 172 : x(hour) + 12}, ${Math.max(TOP, y(here) - 46)})`}>
-            <rect width={160} height={34} rx={9} />
-            <text x={12} y={22}>
-              {hour === 0 ? 'Now' : `In ${hour} h`} · {formatUsd(here)}
-            </text>
-          </g>
         </svg>
+        {/* Set in the page's own type, not the drawing's, so it stays readable when the chart is small. The same words are in the sentence below. */}
+        <p
+          className="chart-readout"
+          aria-hidden="true"
+          data-left={isTipLeft || undefined}
+          data-above={isTipAbove || undefined}
+          style={{ left: `${(x(hour) / WIDTH) * 100}%`, top: `${(y(here) / HEIGHT) * 100}%` }}
+        >
+          {hour === 0 ? 'Now' : `In ${hour} h`} · {formatUsd(here)}
+        </p>
+        <figcaption className="chart-legend">
+          <span>
+            <i className="chart-key" aria-hidden="true" />
+            The most the agent can take by then
+          </span>
+          <span>
+            <i className="chart-key chart-key-stop" aria-hidden="true" />
+            Everything in the vault, {formatUsd(curve.holds)}
+          </span>
+        </figcaption>
       </figure>
 
       <div className="chart-read">
@@ -266,6 +286,7 @@ export function ExposureChart() {
           Start the chart again
         </button>
       </div>
+      {latest && <p className="small chart-answer">The practice vault answered: {announcement(latest, nameOf)}</p>}
       <p className="small soft">
         Each point is the practice vault&rsquo;s own answer to &ldquo;how much, by then?&rdquo;, never more than the
         vault holds. The shaded part is the waiting period: sign a raise and watch that part stay where it is.

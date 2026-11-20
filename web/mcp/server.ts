@@ -97,7 +97,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
   try {
     config = readConfig(env)
     // The demo network lives in memory: no explorer has its transactions, so it gets no links.
-    if (networkName) config = { ...config, network: { ...config.network, name: networkName, explorer: '' } }
+    if (networkName) config = { ...config, demo: true, network: { ...config.network, name: networkName, explorer: '' } }
   } catch (error) {
     configError = error
   }

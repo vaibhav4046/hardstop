@@ -40,6 +40,13 @@ test('the bundled server runs with --demo: five tools, a $4 payment paid, $15 re
       ((await client.callTool({ name: 'hardstop_pay', arguments: { to: 'Cloud hosting', amount_usd: amount } })) as CallToolResult).structuredContent as Record<string, unknown>
     assert.equal((await pay(4)).result, 'paid')
     assert.equal((await pay(15)).result, 'refused')
+    // The demo says what it is: no chain id of a real network, and no owner page that could not exist.
+    const status = ((await client.callTool({ name: 'hardstop_status', arguments: {} })) as CallToolResult).structuredContent as Record<string, unknown>
+    assert.equal(status.chain_id, null)
+    assert.match(String(status.network), /demo/)
+    const ask = ((await client.callTool({ name: 'hardstop_request_more', arguments: { reason: 'More room.', per_day_usd: 40 } })) as CallToolResult)
+      .structuredContent as Record<string, unknown>
+    assert.equal(ask.owner_page, null)
   } finally {
     await client.close()
   }

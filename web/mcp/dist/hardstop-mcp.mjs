@@ -81878,7 +81878,7 @@ async function status(vault) {
       vault: sim.vault,
       agent: sim.agent,
       network: config2.network.name,
-      chain_id: config2.network.chainId,
+      chain_id: config2.demo ? null : config2.network.chainId,
       now: iso(state.now),
       // The *_today_*, per_day, day_resets_at and worst_case_24h names are kept, but they mean
       // "this window" and "the next window_secs": a day only when window_secs is 86400.
@@ -85018,7 +85018,7 @@ function hardstop({ env = process.env, wallet, networkName } = {}) {
   let configError;
   try {
     config2 = readConfig(env);
-    if (networkName) config2 = { ...config2, network: { ...config2.network, name: networkName, explorer: "" } };
+    if (networkName) config2 = { ...config2, demo: true, network: { ...config2.network, name: networkName, explorer: "" } };
   } catch (error62) {
     configError = error62;
   }

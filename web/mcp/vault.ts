@@ -33,6 +33,8 @@ export type Config = {
   agentKey?: Hex
   rpc: string
   recipients: Recipient[]
+  /** An in-memory demo: the network is not a real chain, so it has no chain id to report and no page on the site. */
+  demo?: boolean
 }
 
 /** `schedule` never changes after a vault is created, so it is read once, at connection. */
@@ -255,7 +257,7 @@ export async function status(vault: Vault): Promise<Status> {
       vault: sim.vault,
       agent: sim.agent,
       network: config.network.name,
-      chain_id: config.network.chainId,
+      chain_id: config.demo ? null : config.network.chainId,
       now: iso(state.now),
       // The *_today_*, per_day, day_resets_at and worst_case_24h names are kept, but they mean
       // "this window" and "the next window_secs": a day only when window_secs is 86400.

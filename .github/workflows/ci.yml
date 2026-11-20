@@ -69,6 +69,9 @@ jobs:
       - name: Type-check
         working-directory: web
         run: npx next typegen && npx tsc --noEmit
+      - name: Lint
+        working-directory: web
+        run: npm run lint
 
   # The two compiler patches in research/fe-patches, applied to Fe master at the
   # commit they were written against: the compiler's own UI tests for them, then

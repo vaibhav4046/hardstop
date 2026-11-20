@@ -20,7 +20,7 @@ ok   refused: Pay writing terms
 ok   refused: Pay approving a recipient
 ...
 ok   refused: amend applying a raise at once
-                                   (42 lines starting ok: 26 refused, 6 controls, 10 source checks)
+                                   (47 lines starting ok: 26 refused, 7 controls, 14 source checks)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
                                    (CI runs both on every push, plus the patched compiler: job patched-fe;
@@ -40,6 +40,7 @@ Output pasted from a run on 2026-11-20. [CI runs](https://github.com/vaibhav4046
 | Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Terms` or `Approval` kept in a second storage field and put back (both are `Copy`); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches all three edits; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
+| Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide` | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires each of those lines exactly as written, once, and catches four edits that change them |
 | Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug, [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
 The first five rows are edits that

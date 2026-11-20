@@ -296,17 +296,62 @@
     animation: chart-pulse 1.8s ease-out infinite;
   }
 
-  .chart-tip rect {
-    fill: rgb(12 12 14 / 0.92);
-    stroke: rgb(227 176 75 / 0.55);
+  .chart-figure {
+    position: relative;
   }
 
-  .chart-tip text {
-    fill: #fff;
-    font-family: var(--font-sans);
-    font-size: 14px;
+  /* The look-ahead readout: an HTML label over the drawing, placed at the marker. */
+  .chart-readout {
+    position: absolute;
+    margin: 0;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid rgb(227 176 75 / 0.55);
+    border-radius: 0.6rem;
+    background: rgb(12 12 14 / 0.92);
+    color: #fff;
+    font-size: var(--text-sm);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translate(0.75rem, 0.75rem);
+  }
+
+  .chart-readout[data-left] {
+    transform: translate(calc(-100% - 0.75rem), 0.75rem);
+  }
+
+  .chart-readout[data-above] {
+    transform: translate(0.75rem, calc(-100% - 0.75rem));
+  }
+
+  .chart-readout[data-left][data-above] {
+    transform: translate(calc(-100% - 0.75rem), calc(-100% - 0.75rem));
+  }
+
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 0.75rem;
+    color: rgb(255 255 255 / 0.68);
+    font-size: var(--text-sm);
+  }
+
+  .chart-key {
+    display: inline-block;
+    width: 1.5rem;
+    margin-right: 0.5rem;
+    border-top: 2px solid #f2c867;
+    vertical-align: middle;
+  }
+
+  .chart-key-stop {
+    border-top: 2px dashed var(--color-stop);
+  }
+
+  .chart-answer {
+    color: rgb(255 255 255 / 0.85);
   }
 
   .chart-label-gold {
