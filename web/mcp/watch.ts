@@ -19,7 +19,7 @@
 import { execFile } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
-import { pathToFileURL } from 'node:url'
+import { isMain } from './entry.ts'
 import type { Hex } from 'viem'
 import { explain, type Formatters } from '../src/lib/hardstop/reasons.ts'
 import type { Log } from '../src/lib/hardstop/chain.ts'
@@ -29,6 +29,7 @@ import { FORMAT, formatDuration, formatTime, formatUsd } from '../src/lib/money.
 import {
   DAY,
   OWNER_PAGE,
+  ownerPage,
   Refused,
   connect,
   describePolicy,
@@ -173,7 +174,7 @@ export class Watcher {
   }
 
   private alert(kind: string, message: string, extra: Record<string, unknown> = {}): Alert {
-    return { kind, at: iso(this.vault.chain.now), vault: this.vault.sim.vault, message, ...extra }
+    return { kind, at: iso(this.vault.chain.now), vault: this.vault.sim.vault, owner_page: ownerPage(this.vault), message, ...extra }
   }
 
   private name(address: Hex): string {
@@ -225,7 +226,7 @@ export class Watcher {
           : [
               this.alert(
                 'recipient_approved',
-                `${this.name(event.who)} was approved as a recipient; it can be paid from ${formatTime(event.approvedFrom)}. If the owner did not do this, remove it at ${OWNER_PAGE} before then.`,
+                `${this.name(event.who)} was approved as a recipient; it can be paid from ${formatTime(event.approvedFrom)}. If the owner did not do this, remove it at ${ownerPage(this.vault, event.who)} before then.`,
                 { who: event.who, approved_from: iso(event.approvedFrom), ...tx },
               ),
             ]
@@ -270,7 +271,7 @@ export class Watcher {
       alerts.push(
         this.alert(
           'loosening_withdrawn',
-          `Looser rules were proposed and then ${endedBy === 'QueueCancelled' ? 'cancelled' : 'replaced'} between two checks: ${this.describe(proposed)}, to take effect ${formatTime(proposed.effectiveAt)}. Rules in force: ${this.describe(cur.policy)}. Only the owner's key can do this; if the owner did not, treat that key as compromised and move the funds out at ${OWNER_PAGE}.`,
+          `Looser rules were proposed and then ${endedBy === 'QueueCancelled' ? 'cancelled' : 'replaced'} between two checks: ${this.describe(proposed)}, to take effect ${formatTime(proposed.effectiveAt)}. Rules in force: ${this.describe(cur.policy)}. Only the owner's key can do this; if the owner did not, treat that key as compromised and move the funds out at ${ownerPage(this.vault)}.`,
           { proposed: policyJson(proposed), takes_effect_at: iso(proposed.effectiveAt), ended_by: endedBy === 'QueueCancelled' ? 'cancelled' : 'replaced', current: policyJson(cur.policy), ...tx },
         ),
       )
@@ -290,7 +291,7 @@ export class Watcher {
       alerts.push(
         this.alert(
           'loosening_waiting',
-          `Looser rules are waiting: ${this.describe(queued)} (now ${this.describe(policy)}). They take effect ${formatTime(queued.effectiveAt)}. In the ${this.words.span} after that the agent could have moved up to ${formatUsd(worst)}. If the owner did not ask for this, cancel it at ${OWNER_PAGE} before then.`,
+          `Looser rules are waiting: ${this.describe(queued)} (now ${this.describe(policy)}). They take effect ${formatTime(queued.effectiveAt)}. In the ${this.words.span} after that the agent could have moved up to ${formatUsd(worst)}. If the owner did not ask for this, cancel it at ${ownerPage(this.vault)} before then.`,
           { proposed: policyJson(queued), current: policyJson(policy), takes_effect_at: iso(queued.effectiveAt), worst_case_usd: usd(worst) },
         ),
       )
@@ -397,7 +398,7 @@ async function push(url: URL, alert: Alert): Promise<void> {
     priority: urgent ? 'urgent' : 'default',
     tags: urgent ? 'warning' : 'moneybag',
   }
-  if (urgent) headers.click = OWNER_PAGE
+  if (urgent) headers.click = typeof alert.owner_page === 'string' ? alert.owner_page : OWNER_PAGE
   try {
     const response = await fetch(url, { method: 'POST', headers, body: alert.message, signal: AbortSignal.timeout(10_000) })
     if (!response.ok) warn(`ntfy answered HTTP ${response.status}.`)
@@ -511,7 +512,8 @@ async function readCursor(file: string): Promise<bigint | undefined> {
   return /^\d+$/.test(text.trim()) ? BigInt(text.trim()) : undefined
 }
 
-async function main(): Promise<void> {
+/** Runs the watcher from the environment until stopped. Also reached as `hardstop-mcp --watch`. */
+export async function main(): Promise<void> {
   let config: Config
   try {
     // The watcher only reads; it never needs, uses or passes on a key.
@@ -542,7 +544,7 @@ async function main(): Promise<void> {
   })
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMain(import.meta.url)) {
   main().catch((error: unknown) => {
     warn(plain(error))
     process.exit(1)

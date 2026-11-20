@@ -22,6 +22,23 @@ export function ActivityBoard() {
     )
   }
 
+  if (vault.status === 'error' && vault.isLinkError) {
+    return (
+      <div className="notice max-w-[36rem]" role="alert">
+        <h2 className="sub-title">This link did not open a vault</h2>
+        <p className="mt-2">{vault.error}</p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button type="button" className="btn btn-primary" onClick={vault.retry}>
+            Try again
+          </button>
+          <button type="button" className="btn" onClick={vault.reset}>
+            Show my own vault instead
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (vault.status === 'error') {
     return (
       <div className="notice max-w-[36rem]" role="alert">
@@ -122,6 +139,9 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
   const worstShown = view.worstCase < vaultBalance ? view.worstCase : vaultBalance
   const leftShown = view.leftToday < vaultBalance ? view.leftToday : vaultBalance
   const cooling = formatDuration(schedule.coolingSecs)
+  // Opened from a link: no agent key here, so the page acts only as the owner.
+  const agentKey = live?.vault.agentKey ?? null
+  const launched = live !== null && agentKey !== null ? { ...live, vault: { ...live.vault, agentKey } } : null
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_auto_1fr]">
@@ -136,8 +156,19 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
             <a href={`${live.network.explorer}/address/${live.vault.vault}`} rel="noopener noreferrer">
               {short(live.vault.vault)}
             </a>
-            . The agent here is a trial key kept in this browser, with {formatEth(live.agentGas)} test ETH left to pay network fees
-            for its requests. Your wallet is the owner.
+            .{' '}
+            {launched ? (
+              <>
+                The agent here is a trial key kept in this browser, with {formatEth(live.agentGas)} test ETH left to pay
+                network fees for its requests. Your wallet is the owner.
+              </>
+            ) : (
+              <>
+                Opened from a link, so this page holds no agent key: it shows what the vault holds and lets its owner change
+                it, from the owner&rsquo;s wallet ({short(live.vault.owner)}). Names you gave recipients are not on the
+                network, so they are not shown here.
+              </>
+            )}
           </p>
         ) : (
           <p>
@@ -206,7 +237,19 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
       </section>
 
       <div className="grid content-start gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-2">
-        <AgentPanel view={view} entries={entries} isBusy={isBusy} run={run} />
+        {live === null || launched ? (
+          <AgentPanel view={view} entries={entries} isBusy={isBusy} run={run} />
+        ) : (
+          <section aria-labelledby="agent-title" className="card">
+            <h2 id="agent-title" className="sub-title">
+              The agent
+            </h2>
+            <p className="soft mt-3">
+              Agent {short(live.vault.agent ?? '')}, with {formatEth(live.agentGas)} test ETH for network fees. Its key is
+              not on this page, so nothing can be paid from here.
+            </p>
+          </section>
+        )}
 
         <section aria-labelledby="receipts-title" className="card">
           <h2 id="receipts-title" className="sub-title">
@@ -343,7 +386,7 @@ function Board({ view, session, entries, isBusy, isSaved, live, problem }: Board
         <OwnerControls view={view} isBusy={isBusy} run={run} onReset={vault.reset} />
       </div>
 
-      {live && <VaultConnect live={live} />}
+      {launched && <VaultConnect live={launched} />}
     </div>
   )
 }

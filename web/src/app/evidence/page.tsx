@@ -3,6 +3,7 @@ import { Adoption, Incidents, OtherTests } from '@/components/evidence-field'
 import { EvidenceModels } from '@/components/evidence-models'
 import { EvidencePath } from '@/components/evidence-path'
 import { EvidenceSources } from '@/components/evidence-sources'
+import { HostileRun } from '@/components/hostile-run'
 
 export const metadata: Metadata = {
   title: 'Why this matters: the evidence',
@@ -43,6 +44,14 @@ export default function Evidence() {
           A limit that can be raised at once is only as strong as whoever can raise it
         </h2>
         <EvidencePath />
+      </section>
+
+      <section className="wrap band" aria-labelledby="hostile-title">
+        <p className="eyebrow">We tried it</p>
+        <h2 id="hostile-title" className="section-title mt-4 max-w-[40rem]">
+          An AI agent told to steal from a HARDSTOP vault
+        </h2>
+        <HostileRun />
       </section>
 
       <section className="wrap band" aria-labelledby="sources-title">

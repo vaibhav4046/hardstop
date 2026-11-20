@@ -5,6 +5,7 @@
 //   node mcp/server.ts                       stdio, for clients that start it themselves
 //   node mcp/server.ts --http --port 8787    Streamable HTTP at http://127.0.0.1:8787/mcp
 //   HARDSTOP_FAKE=1 node mcp/server.ts       a demo on an in-memory network (or: --demo)
+//   node mcp/server.ts --watch               the watcher (mcp/watch.ts), for the one-file install
 //
 // There are deliberately no owner tools. Proposing, cancelling, pausing,
 // approving recipients and withdrawing all need the owner's key, which this
@@ -12,7 +13,7 @@
 // a request for its owner (hardstop_request_more).
 
 import { parseArgs } from 'node:util'
-import { pathToFileURL } from 'node:url'
+import { isMain } from './entry.ts'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -25,7 +26,7 @@ import { FORMAT, formatDuration, formatTime, formatUsd, parseUsd } from '../src/
 import { apply } from '../src/lib/session.ts'
 import {
   NO_KEY,
-  OWNER_PAGE,
+  ownerPage,
   connect,
   isAddress,
   iso,
@@ -333,13 +334,13 @@ No transaction was sent.`,
             `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
             '',
             `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
-            `To agree, open ${OWNER_PAGE} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`,
+            `To agree, open ${ownerPage(v)} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`,
           ].join('\n')
           return {
             text,
             json: {
               changed: false,
-              owner_page: OWNER_PAGE,
+              owner_page: ownerPage(v),
               reason: oneLine(reason),
               current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
               requested: {
@@ -381,10 +382,13 @@ async function main(): Promise<void> {
     options: {
       http: { type: 'boolean' },
       demo: { type: 'boolean' },
+      watch: { type: 'boolean' },
       port: { type: 'string', default: '8787' },
       host: { type: 'string', default: '127.0.0.1' },
     },
   })
+  // The one-file install (npx) has one entry point; --watch makes it the watcher, which reads and never holds a key.
+  if (values.watch) return (await import('./watch.ts')).main()
   let options: Options = {}
   // --demo is the same as HARDSTOP_FAKE=1, for one-line installs (npx) where setting a variable is awkward.
   if (process.env.HARDSTOP_FAKE === '1' || values.demo) {
@@ -419,7 +423,7 @@ async function main(): Promise<void> {
   process.once('SIGTERM', stop)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMain(import.meta.url)) {
   main().catch((error: unknown) => {
     process.stderr.write(`hardstop: ${plain(error)}\n`)
     process.exit(1)

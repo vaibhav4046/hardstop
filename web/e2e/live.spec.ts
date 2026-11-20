@@ -6,7 +6,9 @@
 
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import { FakeNetwork } from '../tests/fake-network.ts'
+import { FakeNetwork, FAKE_CHAIN_ID } from '../tests/fake-network.ts'
+import { attach, launchVault } from '../src/lib/live/launch.ts'
+import { NETWORKS } from '../src/lib/live/wallet.ts'
 import path from 'node:path'
 import { expect, newest, overflow, press, receipts, REPO, shot, test } from './helpers'
 
@@ -147,7 +149,7 @@ test.describe('A vault on a test network', () => {
     await panel.getByRole('button', { name: 'Copy' }).first().click()
     await expect(panel.getByRole('status')).toHaveText('Claude Code setup copied.')
     expect(await clipboard()).toBe(
-      `claude mcp add --env HARDSTOP_AGENT_KEY=${agentKey} --env HARDSTOP_VAULT=${vault} --env HARDSTOP_CHAIN_ID=${chainId} --transport stdio --scope user hardstop -- node /ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts`,
+      `claude mcp add --env HARDSTOP_AGENT_KEY=${agentKey} --env HARDSTOP_VAULT=${vault} --env HARDSTOP_CHAIN_ID=${chainId} --transport stdio --scope user hardstop -- npx -y github:vaibhav4046/hardstop`,
     )
 
     // The JSON setups are valid JSON with the same values.
@@ -170,7 +172,7 @@ test.describe('A vault on a test network', () => {
     await panel.getByRole('button', { name: 'Watch 24/7', exact: true }).click()
     await panel.getByRole('button', { name: 'Copy' }).first().click()
     const watch = await clipboard()
-    expect(watch).toContain(`HARDSTOP_VAULT=${vault} HARDSTOP_CHAIN_ID=${chainId} node mcp/watch.ts`)
+    expect(watch).toContain(`HARDSTOP_VAULT=${vault} HARDSTOP_CHAIN_ID=${chainId} npx -y github:vaibhav4046/hardstop --watch`)
     expect(watch).not.toContain(agentKey)
 
     // Asked for, the key appears, with what it is.
@@ -186,5 +188,46 @@ test.describe('A vault on a test network', () => {
     await page.setViewportSize({ width: 360, height: 780 })
     expect((await overflow(page)).offenders).toEqual([])
     await panel.screenshot({ path: path.join(REPO, 'qa', 'screenshots', 'LIVE-03-connect-your-ai-360.png') })
+  })
+
+  test('a link opens the vault for its owner in any browser: no agent key, the waiting raise can be cancelled', async ({ page }) => {
+    // The vault was created elsewhere (another browser, or the phone that got the alert has never seen it).
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const network = await FakeNetwork.create(OWNER, now)
+    const chain = NETWORKS.find((candidate) => candidate.chainId === FAKE_CHAIN_ID)!
+    const USD = 1_000_000n
+    const live = await launchVault(
+      network,
+      chain,
+      { owner: OWNER, agent: OWNER, perPayment: 10n * USD, perWindow: 20n * USD, validUntil: now + 30n * 86_400n, windowSecs: 86_400n, coolingSecs: 86_400n, payees: [], funding: 100n * USD, now },
+      () => {},
+      1,
+    )
+    const { sim } = await attach(network, live, 1)
+    await sim.propose({ perPayment: 10n * USD, perWindow: 50n * USD, validUntil: now + 30n * 86_400n, paused: false })
+    expect((await sim.state()).queued).not.toBeNull()
+
+    await connect(page, network)
+    await page.goto(`/activity?chain=${FAKE_CHAIN_ID}&vault=${live.vault}`)
+    await expect(page.getByText('Opened from a link, so this page holds no agent key', { exact: false })).toBeVisible()
+    await expect(page.locator('section[aria-labelledby="vault-title"] .figure')).toHaveText('$100.00')
+    await expect(page.getByText('Its key is not on this page, so nothing can be paid from here.')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Pay / })).toHaveCount(0)
+    await expect(page.locator('section[aria-labelledby="connect-vault-title"]')).toHaveCount(0)
+
+    // The owner cancels the raise from here, with their wallet.
+    await page.getByRole('button', { name: 'Cancel the change' }).first().click()
+    await expect.poll(async () => (await sim.state()).queued).toBeNull()
+    // Nothing about a vault opened from a link is saved: the visitor's own vault, if any, is untouched.
+    expect(await page.evaluate((key) => localStorage.getItem(key), LIVE_KEY)).toBeNull()
+  })
+
+  test('a link that names no vault this site can open says so', async ({ page }) => {
+    const network = await FakeNetwork.create(OWNER, BigInt(Math.floor(Date.now() / 1000)))
+    await connect(page, network)
+    await page.goto(`/activity?chain=${FAKE_CHAIN_ID}&vault=0x0000000000000000000000000000000000000bad`)
+    await expect(page.getByText('There is no vault at 0x0000000000000000000000000000000000000bad', { exact: false })).toBeVisible()
+    await page.goto('/activity?chain=1&vault=0x0000000000000000000000000000000000000bad')
+    await expect(page.getByText('The link names a vault this site cannot open. Check the link.')).toBeVisible()
   })
 })

@@ -177,6 +177,7 @@ for (const mode of ['unthrottled', 'throttled'] as const) {
         for (let run = 0; run < RUNS[mode].click; run++) {
           // A reload starts the home example again; it is not saved.
           await page.goto('/', WAIT)
+          await page.locator('#live-example').scrollIntoViewIfNeeded()
           await expect(page.getByText(/^In the vault: \$100\.00/)).toBeVisible(WAIT)
           times.push(await clickToAppear(page, 'Agent pays $4', 'section[aria-labelledby="demo-title"] .slip'))
           await expect(page.locator('section[aria-labelledby="demo-title"] .slip')).toContainText('Inside every limit. $16.00 left today.')

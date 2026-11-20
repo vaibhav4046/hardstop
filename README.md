@@ -26,8 +26,8 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The compiler refuses edits that would let the agent change the rules, approve a recipient, skip the cooling period, or forge or reuse the owner's proof | `FE=fe bash scripts/pay-cannot-loosen.sh` | 38 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `83` pass |
-| The whole site works in a browser | `cd web && npm run e2e` | 58 tests |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `87` pass |
+| The whole site works in a browser | `cd web && npm run e2e` | 60 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
 | Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2042 approved by a Fe maintainer and green in Fe's CI on 2026-11-20, not yet merged; #2041 and #2048 open; the job is green |
@@ -239,10 +239,10 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 83 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 87 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
-npm run e2e                       # 58 browser tests against the production build
+npm run e2e                       # 60 browser tests against the production build
 ```
 
 Every command above except the `decide` example, the browser suite included, runs in
@@ -269,7 +269,7 @@ Measured on 2026-11-17 and 18; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md
 | Current contracts on Base Sepolia (2026-11-19: sealed recipient approvals; `amend` and `cancel` run at compile time) | launcher `0xed8a5d83c64f71b6d027742124239dccbf018e44` installed ([tx](https://sepolia.basescan.org/tx/0x58562f4e482baed273c2e0225b20e284e3df80e0a1b2ce7416f3d5dc5630b006)), vault `0xf7d0b1e9872c21d33eec5dc9624deba0023a0d31` created ([tx](https://sepolia.basescan.org/tx/0x7ae1d584feb6ab2dbfe8b984c5c68e86e6233c51d76dccfe69e4409e4b6590af)); agent paid $4 twice ([tx](https://sepolia.basescan.org/tx/0xe554cac5920a34eb11ac2a72b507f2d84de15015824903971b0aba4f239e870a), [tx](https://sepolia.basescan.org/tx/0x4b73992ea966035c9e7c0c236ad3fb8a496a39665c35d4dcc15e4e379684b675)), was refused $80 with code 10 ([tx](https://sepolia.basescan.org/tx/0x295fa1da2b7401216a6db2e4585cebaa463329087d6bf5e4adb9e82e025cba2f)), and its self-raise reverted `NotOwner` before sending; owner proposed $40 a day ([tx](https://sepolia.basescan.org/tx/0xd4ed323d36488cdaf27ca7f3aba79e693db9d16a9d0bdeb1b892890c6e9c0dfd)), cancelled it ([tx](https://sepolia.basescan.org/tx/0x36edf95a9f3969f15d933c40fc7d7d3863c2d7124a161f49fa7e17c12f6175f6)) and paused ([tx](https://sepolia.basescan.org/tx/0x075024aeefd70212df65ca45109de1a55347d70da2e0dd51f7e98b782c9eb30f)). Vault left with $92, recipient $8, limit still $20 a day. Its code hash is the current build's (`web/mcp/vault.ts`). Script: `web/scripts/base-sepolia-evidence.ts`, the site's own `launchVault` with a throwaway test key |
 | Previous contracts on Base Sepolia (sealed `Terms`, caller-bound `OwnerCall`, capped test-token mint; recipient approvals not sealed) | launcher `0xa5ecc8802db5520ab089d63b39bb4508d3794299` installed, vault `0x65f9cd46b3d0ba8fd199175558b9162d789f0758` created; paid twice, refused $80 (code 10, from the on-chain `Blocked` event), self-raise reverted `NotOwner`, owner proposed, cancelled and paused; vault left with $92. Transactions in the gas table below |
 | Vault runtime size | 8,079 bytes for the current contracts, read from Base Sepolia with `eth_getCode` (the previous contracts: 7,958) |
-| Browser suite (`npm run e2e`, Chromium, production build) | 58 tests, all passing (55 of 55 in one full run on 2026-11-18, before 3 were added); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
+| Browser suite (`npm run e2e`, Chromium, production build) | 60 tests, all passing (60 of 60 on 2026-11-20, each file run alone); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | Accessibility (axe) | 0 violations across 15 page states |
 | Click "Agent pays $4" to receipt on screen | median 26 ms, max 33 ms (local EVM simulation, not on-chain latency) |
 | First and largest contentful paint, home page | median 120 ms unthrottled; 2,348 ms at 400 kbps / 400 ms RTT / 4x CPU slowdown |

@@ -17,7 +17,7 @@ import { source } from '@/lib/links'
 
 /** The one install line shown: the stdio form from web/mcp/clients/claude-code/README.md, on one line. Keep the two in step. */
 export const INSTALL_COMMAND =
-  'claude mcp add --env HARDSTOP_AGENT_KEY=<agent key> --env HARDSTOP_VAULT=<vault> --env HARDSTOP_CHAIN_ID=84532 --transport stdio --scope user hardstop -- node /path/to/hardstop/web/mcp/server.ts'
+  'claude mcp add --env HARDSTOP_AGENT_KEY=<agent key> --env HARDSTOP_VAULT=<vault> --env HARDSTOP_CHAIN_ID=84532 --transport stdio --scope user hardstop -- npx -y github:vaibhav4046/hardstop'
 const SETUP_GUIDE = source('web/mcp/README.md')
 
 // Each logo's own colour, shown on hover (and always on a touch screen).

@@ -625,6 +625,13 @@
     font-weight: 500;
   }
 
+  /* A transaction link in a table: a full-height tap target on a phone. */
+  a.tx-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+
   /* In the error summary each message is a link to its field. */
   a.error {
     display: inline-flex;

@@ -12,8 +12,10 @@ claude mcp add \
   --env HARDSTOP_VAULT=0xYOUR_VAULT_ADDRESS \
   --env HARDSTOP_CHAIN_ID=84532 \
   --transport stdio --scope user \
-  hardstop -- node /ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts
+  hardstop -- npx -y github:vaibhav4046/hardstop
 ```
+
+npx fetches the one-file server from the repository (Node.js 20 or later); nothing to clone. From a clone, `node /ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts` works the same.
 
 Ordering rules from the docs:
 - Claude's own options (`--env`/`-e`, `--transport`, `--scope`/`-s`) go before the server name.
@@ -27,7 +29,7 @@ Optional: `--env HARDSTOP_RPC=https://...`, `--env HARDSTOP_RECIPIENTS=alice=0x.
 Demo, no keys needed:
 
 ```bash
-claude mcp add -e HARDSTOP_FAKE=1 --transport stdio hardstop-demo -- node /ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts
+claude mcp add --transport stdio hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo
 ```
 
 ## Streamable HTTP

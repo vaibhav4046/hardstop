@@ -27,10 +27,16 @@ export type LiveVault = {
   vault: Hex
   token: Hex
   owner: Hex
-  agentKey: Hex
-  /** The transaction that created it. */
-  launchedIn: Hex
+  /** Null for a vault opened from a link: this browser then acts only as its owner. */
+  agentKey: Hex | null
+  /** The agent's address; read from the vault when there is no key. */
+  agent?: Hex
+  /** The transaction that created it; null when the vault was opened from a link. */
+  launchedIn: Hex | null
 }
+
+/** A vault this browser created: it holds the agent's key and knows the creating transaction. */
+export type LaunchedVault = LiveVault & { agentKey: Hex; launchedIn: Hex }
 
 export type Step = 'wallet' | 'network' | 'installing' | 'launching' | 'confirming'
 
@@ -47,7 +53,7 @@ export async function launchVault(
   setup: Setup,
   onStep: (step: Step) => void,
   pollMs = 1500,
-): Promise<LiveVault> {
+): Promise<LaunchedVault> {
   onStep('wallet')
   const owner = await accountOf(wallet)
   onStep('network')
@@ -103,8 +109,19 @@ export async function launchVault(
 
 /** The vault wrapper for a vault that is already on a network. */
 export async function attach(wallet: Wallet, live: LiveVault, pollMs = 1500): Promise<{ sim: Sim; chain: LiveChain }> {
-  const chain = new LiveChain(wallet, live.chainId, live.owner, live.agentKey)
+  const chain = new LiveChain(wallet, live.chainId, live.owner, live.agentKey, live.agent)
   chain.pollMs = pollMs
   await chain.refresh(true)
   return { sim: Sim.attach(chain, live.token, live.vault, live.owner, chain.agent), chain }
+}
+
+/**
+ * A vault found from its address alone, as an alert's link gives it: checked
+ * to be a HARDSTOP vault, then opened for its owner. No agent key.
+ */
+export async function openByAddress(wallet: Wallet, network: Network, vault: Hex): Promise<LiveVault> {
+  await switchTo(wallet, network)
+  const { findVault } = await import('./find.ts')
+  const found = await findVault(wallet, network, vault, { address: 'Check the link.', addressAndNetwork: 'Check the link.' })
+  return { chainId: network.chainId, vault, token: found.token, owner: found.owner, agent: found.agent, agentKey: null, launchedIn: null }
 }

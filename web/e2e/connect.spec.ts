@@ -37,7 +37,7 @@ test.describe('Connect your AI', () => {
     // The copy button puts exactly the line on screen on the clipboard, and says so.
     const line = (await section.locator('code').textContent()) ?? ''
     // The documented order: Claude's options, then the server name, then `--` and the command.
-    expect(line).toMatch(/^claude mcp add --env HARDSTOP_AGENT_KEY=.* --transport stdio .*hardstop -- node \S*web\/mcp\/server\.ts$/)
+    expect(line).toMatch(/^claude mcp add --env HARDSTOP_AGENT_KEY=.* --transport stdio .*hardstop -- npx -y github:vaibhav4046\/hardstop$/)
     await section.getByRole('button', { name: 'Copy' }).click()
     await expect(section.getByRole('button', { name: 'Copied' })).toBeVisible()
     await expect(section.getByRole('status')).toHaveText('Install line copied.')

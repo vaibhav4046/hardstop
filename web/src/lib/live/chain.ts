@@ -25,17 +25,21 @@ export class LiveChain implements ChainLike {
   private readonly wallet: Wallet
   private readonly chainId: number
   private readonly owner: Hex
-  private readonly agentKey: Hex
+  /** Null when this browser only views the vault as its owner: nothing can be sent as the agent. */
+  private readonly agentKey: Hex | null
   private clockReadAt = 0
   /** Milliseconds between checks for a receipt. Tests shorten it. */
   pollMs = 1500
 
-  constructor(wallet: Wallet, chainId: number, owner: Hex, agentKey: Hex) {
+  /** `agent` is needed only without a key; with one, the agent is whoever the key belongs to. */
+  constructor(wallet: Wallet, chainId: number, owner: Hex, agentKey: Hex | null, agent?: Hex) {
     this.wallet = wallet
     this.chainId = chainId
     this.owner = owner.toLowerCase() as Hex
     this.agentKey = agentKey
-    this.agent = privateKeyToAccount(agentKey).address.toLowerCase() as Hex
+    const address = agentKey === null ? agent : privateKeyToAccount(agentKey).address
+    if (address === undefined) throw new Error('A vault opened without its agent key needs the agent address.')
+    this.agent = address.toLowerCase() as Hex
   }
 
   advance(): void {
@@ -95,6 +99,7 @@ export class LiveChain implements ChainLike {
 
   /** The agent signs with its own key; the wallet only passes the signed transaction on. */
   private async sendAsAgent(to: Hex, data: Hex): Promise<Hex> {
+    if (this.agentKey === null) throw new Error('This page holds no agent key, so it cannot ask the vault to pay.')
     const account = privateKeyToAccount(this.agentKey)
     const ask = (method: string, params: unknown[]) => this.wallet.request({ method, params }) as Promise<Hex>
     const [nonce, gasPrice, estimate] = await Promise.all([

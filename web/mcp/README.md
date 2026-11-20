@@ -16,7 +16,7 @@ The contract decides every payment. Nothing in this folder restates a rule. Paym
 
 The point of HARDSTOP is that the agent cannot loosen its own leash. The vault has owner powers: propose new limits, cancel a waiting change, pause, approve or remove recipients, and withdraw. Every one of them needs the owner's key. This server never holds the owner's key, never asks for it, and offers no tool for any owner power. The JSON-RPC connection it uses refuses `eth_sendTransaction` and wallet requests outright. The only thing it sends is a payment request signed with the agent's own key.
 
-An agent that wants more room calls `hardstop_request_more`. That tool drafts a message for the owner, with a link to https://hardstop-omega.vercel.app/activity, and changes nothing. If the owner agrees, they propose the change from their own wallet. Looser rules then wait out the vault's cooling period, during which the owner can still cancel.
+An agent that wants more room calls `hardstop_request_more`. That tool drafts a message for the owner, with a link that opens this vault on https://hardstop-omega.vercel.app/activity (`?chain=…&vault=…`) in any browser with the owner's wallet, and changes nothing. If the owner agrees, they propose the change from their own wallet. Looser rules then wait out the vault's cooling period, during which the owner can still cancel.
 
 ## Setup
 
@@ -125,11 +125,12 @@ Each alert is one line of JSON on stdout. It also goes to your phone if `HARDSTO
 **The check interval must fit the vault.** A looser rule takes effect one cooling period after it is proposed, and a vault may have a cooling period as short as 60 seconds. At start the watcher reads the vault's cooling period and refuses to run if `HARDSTOP_WATCH_SECS` is more than half of it, saying what to set. `HARDSTOP_WATCH_UNSAFE=1` runs anyway; this is **unsafe**: a loosening can then take effect before you are warned. The watcher also refuses, and stops instead of retrying, at an address that is not a known vault build.
 
 ```bash
-cd web
 HARDSTOP_VAULT=0xYOUR_VAULT_ADDRESS HARDSTOP_CHAIN_ID=84532 \
 HARDSTOP_ALERT_WEBHOOK=https://example.com/your-hook \
-node mcp/watch.ts >> hardstop-alerts.jsonl
+npx -y github:vaibhav4046/hardstop --watch >> hardstop-alerts.jsonl
 ```
+
+Nothing to clone: `--watch` makes the one-file build the watcher. From a clone, `node mcp/watch.ts` in `web/` is the same. Each alert that asks the owner to act carries `owner_page`, a link that opens this vault for its owner in any browser with their wallet (the phone notification opens it on tap); the agent key is never in it.
 
 **Running it 24/7.** Any process supervisor will do. With systemd:
 

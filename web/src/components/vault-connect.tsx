@@ -14,9 +14,12 @@
 // the watcher needs no key at all.
 
 import { useState } from 'react'
+import type { Hex } from 'viem'
 import type { Live } from '@/lib/vault-store'
 
-const SERVER = '/ABSOLUTE/PATH/TO/hardstop/web/mcp/server.ts'
+/** The one-file server, fetched and run by npx from the repository (web/mcp/dist/hardstop-mcp.mjs). Needs Node.js 20 or later. */
+const PACKAGE = 'github:vaibhav4046/hardstop'
+const ARGS = ['-y', PACKAGE]
 const MASK = '0x••••••••'
 
 type Filled = { key: string; vault: string; chainId: string }
@@ -31,19 +34,19 @@ const CLIENTS: Client[] = [
     label: 'Claude Code',
     where: 'Run in a terminal.',
     text: ({ key, vault, chainId }) =>
-      `claude mcp add --env HARDSTOP_AGENT_KEY=${key} --env HARDSTOP_VAULT=${vault} --env HARDSTOP_CHAIN_ID=${chainId} --transport stdio --scope user hardstop -- node ${SERVER}`,
+      `claude mcp add --env HARDSTOP_AGENT_KEY=${key} --env HARDSTOP_VAULT=${vault} --env HARDSTOP_CHAIN_ID=${chainId} --transport stdio --scope user hardstop -- npx -y ${PACKAGE}`,
   },
   {
     id: 'claude-desktop',
     label: 'Claude Desktop',
     where: 'Add to claude_desktop_config.json (on Windows, %APPDATA%\\Claude\\claude_desktop_config.json).',
-    text: (filled) => json({ mcpServers: { hardstop: { command: 'node', args: [SERVER], env: env(filled) } } }),
+    text: (filled) => json({ mcpServers: { hardstop: { command: 'npx', args: ARGS, env: env(filled) } } }),
   },
   {
     id: 'cursor',
     label: 'Cursor',
     where: 'Save as .cursor/mcp.json.',
-    text: (filled) => json({ mcpServers: { hardstop: { type: 'stdio', command: 'node', args: [SERVER], env: env(filled) } } }),
+    text: (filled) => json({ mcpServers: { hardstop: { type: 'stdio', command: 'npx', args: ARGS, env: env(filled) } } }),
   },
   {
     id: 'vscode',
@@ -57,8 +60,8 @@ const CLIENTS: Client[] = [
         servers: {
           hardstop: {
             type: 'stdio',
-            command: 'node',
-            args: [SERVER],
+            command: 'npx',
+            args: ARGS,
             env: { HARDSTOP_AGENT_KEY: '${input:hardstop-agent-key}', HARDSTOP_VAULT: vault, HARDSTOP_CHAIN_ID: chainId },
           },
         },
@@ -70,11 +73,11 @@ const CLIENTS: Client[] = [
     where:
       'For you, not the agent: run it on a machine that stays on. It only reads the vault and needs no key. Add HARDSTOP_ALERT_WEBHOOK=https://... to send each alert to a webhook.',
     text: ({ vault, chainId }) =>
-      `cd /ABSOLUTE/PATH/TO/hardstop/web\nHARDSTOP_VAULT=${vault} HARDSTOP_CHAIN_ID=${chainId} node mcp/watch.ts >> hardstop-alerts.jsonl`,
+      `HARDSTOP_VAULT=${vault} HARDSTOP_CHAIN_ID=${chainId} npx -y ${PACKAGE} --watch >> hardstop-alerts.jsonl`,
   },
 ]
 
-export function VaultConnect({ live }: { live: Live }) {
+export function VaultConnect({ live }: { live: Live & { vault: { agentKey: Hex } } }) {
   const [shown, setShown] = useState(CLIENTS[0].id)
   const [isKeyShown, setKeyShown] = useState(false)
   const [said, setSaid] = useState('')
@@ -98,7 +101,7 @@ export function VaultConnect({ live }: { live: Live }) {
       </h2>
       <p className="mt-2 max-w-[44rem]">
         Your assistant becomes this vault&rsquo;s agent: it pays only through the vault, inside your limits, and can never
-        raise them. Replace /ABSOLUTE/PATH/TO/hardstop with where you put the repository.
+        raise them. Each setup runs the server with npx (Node.js 20 or later); nothing to clone. On Windows, Claude Desktop may need <code>cmd /c npx</code>.
       </p>
 
       <div className="switch mt-5" role="group" aria-label="Which setup to show">

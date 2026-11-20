@@ -40,6 +40,24 @@ var __toESM = (mod4, isNodeMode, target) => (target = mod4 != null ? __create(__
   mod4
 ));
 
+// mcp/entry.ts
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+function isMain(moduleUrl) {
+  const started = process.argv[1];
+  if (!started) return false;
+  try {
+    return realpathSync(started) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return false;
+  }
+}
+var init_entry = __esm({
+  "mcp/entry.ts"() {
+    "use strict";
+  }
+});
+
 // node_modules/zod/v3/helpers/util.js
 var util, objectUtil, ZodParsedType, getParsedType;
 var init_util = __esm({
@@ -27724,13 +27742,13 @@ var init_zodToJsonSchema = __esm({
         }, true) ?? parseAnyDef(refs)
       }), {}) : void 0;
       const name = typeof options === "string" ? options : options?.nameStrategy === "title" ? void 0 : options?.name;
-      const main2 = parseDef(schema._def, name === void 0 ? refs : {
+      const main3 = parseDef(schema._def, name === void 0 ? refs : {
         ...refs,
         currentPath: [...refs.basePath, refs.definitionPath, name]
       }, false) ?? parseAnyDef(refs);
       const title = typeof options === "object" && options.name !== void 0 && options.nameStrategy === "title" ? options.name : void 0;
       if (title !== void 0) {
-        main2.title = title;
+        main3.title = title;
       }
       if (refs.flags.hasReferencedOpenAiAnyType) {
         if (!definitions) {
@@ -27751,9 +27769,9 @@ var init_zodToJsonSchema = __esm({
         }
       }
       const combined = name === void 0 ? definitions ? {
-        ...main2,
+        ...main3,
         [refs.definitionPath]: definitions
-      } : main2 : {
+      } : main3 : {
         $ref: [
           ...refs.$refStrategy === "relative" ? [] : refs.basePath,
           refs.definitionPath,
@@ -27761,7 +27779,7 @@ var init_zodToJsonSchema = __esm({
         ].join("/"),
         [refs.definitionPath]: {
           ...definitions,
-          [name]: main2
+          [name]: main3
         }
       };
       if (refs.target === "jsonSchema7") {
@@ -72764,8 +72782,8 @@ var init_interpreter = __esm({
               if (pushBytes.length < bytesToPush) {
                 pushBytes = setLengthRight(pushBytes, bytesToPush);
               }
-              const push = bytesToBigInt(pushBytes);
-              pushes[i + 1] = push;
+              const push2 = bytesToBigInt(pushBytes);
+              pushes[i + 1] = push2;
               i += bytesToPush;
             } else if (opcode === 91) {
               jumps[i] = 1;
@@ -81342,6 +81360,70 @@ var init_sim = __esm({
   }
 });
 
+// src/lib/live/find.ts
+function vaultCodeHash(code) {
+  const body = code.length - 2 - 2 * VAULT_IMMUTABLE_BYTES;
+  return body > 0 ? keccak256(`0x${code.slice(2, 2 + body)}`) : void 0;
+}
+async function readAddress(wallet, vault, functionName) {
+  const data = encodeFunctionData({ abi: vaultAbi, functionName });
+  const answer = await wallet.request({ method: "eth_call", params: [{ to: vault, data }, "latest"] });
+  return decodeFunctionResult({ abi: vaultAbi, functionName, data: answer }).toLowerCase();
+}
+async function readSchedule(wallet, vault) {
+  const data = encodeFunctionData({ abi: vaultAbi, functionName: "schedule" });
+  const answer = await wallet.request({ method: "eth_call", params: [{ to: vault, data }, "latest"] });
+  const [anchor2, windowSecs, coolingSecs] = decodeFunctionResult({ abi: vaultAbi, functionName: "schedule", data: answer });
+  return { anchor: anchor2, windowSecs, coolingSecs };
+}
+async function findVault(wallet, network, vault, check2) {
+  const code = await wallet.request({ method: "eth_getCode", params: [vault, "latest"] });
+  if (code.length <= 2) throw new Error(`There is no vault at ${vault} on ${network.name}. ${check2.addressAndNetwork}`);
+  const codeHash = vaultCodeHash(code);
+  if (!codeHash || !(codeHash in KNOWN_VAULT_CODE)) {
+    throw new Refused(
+      `The contract at ${vault} on ${network.name} is not a HARDSTOP vault: its code matches no vault build this program knows, so nothing it answers can be trusted. ${check2.address} Nothing was sent.`
+    );
+  }
+  const schedule = await readSchedule(wallet, vault);
+  if (schedule.windowSecs === 0n || schedule.coolingSecs < MIN_COOLING_SECS) {
+    throw new Refused(
+      `The vault at ${vault} has a schedule no HARDSTOP launcher could have made (a zero window or a cooling period under a minute). ${check2.address}`
+    );
+  }
+  const [owner2, token, agent] = await Promise.all([
+    readAddress(wallet, vault, "owner"),
+    readAddress(wallet, vault, "token"),
+    readAddress(wallet, vault, "agent")
+  ]);
+  if ([owner2, token, agent].includes(zeroAddress) || owner2 === agent) {
+    throw new Refused(
+      `The vault at ${vault} has an owner, agent and token no HARDSTOP launcher could have set (one is the zero address, or the owner is the agent). ${check2.address}`
+    );
+  }
+  return { owner: owner2, token, agent, schedule };
+}
+var Refused, VAULT_IMMUTABLE_BYTES, KNOWN_VAULT_CODE, MIN_COOLING_SECS;
+var init_find = __esm({
+  "src/lib/live/find.ts"() {
+    "use strict";
+    init_esm2();
+    init_artifacts();
+    Refused = class extends Error {
+    };
+    VAULT_IMMUTABLE_BYTES = 128;
+    KNOWN_VAULT_CODE = {
+      "0x4975c54738332e56f3f39e3d525cf2ea5432281b830a4165eeb5f59fe3c21b84": "the current build, with amend and cancel checked at compile time (launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44, on Base Sepolia since 2026-11-19)",
+      "0xa5840ccfc835c9734732b1e29de030b851da06e4e3be8a12a6288c5573514c2d": "an earlier build, with sealed recipient approvals (launcher 0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b)",
+      "0x6e3ff3daea0dc95ed16ecaa344d3fdfdda76949991bf822fa040130ac3d1e719": "an earlier build, with sealed Terms (launcher 0xa5ecc8802db5520ab089d63b39bb4508d3794299)",
+      "0x94c9fa9ac1757b70c2624ccd6e8823e0bdfa4fb3fd413f7e57e98d99fd313e75": "an earlier build (launchers 0x811e79d3bd786fb5701e0e66cc287fcaa24e558b and 0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1)",
+      "0x815c1dd4f08463bc5ed5b2222e552e4963d1cc1b153723d1137852d61d49bf04": "an earlier build (launcher 0xe7d4489cde5cdaabbce571162ec14beca324b7c3)",
+      "0xfcd06b30860cdc183314f1860f53500bf4dd8c8792ec3dae46658f1aae418e63": "an earlier build (launchers 0x956fbbde5fcb981e5a8507b369c79105815d562d and 0x3b835612009343eea6d14f79302412bcfb09e9df)"
+    };
+    MIN_COOLING_SECS = 60n;
+  }
+});
+
 // src/lib/live/wallet.ts
 function revertData(error62) {
   const seen = /* @__PURE__ */ new Set();
@@ -81439,6 +81521,19 @@ var init_wallet = __esm({
   }
 });
 
+// src/lib/live/link.ts
+function vaultLink(site, chainId, vault, who) {
+  const query = new URLSearchParams({ chain: String(chainId), vault: vault.toLowerCase() });
+  if (who) query.set("who", who.toLowerCase());
+  return `${site}/activity?${query}`;
+}
+var init_link = __esm({
+  "src/lib/live/link.ts"() {
+    "use strict";
+    init_wallet();
+  }
+});
+
 // src/lib/live/chain.ts
 var CLOCK_MS, AGENT_GAS_FLOOR, bigMax, LiveChain;
 var init_chain3 = __esm({
@@ -81455,16 +81550,20 @@ var init_chain3 = __esm({
       wallet;
       chainId;
       owner;
+      /** Null when this browser only views the vault as its owner: nothing can be sent as the agent. */
       agentKey;
       clockReadAt = 0;
       /** Milliseconds between checks for a receipt. Tests shorten it. */
       pollMs = 1500;
-      constructor(wallet, chainId, owner2, agentKey) {
+      /** `agent` is needed only without a key; with one, the agent is whoever the key belongs to. */
+      constructor(wallet, chainId, owner2, agentKey, agent) {
         this.wallet = wallet;
         this.chainId = chainId;
         this.owner = owner2.toLowerCase();
         this.agentKey = agentKey;
-        this.agent = privateKeyToAccount(agentKey).address.toLowerCase();
+        const address = agentKey === null ? agent : privateKeyToAccount(agentKey).address;
+        if (address === void 0) throw new Error("A vault opened without its agent key needs the agent address.");
+        this.agent = address.toLowerCase();
       }
       advance() {
         throw new Error("The clock of a real network cannot be moved.");
@@ -81516,6 +81615,7 @@ var init_chain3 = __esm({
       }
       /** The agent signs with its own key; the wallet only passes the signed transaction on. */
       async sendAsAgent(to, data) {
+        if (this.agentKey === null) throw new Error("This page holds no agent key, so it cannot ask the vault to pay.");
         const account = privateKeyToAccount(this.agentKey);
         const ask = (method, params) => this.wallet.request({ method, params });
         const [nonce, gasPrice, estimate] = await Promise.all([
@@ -81591,7 +81691,7 @@ async function launchVault(wallet, network, setup, onStep, pollMs = 1500) {
   throw new Error("The vault was created but its address could not be read from the transaction.");
 }
 async function attach(wallet, live, pollMs = 1500) {
-  const chain = new LiveChain(wallet, live.chainId, live.owner, live.agentKey);
+  const chain = new LiveChain(wallet, live.chainId, live.owner, live.agentKey, live.agent);
   chain.pollMs = pollMs;
   await chain.refresh(true);
   return { sim: Sim.attach(chain, live.token, live.vault, live.owner, chain.agent), chain };
@@ -81694,21 +81794,6 @@ function rpcWallet(url2) {
     }
   };
 }
-async function readAddress(wallet, vault, functionName) {
-  const data = encodeFunctionData({ abi: vaultAbi, functionName });
-  const answer = await wallet.request({ method: "eth_call", params: [{ to: vault, data }, "latest"] });
-  return decodeFunctionResult({ abi: vaultAbi, functionName, data: answer }).toLowerCase();
-}
-async function readSchedule(wallet, vault) {
-  const data = encodeFunctionData({ abi: vaultAbi, functionName: "schedule" });
-  const answer = await wallet.request({ method: "eth_call", params: [{ to: vault, data }, "latest"] });
-  const [anchor2, windowSecs, coolingSecs] = decodeFunctionResult({ abi: vaultAbi, functionName: "schedule", data: answer });
-  return { anchor: anchor2, windowSecs, coolingSecs };
-}
-function vaultCodeHash(code) {
-  const body = code.length - 2 - 2 * VAULT_IMMUTABLE_BYTES;
-  return body > 0 ? keccak256(`0x${code.slice(2, 2 + body)}`) : void 0;
-}
 async function connect(config2, wallet = rpcWallet(config2.rpc)) {
   const { network, vault } = config2;
   const chainId = Number(await wallet.request({ method: "eth_chainId" }));
@@ -81717,30 +81802,10 @@ async function connect(config2, wallet = rpcWallet(config2.rpc)) {
       `The RPC is on chain ${chainId}, not ${network.name} (${network.chainId}). Check HARDSTOP_RPC and HARDSTOP_CHAIN_ID.`
     );
   }
-  const code = await wallet.request({ method: "eth_getCode", params: [vault, "latest"] });
-  if (code.length <= 2) throw new Error(`There is no vault at ${vault} on ${network.name}. Check HARDSTOP_VAULT and HARDSTOP_CHAIN_ID.`);
-  const codeHash = vaultCodeHash(code);
-  if (!codeHash || !(codeHash in KNOWN_VAULT_CODE)) {
-    throw new Refused(
-      `The contract at ${vault} on ${network.name} is not a HARDSTOP vault: its code matches no vault build this program knows, so nothing it answers can be trusted. Check HARDSTOP_VAULT. Nothing was sent.`
-    );
-  }
-  const schedule = await readSchedule(wallet, vault);
-  if (schedule.windowSecs === 0n || schedule.coolingSecs < MIN_COOLING_SECS) {
-    throw new Refused(
-      `The vault at ${vault} has a schedule no HARDSTOP launcher could have made (a zero window or a cooling period under a minute). Check HARDSTOP_VAULT.`
-    );
-  }
-  const [owner2, token, agent] = await Promise.all([
-    readAddress(wallet, vault, "owner"),
-    readAddress(wallet, vault, "token"),
-    readAddress(wallet, vault, "agent")
-  ]);
-  if ([owner2, token, agent].includes(zeroAddress) || owner2 === agent) {
-    throw new Refused(
-      `The vault at ${vault} has an owner, agent and token no HARDSTOP launcher could have set (one is the zero address, or the owner is the agent). Check HARDSTOP_VAULT.`
-    );
-  }
+  const { owner: owner2, token, agent, schedule } = await findVault(wallet, network, vault, {
+    address: "Check HARDSTOP_VAULT.",
+    addressAndNetwork: "Check HARDSTOP_VAULT and HARDSTOP_CHAIN_ID."
+  });
   const live = { chainId, vault, token, owner: owner2, agentKey: config2.agentKey ?? generatePrivateKey(), launchedIn: "0x" };
   const attached = await attach(wallet, live);
   if (config2.agentKey && attached.chain.agent !== agent) {
@@ -81802,36 +81867,28 @@ async function status(vault) {
     }
   };
 }
-var OWNER_PAGE, DAY, ADDRESS, KEY, isAddress2, Refused, NO_KEY, VAULT_IMMUTABLE_BYTES, KNOWN_VAULT_CODE, MIN_COOLING_SECS, agentGas, iso, usd, txLink, policyJson;
+var SITE, OWNER_PAGE, DAY, ownerPage, ADDRESS, KEY, isAddress2, NO_KEY, agentGas, iso, usd, txLink, policyJson;
 var init_vault = __esm({
   "mcp/vault.ts"() {
     "use strict";
     init_esm2();
     init_accounts();
-    init_artifacts();
     init_sim();
+    init_find();
+    init_link();
     init_launch();
     init_wallet();
     init_money();
     init_session();
-    OWNER_PAGE = "https://hardstop-omega.vercel.app/activity";
+    init_find();
+    SITE = "https://hardstop-omega.vercel.app";
+    OWNER_PAGE = `${SITE}/activity`;
     DAY = 86400n;
+    ownerPage = (vault, who) => vaultLink(SITE, vault.config.network.chainId, vault.sim.vault, who);
     ADDRESS = /^0x[0-9a-fA-F]{40}$/;
     KEY = /^(0x)?[0-9a-fA-F]{64}$/;
     isAddress2 = (text) => ADDRESS.test(text);
-    Refused = class extends Error {
-    };
     NO_KEY = "HARDSTOP_AGENT_KEY is not set. Set it to the agent's private key for this vault (64 hex characters). Never use the owner's key: this server does not need it and must not have it.";
-    VAULT_IMMUTABLE_BYTES = 128;
-    KNOWN_VAULT_CODE = {
-      "0x4975c54738332e56f3f39e3d525cf2ea5432281b830a4165eeb5f59fe3c21b84": "the current build, with amend and cancel checked at compile time (launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44, on Base Sepolia since 2026-11-19)",
-      "0xa5840ccfc835c9734732b1e29de030b851da06e4e3be8a12a6288c5573514c2d": "an earlier build, with sealed recipient approvals (launcher 0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b)",
-      "0x6e3ff3daea0dc95ed16ecaa344d3fdfdda76949991bf822fa040130ac3d1e719": "an earlier build, with sealed Terms (launcher 0xa5ecc8802db5520ab089d63b39bb4508d3794299)",
-      "0x94c9fa9ac1757b70c2624ccd6e8823e0bdfa4fb3fd413f7e57e98d99fd313e75": "an earlier build (launchers 0x811e79d3bd786fb5701e0e66cc287fcaa24e558b and 0x9fa47775b526373ba8d9b7d8a7cc84ca487540e1)",
-      "0x815c1dd4f08463bc5ed5b2222e552e4963d1cc1b153723d1137852d61d49bf04": "an earlier build (launcher 0xe7d4489cde5cdaabbce571162ec14beca324b7c3)",
-      "0xfcd06b30860cdc183314f1860f53500bf4dd8c8792ec3dae46658f1aae418e63": "an earlier build (launchers 0x956fbbde5fcb981e5a8507b369c79105815d562d and 0x3b835612009343eea6d14f79302412bcfb09e9df)"
-    };
-    MIN_COOLING_SECS = 60n;
     agentGas = async ({ wallet, sim }) => BigInt(await wallet.request({ method: "eth_getBalance", params: [sim.agent, "latest"] }));
     iso = (seconds) => new Date(Number(seconds) * 1e3).toISOString();
     usd = (units) => inputValue(units);
@@ -81842,6 +81899,434 @@ var init_vault = __esm({
       valid_until: iso(policy.validUntil),
       paused: policy.paused
     });
+  }
+});
+
+// mcp/watch.ts
+var watch_exports = {};
+__export(watch_exports, {
+  Watcher: () => Watcher,
+  deliverer: () => deliverer,
+  intervalProblem: () => intervalProblem,
+  main: () => main,
+  watch: () => watch
+});
+import { execFile } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+function deliverer(env, write = (line) => process.stdout.write(line)) {
+  const webhook = env.HARDSTOP_ALERT_WEBHOOK?.trim();
+  const desktopOn = env.HARDSTOP_DESKTOP_NOTIFY === "1";
+  const ntfy = ntfyAddress(env.HARDSTOP_ALERT_NTFY);
+  return async (alert) => {
+    write(`${JSON.stringify(alert)}
+`);
+    if (desktopOn) desktop(`HARDSTOP: ${alert.kind.replace(/_/g, " ")}`, alert.message);
+    if (ntfy) await push(ntfy, alert);
+    if (!webhook) return;
+    try {
+      const response = await fetch(webhook, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(alert),
+        signal: AbortSignal.timeout(1e4)
+      });
+      if (!response.ok) warn(`the webhook answered HTTP ${response.status}.`);
+    } catch (error62) {
+      warn(`could not reach the webhook: ${plain(error62)}`);
+    }
+  };
+}
+function ntfyAddress(text) {
+  const value = text?.trim();
+  if (!value) return void 0;
+  let url2;
+  try {
+    url2 = new URL(value);
+  } catch {
+    throw new Error("HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic, such as https://ntfy.sh/<a long, secret topic name>.");
+  }
+  const local = ["127.0.0.1", "localhost", "[::1]"].includes(url2.hostname);
+  if (url2.protocol !== "https:" && !(url2.protocol === "http:" && local)) {
+    throw new Error("HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic (http is allowed only to this machine).");
+  }
+  return url2;
+}
+async function push(url2, alert) {
+  const urgent = ACT_NOW.has(alert.kind);
+  const headers = {
+    "content-type": "text/plain; charset=utf-8",
+    title: `HARDSTOP: ${alert.kind.replace(/_/g, " ")}`,
+    priority: urgent ? "urgent" : "default",
+    tags: urgent ? "warning" : "moneybag"
+  };
+  if (urgent) headers.click = typeof alert.owner_page === "string" ? alert.owner_page : OWNER_PAGE;
+  try {
+    const response = await fetch(url2, { method: "POST", headers, body: alert.message, signal: AbortSignal.timeout(1e4) });
+    if (!response.ok) warn(`ntfy answered HTTP ${response.status}.`);
+  } catch (error62) {
+    warn(`could not reach ntfy: ${plain(error62)}`);
+  }
+}
+function desktop(title, body) {
+  const env = { ...process.env, HARDSTOP_NOTE_TITLE: title, HARDSTOP_NOTE_BODY: body };
+  delete env.HARDSTOP_AGENT_KEY;
+  const [command, args] = process.platform === "win32" ? ["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TOAST]] : process.platform === "darwin" ? ["osascript", ["-e", 'display notification (system attribute "HARDSTOP_NOTE_BODY") with title (system attribute "HARDSTOP_NOTE_TITLE")']] : ["notify-send", [title, body]];
+  execFile(command, args, { env, timeout: 15e3, windowsHide: true }, (error62) => {
+    if (error62) warn(`desktop notification failed: ${plain(error62)}`);
+  });
+}
+function intervalProblem(coolingSecs, everySecs) {
+  const most = Math.floor(Number(coolingSecs) / 2);
+  if (everySecs <= most) return void 0;
+  return `This vault's cooling period is ${formatDuration(coolingSecs)}: a looser rule takes effect that long after it is proposed. Checking every ${everySecs} seconds could miss it while it can still be cancelled. Set HARDSTOP_WATCH_SECS to ${most} or less (half the cooling period). HARDSTOP_WATCH_UNSAFE=1 runs anyway, but then a loosening can take effect before you are warned.`;
+}
+async function watch(config2, { everySecs, signal, deliver, wallet, warnSecs, unsafeInterval = false, cursorFile }) {
+  const sleep = (secs) => delay(secs * 1e3, void 0, { signal }).catch(() => void 0);
+  let watcher;
+  let maxBackoff = MAX_BACKOFF_SECS;
+  let failures = 0;
+  while (!signal.aborted) {
+    try {
+      if (!watcher) {
+        const vault = await connect(config2, wallet);
+        const problem = intervalProblem(vault.schedule.coolingSecs, everySecs);
+        if (problem && !unsafeInterval) throw new Refused(problem);
+        if (problem) warn(`UNSAFE (HARDSTOP_WATCH_UNSAFE=1): ${problem}`);
+        maxBackoff = Math.min(MAX_BACKOFF_SECS, Math.floor(Number(vault.schedule.coolingSecs) / 2));
+        watcher = new Watcher(vault, warnSecs, cursorFile ? await readCursor(cursorFile) : void 0);
+      }
+      const alerts = await watcher.check();
+      for (const alert of alerts) await deliver(alert);
+      if (cursorFile && watcher.cursor !== void 0) await writeFile(cursorFile, `${watcher.cursor}
+`);
+      if (failures > 0) {
+        await deliver({ kind: "watch_recovered", at: (/* @__PURE__ */ new Date()).toISOString(), vault: config2.vault, message: "The watcher can reach the vault again." });
+        failures = 0;
+      }
+      await sleep(everySecs);
+    } catch (error62) {
+      if (signal.aborted) break;
+      if (error62 instanceof Refused) throw error62;
+      failures += 1;
+      const wait = Math.min(everySecs * 2 ** failures, maxBackoff);
+      if (failures === 1) {
+        await deliver({
+          kind: "watch_error",
+          at: (/* @__PURE__ */ new Date()).toISOString(),
+          vault: config2.vault,
+          message: `The watcher cannot read the vault: ${plain(error62)} It keeps trying.`
+        });
+      }
+      warn(`${plain(error62)} Trying again in ${wait} seconds.`);
+      await sleep(wait);
+    }
+  }
+}
+async function readCursor(file2) {
+  const text = await readFile(file2, "utf8").catch(() => "");
+  return /^\d+$/.test(text.trim()) ? BigInt(text.trim()) : void 0;
+}
+async function main() {
+  let config2;
+  try {
+    config2 = readConfig({ ...process.env, HARDSTOP_AGENT_KEY: void 0 });
+  } catch (error62) {
+    warn(plain(error62));
+    process.exit(1);
+  }
+  const text = process.env.HARDSTOP_WATCH_SECS?.trim() || "30";
+  const everySecs = Number(text);
+  if (!Number.isInteger(everySecs) || everySecs < 1 || everySecs > 86400) {
+    warn("HARDSTOP_WATCH_SECS must be a whole number of seconds between 1 and 86400.");
+    process.exit(1);
+  }
+  const controller = new AbortController();
+  const stop = () => {
+    warn("stopping.");
+    controller.abort();
+  };
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+  await watch(config2, {
+    everySecs,
+    signal: controller.signal,
+    deliver: deliverer(process.env),
+    unsafeInterval: process.env.HARDSTOP_WATCH_UNSAFE === "1",
+    cursorFile: process.env.HARDSTOP_WATCH_CURSOR?.trim() || void 0
+  });
+}
+var MAX_BLOCKS, MAX_RANGES_PER_CHECK, BLOCK_SECS, MAX_BACKOFF_SECS, sameRules, sameQueued, queuedKey, Watcher, warn, ACT_NOW, WINDOWS_TOAST;
+var init_watch = __esm({
+  "mcp/watch.ts"() {
+    "use strict";
+    init_entry();
+    init_reasons();
+    init_sim();
+    init_money();
+    init_vault();
+    MAX_BLOCKS = 1000n;
+    MAX_RANGES_PER_CHECK = 8;
+    BLOCK_SECS = { 84532: 2n, 11155111: 12n };
+    MAX_BACKOFF_SECS = 600;
+    sameRules = (a, b) => a.perPayment === b.perPayment && a.perWindow === b.perWindow && a.validUntil === b.validUntil && a.paused === b.paused;
+    sameQueued = (a, b) => a === b || a !== null && b !== null && sameRules(a, b) && a.effectiveAt === b.effectiveAt;
+    queuedKey = (q) => [q.perPayment, q.perWindow, q.validUntil, q.paused, q.effectiveAt].join();
+    Watcher = class {
+      last;
+      nextBlock;
+      warned = /* @__PURE__ */ new Set();
+      /** Every queued loosening already reported, from the vault's state or its events. */
+      seen = /* @__PURE__ */ new Set();
+      vault;
+      warnSecs;
+      /** Where a previous run stopped (HARDSTOP_WATCH_CURSOR), if known. */
+      resumeAt;
+      /** Blocks asked for in one eth_getLogs; halved each time the network refuses a range. */
+      span = MAX_BLOCKS;
+      /** The latest block at the first look: events up to it happened before this run, so are catch-up. */
+      catchUpTo;
+      /** The last look could not read every event range. */
+      eventsFailing = false;
+      constructor(vault, warnSecs = 3n * DAY, resumeAt) {
+        this.vault = vault;
+        this.warnSecs = warnSecs;
+        this.resumeAt = resumeAt;
+      }
+      /** The first block the next look will read: save it to resume there after a restart. */
+      get cursor() {
+        return this.nextBlock;
+      }
+      /**
+       * One look at the vault. Returns what is new since the last look; the first
+       * look reports what is already true (a waiting change, a near end date) and
+       * what happened while no watcher was running: the vault's events from one
+       * cooling period back, or from where the previous run stopped if that is
+       * earlier. Those are marked `catch_up`. Nothing is remembered unless the
+       * whole look succeeds, so a failed look is simply repeated.
+       */
+      async check() {
+        const { sim, chain, wallet } = this.vault;
+        await chain.refresh(true);
+        const state = await sim.state();
+        const latest = BigInt(await wallet.request({ method: "eth_blockNumber" }));
+        const alerts = [];
+        let from = this.nextBlock;
+        if (from === void 0) {
+          alerts.push(this.alert("watching", `Watching vault ${sim.vault} on ${this.vault.config.network.name}. Rules in force: ${this.describe(state.policy)}.`, { rules: policyJson(state.policy) }));
+          const lookback = this.vault.schedule.coolingSecs / (BLOCK_SECS[this.vault.config.network.chainId] ?? 1n) + 1n;
+          from = latest > lookback ? latest - lookback : 0n;
+          if (this.resumeAt !== void 0 && this.resumeAt < from) from = this.resumeAt;
+        }
+        const catchUpTo = this.catchUpTo ?? latest;
+        const events = [];
+        let next = from;
+        let unreadable;
+        for (let ranges = 0; next <= latest && ranges < MAX_RANGES_PER_CHECK; ranges++) {
+          const to = latest < next + this.span - 1n ? latest : next + this.span - 1n;
+          let logs;
+          try {
+            logs = await wallet.request({
+              method: "eth_getLogs",
+              params: [{ address: sim.vault, fromBlock: `0x${next.toString(16)}`, toBlock: `0x${to.toString(16)}` }]
+            });
+          } catch (error62) {
+            unreadable = error62;
+            if (this.span > 1n) this.span /= 2n;
+            break;
+          }
+          if (this.span < MAX_BLOCKS) this.span = this.span * 2n > MAX_BLOCKS ? MAX_BLOCKS : this.span * 2n;
+          const catchUp = next <= catchUpTo;
+          for (const log of logs) for (const e of this.decode(log)) events.push(catchUp ? { ...e, tx: { ...e.tx, catch_up: true } } : e);
+          next = to + 1n;
+        }
+        for (const { event, tx } of events) alerts.push(...this.fromEvent(event, tx));
+        const seen = [];
+        const missed = this.fromProposals(events, state, seen);
+        alerts.push(...missed.alerts);
+        const warned2 = [];
+        alerts.push(...await this.fromState(this.last, state, warned2, seen, missed.inForce));
+        if (unreadable !== void 0 && !this.eventsFailing) {
+          alerts.push(
+            this.alert(
+              "events_unreadable",
+              `The watcher cannot read the vault's events from block ${next}: ${plain(unreadable)} Payments, refusals and recipient changes are reported once they can be read; the rules are still checked every time.`,
+              { from_block: next.toString() }
+            )
+          );
+        } else if (unreadable === void 0 && this.eventsFailing) {
+          alerts.push(this.alert("events_readable", "The watcher can read the vault's events again."));
+        }
+        this.eventsFailing = unreadable !== void 0;
+        this.catchUpTo = catchUpTo;
+        this.last = state;
+        this.nextBlock = next;
+        for (const key of warned2) this.warned.add(key);
+        for (const key of seen) this.seen.add(key);
+        return alerts;
+      }
+      alert(kind, message, extra = {}) {
+        return { kind, at: iso(this.vault.chain.now), vault: this.vault.sim.vault, owner_page: ownerPage(this.vault), message, ...extra };
+      }
+      name(address) {
+        return this.vault.config.recipients.find((r) => r.address === address)?.name ?? address;
+      }
+      get words() {
+        return windowWords(this.vault.schedule.windowSecs);
+      }
+      describe(policy) {
+        return describePolicy(policy, this.vault.schedule.windowSecs);
+      }
+      decode(log) {
+        const { network } = this.vault.config;
+        const tx = log.transactionHash ? { transaction: log.transactionHash, explorer: txLink(network, log.transactionHash) } : {};
+        return decodeEvents({ ok: true, data: "0x", logs: [log], gasUsed: 0n }, this.vault.sim.vault).map((event) => ({ event, tx }));
+      }
+      fromEvent(event, tx) {
+        const format2 = { ...FORMAT, window: this.words.left };
+        switch (event.name) {
+          case "Paid":
+            return [
+              this.alert("paid", `Paid ${formatUsd(event.amount)} to ${this.name(event.to)} (request ${event.nonce}). ${formatUsd(event.leftInWindow)} left ${this.words.left}.`, {
+                to: event.to,
+                amount_usd: usd(event.amount),
+                nonce: event.nonce.toString(),
+                left_today_usd: usd(event.leftInWindow),
+                ...tx
+              })
+            ];
+          case "Blocked": {
+            const said = explain(event.code, event.detail, format2);
+            return [
+              this.alert("refused", `Refused ${formatUsd(event.amount)} to ${this.name(event.to)} (request ${event.nonce}). ${said.sentence}`, {
+                to: event.to,
+                amount_usd: usd(event.amount),
+                nonce: event.nonce.toString(),
+                reason: said.name,
+                ...tx
+              })
+            ];
+          }
+          case "RecipientChanged":
+            return event.approvedFrom === 0n ? [this.alert("recipient_removed", `${this.name(event.who)} was removed from the approved recipients.`, { who: event.who, ...tx })] : [
+              this.alert(
+                "recipient_approved",
+                `${this.name(event.who)} was approved as a recipient; it can be paid from ${formatTime(event.approvedFrom)}. If the owner did not do this, remove it at ${ownerPage(this.vault, event.who)} before then.`,
+                { who: event.who, approved_from: iso(event.approvedFrom), ...tx }
+              )
+            ];
+          case "Withdrawn":
+            return [this.alert("withdrawn", `The owner withdrew ${formatUsd(event.amount)} from the vault.`, { amount_usd: usd(event.amount), ...tx })];
+          default:
+            return [];
+        }
+      }
+      /**
+       * Looser rules that were proposed since the last look and are no longer
+       * waiting: cancelled or replaced in between, or already in force. The state
+       * alone cannot show these (it only holds what is queued now), so they are
+       * read from the vault's PolicyProposed and QueueCancelled events. Any later
+       * proposal (a pause too) or a cancel ends a queued one.
+       */
+      fromProposals(events, cur, seen) {
+        const steps = events.filter(({ event }) => event.name === "PolicyProposed" || event.name === "QueueCancelled");
+        const alerts = [];
+        let inForce = false;
+        steps.forEach(({ event, tx }, i) => {
+          if (event.name !== "PolicyProposed" || event.effectiveAt === 0n) return;
+          const proposed = { ...event.policy, effectiveAt: event.effectiveAt };
+          const key = queuedKey(proposed);
+          if (this.seen.has(key) || seen.includes(key) || sameQueued(cur.queued, proposed)) return;
+          seen.push(key);
+          const endedBy = steps[i + 1]?.event.name;
+          if (!endedBy && proposed.effectiveAt <= cur.now && sameRules(cur.policy, proposed)) {
+            inForce = true;
+            alerts.push(
+              this.alert(
+                "loosening_in_force",
+                `Looser rules were proposed and took effect before this watcher saw them waiting: ${this.describe(proposed)}, in force since ${formatTime(proposed.effectiveAt)}. If the owner did not ask for this, the owner key is compromised.`,
+                { rules: policyJson(proposed), took_effect_at: iso(proposed.effectiveAt), unseen: true, ...tx }
+              )
+            );
+            return;
+          }
+          alerts.push(
+            this.alert(
+              "loosening_withdrawn",
+              `Looser rules were proposed and then ${endedBy === "QueueCancelled" ? "cancelled" : "replaced"} between two checks: ${this.describe(proposed)}, to take effect ${formatTime(proposed.effectiveAt)}. Rules in force: ${this.describe(cur.policy)}. Only the owner's key can do this; if the owner did not, treat that key as compromised and move the funds out at ${ownerPage(this.vault)}.`,
+              { proposed: policyJson(proposed), takes_effect_at: iso(proposed.effectiveAt), ended_by: endedBy === "QueueCancelled" ? "cancelled" : "replaced", current: policyJson(cur.policy), ...tx }
+            )
+          );
+        });
+        return { alerts, inForce };
+      }
+      async fromState(prev, cur, warned2, seen, explainedByEvents) {
+        const alerts = [];
+        const { queued, policy } = cur;
+        const before = prev?.queued ?? null;
+        if (queued && !sameQueued(queued, before) && !this.seen.has(queuedKey(queued)) && !seen.includes(queuedKey(queued))) {
+          seen.push(queuedKey(queued));
+          const worst = await this.vault.sim.exposure(queued.effectiveAt + this.vault.schedule.windowSecs);
+          alerts.push(
+            this.alert(
+              "loosening_waiting",
+              `Looser rules are waiting: ${this.describe(queued)} (now ${this.describe(policy)}). They take effect ${formatTime(queued.effectiveAt)}. In the ${this.words.span} after that the agent could have moved up to ${formatUsd(worst)}. If the owner did not ask for this, cancel it at ${ownerPage(this.vault)} before then.`,
+              { proposed: policyJson(queued), current: policyJson(policy), takes_effect_at: iso(queued.effectiveAt), worst_case_usd: usd(worst) }
+            )
+          );
+        }
+        let explained = explainedByEvents;
+        if (prev && before && !queued) {
+          const inForce = sameRules(policy, before);
+          explained ||= inForce;
+          alerts.push(
+            inForce ? this.alert("loosening_in_force", `The waiting change is now in force: ${this.describe(policy)}.`, { rules: policyJson(policy) }) : this.alert("loosening_cancelled", `The waiting change was cancelled. Rules in force: ${this.describe(policy)}.`, { rules: policyJson(policy) })
+          );
+        }
+        if (prev && !explained) {
+          if (prev.policy.paused !== policy.paused) {
+            alerts.push(
+              policy.paused ? this.alert("paused", "The agent is paused. The vault refuses every payment until the owner resumes it.") : this.alert("resumed", `The agent is no longer paused. Rules in force: ${this.describe(policy)}.`)
+            );
+          }
+          const limits = (p) => [p.perPayment, p.perWindow, p.validUntil].join();
+          if (limits(prev.policy) !== limits(policy)) {
+            alerts.push(this.alert("rules_changed", `The rules changed: ${this.describe(policy)} (was ${this.describe(prev.policy)}).`, { rules: policyJson(policy), was: policyJson(prev.policy) }));
+          }
+        }
+        const left = policy.validUntil - cur.now;
+        const key = (what) => `${what}:${policy.validUntil}`;
+        if (left <= 0n && !this.warned.has(key("expired"))) {
+          warned2.push(key("expired"));
+          alerts.push(this.alert("expired", `The agent's permission ended ${formatTime(policy.validUntil)}. The vault refuses every payment.`, { valid_until: iso(policy.validUntil) }));
+        } else if (left > 0n && left <= this.warnSecs && !this.warned.has(key("ending"))) {
+          warned2.push(key("ending"));
+          alerts.push(
+            this.alert("ending_soon", `The agent's permission ends ${formatTime(policy.validUntil)}. After that the vault refuses every payment unless the owner extends it.`, {
+              valid_until: iso(policy.validUntil)
+            })
+          );
+        }
+        return alerts;
+      }
+    };
+    warn = (text) => process.stderr.write(`hardstop-watch: ${text}
+`);
+    ACT_NOW = /* @__PURE__ */ new Set(["loosening_waiting", "loosening_withdrawn", "loosening_in_force", "recipient_approved"]);
+    WINDOWS_TOAST = `
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+$t = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$n = $t.GetElementsByTagName('text')
+$n.Item(0).AppendChild($t.CreateTextNode($env:HARDSTOP_NOTE_TITLE)) | Out-Null
+$n.Item(1).AppendChild($t.CreateTextNode($env:HARDSTOP_NOTE_BODY)) | Out-Null
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe').Show([Windows.UI.Notifications.ToastNotification]::new($t))
+`;
+    if (isMain(import.meta.url)) {
+      main().catch((error62) => {
+        warn(plain(error62));
+        process.exit(1);
+      });
+    }
   }
 });
 
@@ -84493,7 +84978,6 @@ var init_http = __esm({
 
 // mcp/server.ts
 import { parseArgs } from "node:util";
-import { pathToFileURL } from "node:url";
 function dollars(value, what) {
   const units = parseUsd(String(value));
   if (units === null) {
@@ -84710,13 +85194,13 @@ ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
           `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
           "",
           `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
-          `To agree, open ${OWNER_PAGE} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`
+          `To agree, open ${ownerPage(v)} with the owner wallet and propose the new limits. Looser limits take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`
         ].join("\n");
         return {
           text,
           json: {
             changed: false,
-            owner_page: OWNER_PAGE,
+            owner_page: ownerPage(v),
             reason: oneLine(reason),
             current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
             requested: {
@@ -84747,15 +85231,17 @@ ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
     return server;
   };
 }
-async function main() {
+async function main2() {
   const { values } = parseArgs({
     options: {
       http: { type: "boolean" },
       demo: { type: "boolean" },
+      watch: { type: "boolean" },
       port: { type: "string", default: "8787" },
       host: { type: "string", default: "127.0.0.1" }
     }
   });
+  if (values.watch) return (await Promise.resolve().then(() => (init_watch(), watch_exports))).main();
   let options = {};
   if (process.env.HARDSTOP_FAKE === "1" || values.demo) {
     const { demo: demo2, DEMO_NAME: DEMO_NAME2 } = await Promise.resolve().then(() => (init_demo(), demo_exports));
@@ -84791,6 +85277,7 @@ async function main() {
 var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, oneLine, createServer2;
 var init_server3 = __esm({
   "mcp/server.ts"() {
+    init_entry();
     init_mcp();
     init_stdio2();
     init_zod();
@@ -84813,8 +85300,8 @@ var init_server3 = __esm({
     formatFor = (v) => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left });
     oneLine = (text) => text.replace(/\s+/g, " ").trim();
     createServer2 = (options = {}) => hardstop(options)();
-    if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-      main().catch((error62) => {
+    if (isMain(import.meta.url)) {
+      main2().catch((error62) => {
         process.stderr.write(`hardstop: ${plain(error62)}
 `);
         process.exit(1);

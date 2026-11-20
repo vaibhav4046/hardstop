@@ -653,3 +653,24 @@ with `e2e/performance.spec.ts` against a local production build, empty cache:
 
 The rest of the early script is mostly three.js for the hero's dot
 animation (about 138 KB transferred).
+
+### Owner links, zero-install setups, 20 Nov
+
+From a review of the live site and of what agent-payment builders ask for:
+
+- `/activity?chain=84532&vault=0x...` opens any HARDSTOP vault for its owner
+  in any browser with a wallet, after checking the code against the known
+  vault builds (the same check as the MCP server, now shared in
+  `web/src/lib/live/find.ts`). It holds no agent key and saves nothing.
+  Watcher alerts (`owner_page`, and the phone notification's tap target)
+  and `hardstop_request_more` drafts now carry this link. Tested in
+  `e2e/live.spec.ts`: a vault created elsewhere, a raise cancelled from the
+  link with nothing saved; a bad link refused in words.
+- The one-file server did not start when run through a symlink, as npx runs
+  a bin on macOS and Linux (`import.meta.url` is the real path,
+  `process.argv[1]` the link). Reproduced with a directory link in
+  `tests/mcp-bundle.test.ts` (failed before the fix), fixed in
+  `web/mcp/entry.ts`. Windows was not affected.
+- Every "Connect your AI" setup now runs `npx -y github:vaibhav4046/hardstop`,
+  and `--watch` runs the watcher from the same command: nothing to clone.
+- `/evidence` shows the 20 Nov hostile-agent run, labelled as one run.

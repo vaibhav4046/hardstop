@@ -47,13 +47,17 @@ async function setUp() {
 const kinds = (alerts: Alert[]) => alerts.map((alert) => alert.kind)
 
 test('the watcher reports a loosening the owner proposed, a payment and a refusal, each once', async () => {
-  const { sim, watcher } = await setUp()
+  const { sim, watcher, live } = await setUp()
   assert.deepEqual(kinds(await watcher.check()), ['watching'])
   assert.deepEqual(await watcher.check(), [], 'nothing new, nothing said')
 
   await sim.propose({ perPayment: 10n * USD, perWindow: 50n * USD, validUntil: SETUP.validUntil, paused: false })
   const waiting = await watcher.check()
   assert.deepEqual(kinds(waiting), ['loosening_waiting'])
+  // The link opens this vault for its owner from any browser with their wallet.
+  const page = `https://hardstop-omega.vercel.app/activity?chain=${NETWORK.chainId}&vault=${live.vault}`
+  assert.equal(waiting[0].owner_page, page)
+  assert.ok(waiting[0].message.includes(`cancel it at ${page} before then`), waiting[0].message)
   assert.equal(waiting[0].takes_effect_at, new Date(Number(NOW + DAY) * 1000).toISOString())
   assert.deepEqual(waiting[0].proposed, {
     per_payment_usd: '10.00',
@@ -159,14 +163,15 @@ test('with HARDSTOP_ALERT_NTFY each alert is a phone push: plain text, a title, 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const { port } = server.address() as { port: number }
   const deliver = deliverer({ HARDSTOP_ALERT_NTFY: `http://127.0.0.1:${port}/my-vault-alerts` }, () => {})
-  await deliver({ kind: 'loosening_waiting', at: '2027-01-15T08:00:00.000Z', vault: PAYEE, message: 'Looser rules are waiting: $50.00 per day. Cancel it before then.' })
+  const page = `https://hardstop-omega.vercel.app/activity?chain=84532&vault=${PAYEE}`
+  await deliver({ kind: 'loosening_waiting', at: '2027-01-15T08:00:00.000Z', vault: PAYEE, owner_page: page, message: 'Looser rules are waiting: $50.00 per day. Cancel it before then.' })
   await deliver({ kind: 'paid', at: '2027-01-15T08:01:00.000Z', vault: PAYEE, message: 'Paid $4.00 to Cloud hosting.' })
   server.close()
   assert.equal(received.length, 2)
   assert.equal(received[0].body, 'Looser rules are waiting: $50.00 per day. Cancel it before then.')
   assert.equal(received[0].headers.title, 'HARDSTOP: loosening waiting')
   assert.equal(received[0].headers.priority, 'urgent')
-  assert.equal(received[0].headers.click, 'https://hardstop-omega.vercel.app/activity')
+  assert.equal(received[0].headers.click, page)
   assert.equal(received[1].headers.priority, 'default')
   assert.equal(received[1].headers.click, undefined)
 })
@@ -201,6 +206,7 @@ test('a raise proposed and cancelled between two checks is still reported, as a 
   const more = await watcher.check()
   assert.deepEqual(kinds(more), ['recipient_approved', 'recipient_removed', 'loosening_withdrawn', 'paused'])
   assert.equal(more[2].ended_by, 'replaced')
+  assert.ok(more[0].message.includes(`&who=${STRANGER.toLowerCase()} before then`), more[0].message)
 })
 
 test('a raise that took effect between two checks is reported once, as in force', async () => {
