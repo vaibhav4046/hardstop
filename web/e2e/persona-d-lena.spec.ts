@@ -117,6 +117,10 @@ const COMPARES = /\s(<=|>=|<|>)\s|(===|!==)\s*(0n?|1)\b/
 // Not caught by the pattern, read by hand: `today()` in lib/session.ts compares the ledger's window with the
 // current one (`===`) to show "spent today". Display only; the file says so and "left today" comes from the contract.
 const JUDGED: Record<string, string> = {
+  "components/activity-board.tsx|<dd className={policy.paused || now >= policy.validUntil ? 'text-stop' : undefined}>":
+    "Display: colours the Agent row red once the permission has ended. Compares the contract's clock with the end date the contract returned; the contract itself refuses every payment after it.",
+  "components/activity-board.tsx|{now >= policy.validUntil ? 'Permission ended' : policy.paused ? 'Paused' : 'Active'}":
+    'Display: the wording of the Agent row. Same comparison as the line above; decides nothing.',
   'components/exposure-chart.tsx|.map((amount, h) => (h === 0 ? `M${x(0)},${y(amount)}` : `H${x(h)}V${y(amount)}`))':
     'Display: the first point of the drawn line starts the path. Compares an hour index, not an amount.',
   "components/exposure-chart.tsx|{h === 0 ? 'Now' : `${h / 24} day${h === 24 ? '' : 's'}`}": 'Display: axis label wording. Compares an hour index.',
@@ -155,8 +159,6 @@ const JUDGED: Record<string, string> = {
   'lib/money.ts|if (value === 0n) return `${what[0].toUpperCase()}${what.slice(1)} must be more than $0.`':
     'Form validation: a zero amount is never sent. The contract has its own answer for zero (code 8), reachable only by replaying a saved session.',
   'lib/money.ts|if (value > MAX_INPUT) return `Enter ${formatUsd(MAX_INPUT)} or less.`': 'Form validation: an upper bound on what a form accepts.',
-  "lib/session.ts|const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 40":
-    'Validation of a saved recipient name (1 to 40 characters). Not an amount or a limit.',
 }
 
 function sourceFiles(dir: string): string[] {
