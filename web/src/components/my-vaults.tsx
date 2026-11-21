@@ -12,7 +12,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import type { Hex } from 'viem'
-import { summarize, vaultsOf, type Summary } from '@/lib/live/mine'
+import type { Summary } from '@/lib/live/mine'
 import { accountOf, injectedWallet, networkOf, NETWORKS, switchTo, type Network, type Wallet } from '@/lib/live/wallet'
 import { formatTime, formatUsd } from '@/lib/money'
 
@@ -44,6 +44,8 @@ export function MyVaults() {
     const network = networkOf(chainId)
     if (!network) return setState({ phase: 'wrong-network', account, chainId })
     setState({ phase: 'working', doing: `Reading your vaults on ${network.name}…` })
+    // Loaded only now: it carries the contracts' code, which no other page needs before a vault exists.
+    const { summarize, vaultsOf } = await import('@/lib/live/mine')
     const { vaults, total } = await vaultsOf(wallet, account)
     const rows = await Promise.all(vaults.map((vault) => summarize(wallet, network, vault)))
     setState({ phase: 'ready', account, network, rows, total })
