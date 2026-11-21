@@ -81479,7 +81479,7 @@ var init_find = __esm({
     };
     VAULT_IMMUTABLE_BYTES = 128;
     KNOWN_VAULT_CODE = {
-      "0x0d29aaa99568bef7f1b8a9e7f9f4caedaa0690673f163ed325e00699c1bd836b": "the current build, where Terms is not Copy and changes in place (launchers 0xeac071c085b20c02f36ed1771cbf9826da6b8e02, which also lists each owner's vaults, and 0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee)",
+      "0x0d29aaa99568bef7f1b8a9e7f9f4caedaa0690673f163ed325e00699c1bd836b": "the current build, where Terms is not Copy and changes in place (launchers 0xeac071c085b20c02f36ed1771cbf9826da6b8e02, which also lists each owner's vaults, on Base Sepolia since 2026-11-21, and 0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee)",
       "0xb5b582328f1d7df187779837f3b8a58c28328ca7bfac887928eb4e6a91c259ce": "an earlier build, where the owner's proof carries the chain's time (launcher 0x770bbe43a3669f066b8dc3274ff6dca9f22a8fd1, on Base Sepolia since 2026-11-20)",
       "0x4975c54738332e56f3f39e3d525cf2ea5432281b830a4165eeb5f59fe3c21b84": "an earlier build, with amend and cancel checked at compile time (launcher 0xed8a5d83c64f71b6d027742124239dccbf018e44, on Base Sepolia since 2026-11-19)",
       "0xa5840ccfc835c9734732b1e29de030b851da06e4e3be8a12a6288c5573514c2d": "an earlier build, with sealed recipient approvals (launcher 0xbc4c616910af6cc7fd68b1e6ddce85e7b4b9859b)",

@@ -51,8 +51,9 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
   account: the site's My vaults page signs in with the wallet alone (no
   password, email or server) and shows only the vaults that wallet launched,
   on any device. It is installed through the deterministic deployment proxy,
-  so it has the same address on every network; the site installs it on first
-  use (one extra wallet approval).
+  so it has the same address on every network. It is installed on Base
+  Sepolia (2026-11-21); on Sepolia the site installs it on first use (one
+  extra wallet approval).
 
 ## Fe highlight
 
