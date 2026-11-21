@@ -70,7 +70,10 @@ test.describe('Persona C: Barbara, mobile with larger text', () => {
   // Links are not checked for the word "wallet": the sources on /evidence are articles about wallets.
   test('no route asks for a wallet or an address', async ({ page }) => {
     await largerText(page)
-    for (const route of ROUTES) {
+    // My vaults is the one page that is about a wallet: signing in there is
+    // the point, and nothing else needs it. Every other route stays usable
+    // with no wallet at all.
+    for (const route of ROUTES.filter((path) => path !== '/vaults')) {
       await page.goto(route)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
       await expect(page.getByRole('button', { name: /connect|wallet|sign in|log in/i })).toHaveCount(0)
