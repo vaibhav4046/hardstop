@@ -50,6 +50,8 @@ test.describe('Persona D: Lena, security engineer', () => {
       const links = await page.locator('a[href*="github.com"]').evaluateAll((anchors) => anchors.map((a) => (a as HTMLAnchorElement).href))
       expect(links.length, `GitHub links on ${route}`).toBeGreaterThan(0)
       for (const link of links) {
+        // The fixes this project sent to Fe link to their pull requests upstream.
+        if (/^https:\/\/github\.com\/argotorg\/fe\/pull\/\d+$/.test(link)) continue
         expect(link === GITHUB || link.startsWith(`${GITHUB}/blob/main/`), `${link} on ${route}`).toBe(true)
         if (link !== GITHUB) paths.add(link.slice(`${GITHUB}/blob/main/`.length))
       }

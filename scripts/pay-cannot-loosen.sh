@@ -121,7 +121,7 @@ refused() {
 PAY='Pay { to, amount, nonce }'
 NOW='let now = seconds(ctx.timestamp())'
 ONLY_LINE='let proof = only(owner, ctx)'
-STORE='terms = next'
+STORE='terms.amend(proof, proposed)'
 
 # 1. The agent's code path cannot write the rules or the recipients.
 control 'Pay may write its own ledger' "$PAY" "$NOW" after 'ledger = ledger'
@@ -139,7 +139,7 @@ refused 'Propose storing hand-built terms (an instant raise)' '`rules` is not vi
 refused 'Propose storing a hand-built Rules' 'expected `Terms`, but `Rules` is given' 8-0000 \
   'Propose {' "$STORE" replace "terms = $HAND_RULES"
 refused 'Propose writing a field of terms' '`rules` is not visible' 2-0003 \
-  'Propose {' "$STORE" replace 'terms.rules = next.rules()'
+  'Propose {' "$STORE" replace 'terms.rules = terms.rules()'
 
 # 3. A proof comes only from `prove`, with the stored owner and the real caller.
 for handler in 'Propose {' 'CancelQueued uses' 'Pause uses' 'SetRecipient {' 'Withdraw {'; do
@@ -432,6 +432,40 @@ state_check_catches 'a second Approval map, to put old approvals back later' wit
 state_check_catches 'Pay resetting what was spent today' \
   edit_handler "$PAY" "$TRANSFER" after 'ledger = Ledger { window: next.window, spent: 0, next_nonce: next.next_nonce }'
 
+# Putting older rules back is also the compiler's for Terms: Terms is not
+# Copy and changes in place (amend, cancel and pause take `mut self`), so a
+# second stored copy can be neither made from the first nor moved back. Each
+# edit below is the whole vault.fe with a backup field added (16-0002).
+refused_file() {
+  local name=$1 message=$2 code=$3 edited
+  shift 3
+  edited=$(mktemp)
+  sed "$@" "$ROOT/fe/src/vault.fe" > "$edited"
+  if build_vault "$edited"; then
+    rm -f "$edited"
+    echo "FAIL compiled: $name"
+    exit 1
+  fi
+  rm -f "$edited"
+  if ! grep -qF -- "$message" <<<"$LOG" || grep -E '^error\[' <<<"$LOG" | grep -qvF "error[$code]"; then
+    echo "FAIL refused for another reason: $name"
+    echo "$LOG"
+    exit 1
+  fi
+  echo "ok   refused: $name"
+}
+BACKUP_FIELD='s/^    mut terms: Terms,$/    mut terms: Terms,\n    mut backup: Terms,/'
+refused_file 'init keeping a second copy of the founding rules' 'cannot use a value after it was moved' 16-0002 \
+  -e "$BACKUP_FIELD" \
+  -e 's/uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from)/uses (ctx, mut owner, mut agent, mut token, mut terms, mut backup, mut ledger, mut approved_from)/' \
+  -e 's/^        terms = terms_of$/        terms = terms_of\n        backup = terms_of/'
+refused_file 'Pause saving the rules aside before pausing' 'cannot move out of storage' 16-0002 \
+  -e "$BACKUP_FIELD" \
+  -e 's/^        Pause uses (ctx, owner, mut terms, mut log) {$/        Pause uses (ctx, owner, mut terms, mut backup, mut log) {\n            backup = terms/'
+refused_file 'CancelQueued putting saved rules back' 'cannot move out of storage' 16-0002 \
+  -e "$BACKUP_FIELD" \
+  -e 's/^        CancelQueued uses (ctx, owner, mut terms, mut log) {$/        CancelQueued uses (ctx, owner, mut terms, backup, mut log) {\n            terms = backup/'
+
 # The vault's whole shape, pinned (comments stripped; CI's fe fmt --check
 # fixes the layout this reads). A source check, not a compiler guarantee:
 # exactly these imports, no glob import and no type alias, exactly these
@@ -528,11 +562,11 @@ vault_sed() { sed "$@" "$ROOT/fe/src/vault.fe"; }
 # carries the chain's time (read by `prove` from the concrete `Evm`), and
 # `Terms`'s functions take no time of their own, so a made-up one does not
 # compile. The source check catches it too.
-MADE_UP_TIME='let next = terms.amend(proof, proposed, now: Instant::at(1))'
+MADE_UP_TIME='terms.amend(proof, proposed, now: Instant::at(1))'
 refused 'Propose giving the kernel a made-up time (a raise would mature at once)' 'argument number mismatch' 8-0023 \
-  'Propose {' 'let next = terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
+  'Propose {' 'terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
 shape_check_catches 'Propose giving the kernel a made-up time' \
-  edit_handler 'Propose {' 'let next = terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
+  edit_handler 'Propose {' 'terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
 shape_check_catches 'a glob import, to name Terms another way' \
   vault_sed 's/^use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}$/use ingot::kernel::sealed::*/'
 shape_check_catches 'a type alias for Terms' vault_sed 's/^pub contract Vault uses/type Kept = Terms\n\npub contract Vault uses/'

@@ -19,7 +19,9 @@ import { USD } from '../src/lib/money.ts'
 const keyFile = process.env.HARDSTOP_OWNER_KEY_FILE
 if (!keyFile) throw new Error('Set HARDSTOP_OWNER_KEY_FILE to a file holding a throwaway test key.')
 const account = privateKeyToAccount(readFileSync(keyFile, 'utf8').trim() as Hex)
-const network = NETWORKS.find((n) => n.chainId === baseSepolia.id)!
+// The agent sends four transactions here, not the site's ~34, so it gets less
+// gas money (0.000008 ETH, about nine payments at the measured fee).
+const network = { ...NETWORKS.find((n) => n.chainId === baseSepolia.id)!, gasMoney: 8_000_000_000_000n }
 const rpc = rpcWallet(network.rpc)
 const signer = createWalletClient({ account, chain: baseSepolia, transport: http(network.rpc) })
 

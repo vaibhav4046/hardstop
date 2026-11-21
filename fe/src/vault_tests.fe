@@ -953,7 +953,7 @@ contract Reopener uses (ctx: Ctx) {
                 Option::None => revert_error(OpenRefused {}),
             }
             let now = Instant::at(ctx.timestamp().as_seconds().downcast_saturate())
-            spare = spare
+            spare
                 .amend(
                     proof,
                     proposed: Policy {

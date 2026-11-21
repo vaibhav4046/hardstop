@@ -354,30 +354,28 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
                 valid_until: Instant::at(valid_until),
                 paused,
             }
-            let next = terms.amend(proof, proposed)
-            terms = next
+            terms.amend(proof, proposed)
             log.emit(
                 PolicyProposed {
                     per_payment,
                     per_window,
                     valid_until,
                     paused,
-                    effective_at: next.rules().queued.effective_at.secs(),
+                    effective_at: terms.rules().queued.effective_at.secs(),
                 },
             )
         }
 
         CancelQueued uses (ctx, owner, mut terms, mut log) {
             let proof = only(owner, ctx)
-            terms = terms.cancel(proof)
+            terms.cancel(proof)
             log.emit(QueueCancelled {})
         }
 
         Pause uses (ctx, owner, mut terms, mut log) {
             let proof = only(owner, ctx)
-            let next = terms.pause(proof)
-            terms = next
-            let stopped = next.rules().active
+            terms.pause(proof)
+            let stopped = terms.rules().active
             log.emit(
                 PolicyProposed {
                     per_payment: stopped.per_payment,

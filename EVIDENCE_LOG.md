@@ -572,6 +572,10 @@ Each change to the contracts gives the launcher a new address (CREATE2 from
 its code). Earlier launchers stay on Base Sepolia with the vaults opened
 through them:
 
+- `0x770bbe43a3669f066b8dc3274ff6dca9f22a8fd1` (2026-11-20, while `Terms` was
+  `Copy`; its transactions were the gas table until 2026-11-21)
+- `0xed8a5d83c64f71b6d027742124239dccbf018e44` (2026-11-19, before the
+  owner's proof carried the chain's time)
 - `0xa5ecc8802db5520ab089d63b39bb4508d3794299` (before sealed recipient
   approvals; its transactions were the gas table until 2026-11-19)
 - `0x811e79d3bd786fb5701e0e66cc287fcaa24e558b` (before sealed `Terms`)
@@ -756,3 +760,46 @@ after: vault 92 test dollars, recipient 8; per day 20, paused, nothing queued
 Read back from `https://sepolia.base.org`: every receipt has status 1; the
 vault's runtime is 7,985 bytes and its code hash
 (`0xb5b58232...59ce`) is the first entry of `KNOWN_VAULT_CODE`.
+
+### Old rules cannot be put back: the compiler's, 21 Nov
+
+The last hole a judge found in the rules was a vault that saves its stored
+`Terms` aside and puts them back later (after a pause, say, to undo it).
+`Terms` was `Copy`, so that compiled; a source check and three tests caught
+it. `Terms` is now not `Copy`, and `amend`, `cancel` and `pause` take
+`mut self` and change the stored rules in place. The refusal script now
+requires the compiler to refuse three such edits, each with 16-0002:
+`Pause` saving the rules aside ("cannot move out of storage, which never
+holds a hole"), `CancelQueued` putting saved rules back (the same), and
+`init` keeping a second copy of the founding rules ("cannot use a value
+after it was moved"). `Approval` is still `Copy`; a second approval map is
+still caught only by the source check. `fe test` 98 passed; native 52;
+refusal script 58 ok (30 refused, 7 controls, 21 source-check lines).
+
+New launcher, installed and re-run on Base Sepolia with the throwaway test
+key (the script now gives the trial agent 0.000008 ETH instead of the
+site's 0.00003, since it sends four transactions):
+
+```
+launcher 0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee  install 0x674bb890...ac4b  gas 2,074,181
+vault    0xc6e2edc9c244781a7656611da0c7710475dd87c9  created 0xb0fba575...39b1  gas 1,672,614
+agent pays $4            0xca3bacfe...0c67  gas 123,786  verdict 0
+agent pays $4 again      0x38cd9d8c...c84c  gas  72,498  verdict 0
+agent asks for $80       0x6352c632...9e09  gas  51,720  verdict 10, limit $10
+agent raises own limit   reverted NotOwner in the rehearsal, nothing sent
+owner proposes $40/day   0x49fbcd7d...83af  gas 106,744
+owner cancels it         0xe26424d6...5d12  gas  41,467
+owner pauses             0x27ead036...f260  gas  47,615
+after: vault 92 test dollars, recipient 8; per day 20, paused, nothing queued
+```
+
+Read back from `https://sepolia.base.org`: every receipt has status 1; the
+vault's runtime is 6,883 bytes (1,102 fewer than the build before, which
+copied the rules in and out of storage) and its code hash
+(`0x0d29aaa9...836b`) is the first entry of `KNOWN_VAULT_CODE`.
+
+Not passing on this machine, and why: `npm test` ran 87 of 89 here; the two
+MCP-over-HTTP tests time out. A plain Node HTTP server with no project code
+shows the same thing on this Windows machine (the third request on a reused
+connection gets no answer; the fourth does), so it is the machine, not the
+server. CI runs the same tests on Linux.

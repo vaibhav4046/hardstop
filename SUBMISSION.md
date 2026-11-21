@@ -74,14 +74,18 @@ cannot be amended. Recipient approvals are sealed the same way: the map
 stores `Approval`s, which only `founding` (at deployment) and
 `Terms::approve_from` (owner proof, cooling period) make, so storing a date
 or a hand-built approval does not compile. An approval copied under another
-address compiles but approves no one (a runtime check, tested). What the
-compiler does not stop: a vault that keeps an older `Terms` or `Approval`
-in a second storage field and puts it back later, since both types are
-`Copy`. CI source checks pin the vault's storage, imports and handlers
-exactly (so no second `Terms`, under its own name, an alias or a glob
-import, and no new handler or capability), and three tests fail if a cancel
-ever undoes a pause, a lowered limit or a removed recipient. These read the
-source; they are not compiler guarantees.
+address compiles but approves no one (a runtime check, tested). `Terms` is
+not `Copy` and changes in place, so a vault cannot keep an older copy of
+its rules and put it back later: saving the stored rules aside, or putting
+saved rules back, fails with "cannot move out of storage" (16-0002), and
+keeping a second copy of the founding rules fails with "cannot use a value
+after it was moved". What the compiler does not stop: the same trick with
+`Approval`, which is still `Copy`. CI source checks pin the vault's
+storage, imports and handlers exactly (so no second `Terms` or approval
+map, under its own name, an alias or a glob import, and no new handler or
+capability), and three tests fail if a cancel ever undoes a pause, a
+lowered limit or a removed recipient. These read the source; they are not
+compiler guarantees.
 
 The owner proof is bound to the real caller by the compiler. Changing the
 terms, approving a recipient and withdrawing each need an `OwnerCall`, which

@@ -66,7 +66,6 @@ pub struct OwnerCall { granted: bool, now: Instant }
 pub struct Approval { who: Address, from: Instant }
 
 impl Copy for Owner {}
-impl Copy for Terms {}
 impl Copy for Approval {}
 
 impl Approval {
@@ -137,28 +136,26 @@ impl Terms {
     }
 
     /// The kernel's `amend`, at the time the proof carries.
-    pub fn amend(self, _ proof: own OwnerCall, proposed: Policy) -> Terms {
+    pub fn amend(mut self, _ proof: own OwnerCall, proposed: Policy) {
         let now = proof.now
         let proof = kernel_proof(proof)
-        if self.blank() {
-            return self
+        if !self.blank() {
+            self.rules = amend(proof, rules: self.rules, proposed, now)
         }
-        Terms { rules: amend(proof, rules: self.rules, proposed, now) }
     }
 
     /// The kernel's `cancel`, at the time the proof carries.
-    pub fn cancel(self, _ proof: own OwnerCall) -> Terms {
+    pub fn cancel(mut self, _ proof: own OwnerCall) {
         let now = proof.now
         let proof = kernel_proof(proof)
-        if self.blank() {
-            return self
+        if !self.blank() {
+            self.rules = cancel(proof, rules: self.rules, now)
         }
-        Terms { rules: cancel(proof, rules: self.rules, now) }
     }
 
     /// The policy in force, paused, applied at once; anything queued is
     /// dropped.
-    pub fn pause(self, _ proof: own OwnerCall) -> Terms {
+    pub fn pause(mut self, _ proof: own OwnerCall) {
         var stopped = self.rules.current(now: proof.now)
         stopped.paused = true
         self.amend(proof, proposed: stopped)
