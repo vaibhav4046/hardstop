@@ -43,7 +43,7 @@ Output pasted from a run on 2026-11-20. [CI runs](https://github.com/vaibhav4046
 | Not covered by the compiler | an older `Terms` or `Approval` kept in a second storage field and put back (both are `Copy`); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches all three edits; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
 | Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide` | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires each of those lines exactly as written, once, and catches four edits that change them |
 | Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
-| Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug, [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
+| Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
 The first five rows are edits that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires to fail,
@@ -96,9 +96,9 @@ in a local `fe test`). A sealed payout value would bind only the path that
 uses it, not every path, so the vault does not have one. The script keeps
 both edits as controls that must compile on Fe 26.6.
 
-The forged `Call` is a compiler bug, and it is fixed in pull request
-[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) (approved by a Fe
-maintainer (micahscopes) on 2026-11-20, with a test commit added by sbillig, not yet merged; the same patch is
+The forged `Call` is a compiler bug, and it is fixed by this project's pull
+request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), merged
+into Fe on 2026-11-21 (the nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its 98 tests there with the forged `Call` and stand-in `Ctx` refused; the same patch is
 [`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch)):
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not

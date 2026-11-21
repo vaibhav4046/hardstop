@@ -73,6 +73,15 @@ export default function Developers() {
           <dt>Status</dt>
           <dd>Unaudited contest prototype</dd>
         </div>
+        <div>
+          <dt>Back to Fe</dt>
+          <dd>
+            Two compiler fixes from building this, merged into Fe:{' '}
+            <a href="https://github.com/argotorg/fe/pull/2042">#2042</a> (a private trait could be implemented from
+            anywhere, forging <code>std</code>&rsquo;s sealed capabilities) and{' '}
+            <a href="https://github.com/argotorg/fe/pull/2048">#2048</a> (block time in <code>fe test</code>)
+          </dd>
+        </div>
       </dl>
 
       <section className="mt-[var(--gap-section)]" aria-labelledby="kernel-title">

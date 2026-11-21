@@ -12,7 +12,7 @@
    installed the current launcher and re-ran the evidence (README).
 5. **Fe compiler feedback.** Posted on 2026-11-19 with the owner's
    approval: six issues (argotorg/fe #2035 to #2040) and three pull requests
-   (#2041, #2042, and #2048 on 2026-11-20). #2048 was merged on 2026-11-20. Replies and review comments go to the owner's GitHub
+   (#2041, #2042, and #2048 on 2026-11-20). #2048 was merged on 2026-11-20 and #2042 on 2026-11-21. Replies and review comments go to the owner's GitHub
    account; answering them is the owner's call.
 6. **MetaMask's site scanner** warns "Continue at your own risk" on connect.
    A review ticket was filed with MetaMask support on 2026-11-18; the reply

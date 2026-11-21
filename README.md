@@ -30,7 +30,7 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 | The whole site works in a browser | `cd web && npm run e2e` | 61 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
-| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2048 merged into Fe on 2026-11-20; #2042 approved by micahscopes, and sbillig added a test commit to it the same day, not yet merged; #2041 open; the job is green |
+| Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2048 merged into Fe on 2026-11-20 and #2042 on 2026-11-21 (both by sbillig; #2042 approved by micahscopes); #2041 open; the job is green, and so is the nightly job on unpatched Fe master |
 | Every command in this table runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
 
 What the compiler does not cover, and why: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -170,9 +170,9 @@ from any ingot, which lets user code forge `std`'s sealed `Call` and `Ctx`
 capabilities. Three have fixes from this project:
 [#2048](https://github.com/argotorg/fe/pull/2048), which lets `fe test` set
 the block time and number, was merged into Fe on 2026-11-20;
-[#2042](https://github.com/argotorg/fe/pull/2042) was approved by
-micahscopes, and sbillig added a test commit to it, on 2026-11-20, not yet
-merged; [#2041](https://github.com/argotorg/fe/pull/2041) is open. The
+[#2042](https://github.com/argotorg/fe/pull/2042), approved by micahscopes,
+was merged on 2026-11-21 with a test commit sbillig added;
+[#2041](https://github.com/argotorg/fe/pull/2041) is open. The nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its 98 tests there with the forged `Call` and stand-in `Ctx` refused. The
 first two compiler patches are also in [`research/fe-patches/`](research/fe-patches/):
 `2-private-trait-visibility.patch` makes a private trait named outside its
 module "not visible" (2-0003) in an `impl` header, a bound, a `where`

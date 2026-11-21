@@ -11,7 +11,10 @@ look suggests this is ready to go, but I'm doing a more thorough review." Fe's o
 passed on it (lint, tests on Ubuntu and Windows, native ARM64, wasm). Later that day another
 maintainer (sbillig) added a commit of his own to #2042 ("Test forged capability seals and
 private modules"), and approved and merged #2048 ("Looks good, thank you!"), which closed
-#2039. #2041 and the other issues have no reply yet.
+#2039. On 2026-11-21 sbillig merged #2042, which closed #2036; Fe master's head that day is
+the merge ("Check the visibility of a trait named in an impl header or a bound (#2042)"), and
+HARDSTOP's nightly CI job on it passes with the forged `Call` and stand-in `Ctx` refused.
+#2041 and the other issues have no reply yet.
 
 | Draft | Posted as | Fix |
 |---|---|---|
@@ -20,7 +23,7 @@ private modules"), and approved and merged #2048 ("Looks good, thank you!"), whi
 | 3, block timestamp in `fe test` | [argotorg/fe#2039](https://github.com/argotorg/fe/issues/2039) (closed) | pull request [argotorg/fe#2048](https://github.com/argotorg/fe/pull/2048), merged 2026-11-20 |
 | 4, unknown attributes | [argotorg/fe#2035](https://github.com/argotorg/fe/issues/2035) | pull request [argotorg/fe#2041](https://github.com/argotorg/fe/pull/2041) |
 | 5, `#[must_use]` and bindings | [argotorg/fe#2040](https://github.com/argotorg/fe/issues/2040) | |
-| 6, private traits and the capability seal | [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036) | pull request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042) |
+| 6, private traits and the capability seal | [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036) (closed) | pull request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21 |
 
 The optional draft at the end was not posted. Each posted body is the text between the fences
 below plus a line saying where it was found and that it was drafted with AI assistance.

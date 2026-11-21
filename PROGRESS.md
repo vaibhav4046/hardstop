@@ -1,6 +1,6 @@
 # Progress
 
-Updated 2026-11-20. Submission deadline: 2026-11-24 23:59 UTC. The README is
+Updated 2026-11-21. Submission deadline: 2026-11-24 23:59 UTC. The README is
 the reference; this page only says where things stand.
 
 ## Verified on 2026-11-20 (this commit's tree)
@@ -44,8 +44,9 @@ the reference; this page only says where things stand.
   `fe test` passes (98) and the refusal script requires both forgeries to be
   refused; the Fe suite passes 2672, with 1 failure that also happens on
   unmodified `master` on Windows. Posted 2026-11-19 and 20. #2048 (block time
-  and number in `fe test`) was merged on 2026-11-20; #2042 was approved and a
-  second maintainer (sbillig) added a test commit to it the same day; not yet merged.
+  and number in `fe test`) was merged on 2026-11-20 and #2042 (the
+  capability-seal fix) on 2026-11-21; the nightly CI job on unpatched Fe
+  master passes with the forgeries refused. #2041 is open.
 
 ## Needs the owner
 

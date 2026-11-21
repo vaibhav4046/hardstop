@@ -11,7 +11,7 @@ push, and check that commit's CI run is green.
 | Repository | https://github.com/vaibhav4046/hardstop |
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
-| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20; #2042 approved by micahscopes, and sbillig added a test commit to it the same day, not yet merged; #2041 open |
+| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
 | Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A silent walkthrough with test output and receipts (recorded 2026-11-19; its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
@@ -101,11 +101,11 @@ the tests catch it, and a CI source check (it reads the text; it is not a
 compiler guarantee) requires `Pay`'s only transfer to be exactly
 `safe_transfer(token, receiver: to, amount)`, not the compiler. That last gap is a Fe bug (a private
 trait is not visibility-checked in an `impl` header or a bound), reported
-as argotorg/fe#2036, and pull request argotorg/fe#2042 (approved by a Fe
-maintainer (micahscopes) on 2026-11-20, with a test commit added by sbillig, not yet merged; also `research/fe-patches/2-private-trait-visibility.patch`) fixes
-it in the compiler: with it, the forged `Call` and the stand-in `Ctx` are refused
-(2-0003), HARDSTOP's 98 tests still pass, and the Fe suite passes apart
-from one language-server test that fails on unmodified `master` too.
+as argotorg/fe#2036, and this project's pull request argotorg/fe#2042
+fixed it in the compiler: merged into Fe on 2026-11-21. On Fe master (a
+nightly CI job builds it unpatched) the forged `Call` and the stand-in
+`Ctx` are refused (2-0003) and HARDSTOP's 98 tests pass; on the released
+Fe 26.6 the gap remains, and the refusal script shows both behaviours.
 
 The ratchet's laws are checked when the kernel compiles. `amend`,
 `cancel`, `matures_at`, `loosens`, `meet`, `cooled`, `Rules::current` and
