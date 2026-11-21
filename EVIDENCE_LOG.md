@@ -978,5 +978,8 @@ not yet covered, and what covered it that night:
 Still not tested by this project: the MCP setup inside the Claude Desktop,
 Cursor and VS Code apps themselves (their configs are written and the
 server runs over stdio with the official client, but no one has connected
-from those apps), and My vaults clicked through with a real MetaMask wallet
-(CI uses a stand-in wallet; the on-chain runs use a script with a test key).
+from those apps), and showing a vault in My vaults through a real MetaMask wallet. Signing in
+with the owner's real MetaMask (Chrome, already connected to the site) was
+checked the same night: it showed the wallet's address on Base Sepolia and
+0 vaults, which is right, since that wallet's vault was launched with an
+earlier launcher; the only console error came from a browser extension.
