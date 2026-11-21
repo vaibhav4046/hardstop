@@ -5,9 +5,11 @@
 //! agent's own key can pay for gas.
 //!
 //! The launcher has no owner and no settings. Its only storage that changes
-//! is each owner's list of the vaults it created for them: `launch` appends
-//! the new vault to its caller's list and nothing else writes it, so a vault
-//! is in an owner's list only if that owner launched it. It is never the
+//! is each owner's list of the vaults it created for them, and the names
+//! they gave them. `launch` appends the new vault to its caller's list and
+//! nothing else writes it, so a vault is in an owner's list only if that
+//! owner launched it. `set_name` writes only under its caller's address, so
+//! nobody can name a vault in anyone else's list. It is never the
 //! owner of a vault it creates, so it has no way to move a vault's money or
 //! change a vault's rules.
 #![cfg(target = "evm")]
@@ -56,6 +58,20 @@ pub msg LauncherMsg {
     /// the end).
     #[selector = sol("vaultAt(address,uint256)")]
     VaultAt { owner: Address, index: u256 } -> Address,
+
+    /// Names `vault` for its caller: 32 bytes of UTF-8, zero to clear it.
+    /// Written under the caller's address only.
+    #[selector = sol("setName(address,uint256)")]
+    SetName { vault: Address, name: u256 },
+
+    /// The name `owner` gave `vault` (zero: none).
+    #[selector = sol("nameOf(address,address)")]
+    NameOf { owner: Address, vault: Address } -> u256,
+}
+
+/// Where the name `owner` gave `vault` is kept.
+fn name_slot(_ owner: Address, vault: Address) -> u256 {
+    keccak_words([owner.word(), vault.word()])
 }
 
 /// Where the `index`th vault of `owner` is kept.
@@ -74,6 +90,15 @@ pub struct Launched {
     token: Address,
 }
 
+#[event]
+pub struct Named {
+    #[indexed]
+    owner: Address,
+    #[indexed]
+    vault: Address,
+    name: u256,
+}
+
 /// Test dollars can be minted into a vault; any other token cannot.
 #[error]
 pub struct DepositNeedsTestDollar {}
@@ -86,6 +111,7 @@ pub contract Launcher uses (ctx: Ctx, call: mut Call, create: mut Create, log: m
     test_dollar: Address,
     mut vault_count: StorageMap<Address, u256>,
     mut vault_at: StorageMap<u256, Address>,
+    mut name_of: StorageMap<u256, u256>,
 
     init()
     uses (mut create, mut test_dollar)
@@ -178,6 +204,16 @@ pub contract Launcher uses (ctx: Ctx, call: mut Call, create: mut Create, log: m
 
         VaultAt { owner, index } -> Address uses (vault_at) {
             vault_at.get(key: slot(owner, index))
+        }
+
+        SetName { vault, name } uses (ctx, mut name_of, mut log) {
+            let owner = ctx.caller()
+            name_of.set(key: name_slot(owner, vault), value: name)
+            log.emit(Named { owner, vault, name })
+        }
+
+        NameOf { owner, vault } -> u256 uses (name_of) {
+            name_of.get(key: name_slot(owner, vault))
         }
     }
 }

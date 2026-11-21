@@ -13,7 +13,8 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
 import { rpcWallet } from '../mcp/vault.ts'
 import { LAUNCHER, attach, launchVault } from '../src/lib/live/launch.ts'
-import { NETWORKS, type Wallet } from '../src/lib/live/wallet.ts'
+import { NETWORKS, waitFor, type Wallet } from '../src/lib/live/wallet.ts'
+import { encodeName, nameOf, setNameData, vaultsOf } from '../src/lib/live/mine.ts'
 import { USD } from '../src/lib/money.ts'
 
 const keyFile = process.env.HARDSTOP_OWNER_KEY_FILE
@@ -79,6 +80,13 @@ line('agent raises own limit', await sim.propose(raise, sim.agent))
 line('owner proposes $40/day', await sim.propose({ perPayment: 10n * USD, perWindow: 40n * USD, validUntil: now + 30n * DAY, paused: false }))
 line('owner cancels it', await sim.cancelQueued())
 line('owner pauses', await sim.pause())
+
+// The owner names the vault in their own list on the launcher (fe/src/launcher.fe, `setName`).
+const named = await owner.request({ method: 'eth_sendTransaction', params: [{ from: account.address, to: LAUNCHER, data: setNameData(live.vault, encodeName('Evidence vault') as bigint) }] }) as Hex
+const namedReceipt = await waitFor(rpc, named)
+console.log(`owner names the vault       ${named}  ${namedReceipt.status === '0x1' ? 'ok' : 'reverted'}  gas ${BigInt(namedReceipt.gasUsed)}`)
+const { vaults, total } = await vaultsOf(rpc, account.address.toLowerCase() as Hex)
+console.log(`launcher lists ${total} vault(s) for the owner; the newest is ${vaults[vaults.length - 1]}, named "${await nameOf(rpc, account.address.toLowerCase() as Hex, live.vault)}"`)
 
 const state = await sim.state()
 console.log(

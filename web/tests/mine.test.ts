@@ -6,7 +6,7 @@ import { test } from 'node:test'
 import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { LAUNCHER, launchVault } from '../src/lib/live/launch.ts'
-import { MAX_LISTED, summarize, vaultsOf } from '../src/lib/live/mine.ts'
+import { decodeName, encodeName, MAX_LISTED, nameOf, setNameData, summarize, vaultsOf } from '../src/lib/live/mine.ts'
 import { NETWORKS } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
 import type { Setup } from '../src/lib/hardstop/sim.ts'
@@ -75,4 +75,26 @@ test('an address that is not a vault is shown as a problem, not as a vault', asy
 
 test('the list is capped', () => {
   assert.equal(MAX_LISTED, 50)
+})
+
+test('names: up to 32 bytes of UTF-8 round-trip through one word; longer or control characters are refused in words', () => {
+  for (const text of ['Research agent', 'Café ☕ agent', 'x'.repeat(32), '']) {
+    const word = encodeName(text)
+    assert.equal(typeof word, 'bigint', String(word))
+    assert.equal(decodeName(word as bigint), text)
+  }
+  assert.match(String(encodeName('x'.repeat(33))), /at most 32 bytes; this one is 33/)
+  assert.match(String(encodeName('a\u0007b')), /control characters/)
+  // Whatever someone stores, what comes back is plain text with no control characters.
+  assert.equal(decodeName((1n << 256n) - 1n).includes('\u0000'), false)
+})
+
+test("an owner names their vault through the launcher; another owner's name for it is their own", async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, 1)
+  assert.equal(await nameOf(network, OWNER, live.vault), '')
+  const word = encodeName('Research agent') as bigint
+  await network.request({ method: 'eth_sendTransaction', params: [{ from: OWNER, to: LAUNCHER, data: setNameData(live.vault, word) }] })
+  assert.equal(await nameOf(network, OWNER, live.vault), 'Research agent')
+  assert.equal(await nameOf(network, STRANGER, live.vault), '')
 })

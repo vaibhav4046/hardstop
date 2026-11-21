@@ -47,8 +47,8 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 - `fe/src/adversary.fe`: a seeded attacker written in Fe; it catches 15 of
   15 deliberately broken kernels on both targets.
 - `fe/src/launcher.fe`: creates a vault in one transaction, owned by the
-  caller, and keeps each owner's list of vaults on chain. That list is the
-  account: the site's My vaults page signs in with the wallet alone (no
+  caller, and keeps each owner's list of vaults, and the names they give them, on chain.
+  That list is the account: the site's My vaults page signs in with the wallet alone (no
   password, email or server) and shows only the vaults that wallet launched,
   on any device. It is installed through the deterministic deployment proxy,
   so it has the same address on every network. It is installed on Base
@@ -104,8 +104,8 @@ command-line program. Every error code and limit:
 
 ## Evidence it works
 
-- `fe test`: 100 passed on the EVM; 52 passed natively.
-- Web: 95 unit tests (including the MCP server and watcher) and 61 browser
+- `fe test`: 101 passed on the EVM; 52 passed natively.
+- Web: 100 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

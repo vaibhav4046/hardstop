@@ -12,7 +12,7 @@ With Fe 26.6.0 on your path, from the repository root:
 
 ```
 $ cd fe && fe test
-test result: ok. 100 passed; 0 failed
+test result: ok. 101 passed; 0 failed
 
 $ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
 ok   control: Pay may write its own ledger

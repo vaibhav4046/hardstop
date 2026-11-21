@@ -15,10 +15,10 @@ import type { Hex } from 'viem'
 import type { HistoryEvent } from '@/lib/live/history'
 import type { Summary } from '@/lib/live/mine'
 import { explain } from '@/lib/hardstop/reasons'
-import { accountOf, injectedWallet, networkOf, NETWORKS, switchTo, type Network, type Wallet } from '@/lib/live/wallet'
+import { accountOf, injectedWallet, isRefusal, networkOf, NETWORKS, sendAsOwner, switchTo, waitFor, type Network, type Wallet } from '@/lib/live/wallet'
 import { FORMAT, formatTime, formatUsd } from '@/lib/money'
 
-type Row = Summary | { vault: Hex; problem: string }
+type Row = (Summary & { name: string }) | { vault: Hex; problem: string }
 type State =
   | { phase: 'signed-out' }
   | { phase: 'working'; doing: string }
@@ -47,9 +47,14 @@ export function MyVaults() {
     if (!network) return setState({ phase: 'wrong-network', account, chainId })
     setState({ phase: 'working', doing: `Reading your vaults on ${network.name}…` })
     // Loaded only now: it carries the contracts' code, which no other page needs before a vault exists.
-    const { summarize, vaultsOf } = await import('@/lib/live/mine')
+    const { nameOf, summarize, vaultsOf } = await import('@/lib/live/mine')
     const { vaults, total } = await vaultsOf(wallet, account)
-    const rows = await Promise.all(vaults.map((vault) => summarize(wallet, network, vault)))
+    const rows: Row[] = await Promise.all(
+      vaults.map(async (vault) => {
+        const summary = await summarize(wallet, network, vault)
+        return 'problem' in summary ? summary : { ...summary, name: await nameOf(wallet, account, vault) }
+      }),
+    )
     setState({ phase: 'ready', account, network, rows, total })
   }
 
@@ -161,13 +166,14 @@ export function MyVaults() {
       )}
 
       {state.rows.map((row) => (
-        <VaultCard key={row.vault} row={row} network={state.network} />
+        <VaultCard key={row.vault} row={row} network={state.network} account={state.account} />
       ))}
     </div>
   )
 }
 
-function VaultCard({ row, network }: { row: Row; network: Network }) {
+function VaultCard({ row, network, account }: { row: Row; network: Network; account: Hex }) {
+  const [name, setName] = useState('name' in row ? row.name : '')
   const page = `/activity?chain=${network.chainId}&vault=${row.vault}`
   if ('problem' in row) {
     return (
@@ -183,11 +189,12 @@ function VaultCard({ row, network }: { row: Row; network: Network }) {
   return (
     <section className="card" aria-label={`Vault ${row.vault}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h3 className="label mono break-all">
-          <a href={`${network.explorer}/address/${row.vault}`}>{row.vault}</a>
-        </h3>
+        <h3 className="section-title break-words">{name || 'Unnamed vault'}</h3>
         <span className={row.paused ? 'text-stop' : undefined}>{status(row)}</span>
       </div>
+      <p className="small mono break-all mt-1">
+        <a href={`${network.explorer}/address/${row.vault}`}>{row.vault}</a>
+      </p>
       <dl className="rows mt-3 max-w-[40rem]">
         <div>
           <dt>Limits</dt>
@@ -210,6 +217,7 @@ function VaultCard({ row, network }: { row: Row; network: Network }) {
         </Link>
       </p>
       <VaultActivity vault={row.vault} network={network} />
+      <Rename vault={row.vault} account={account} name={name} onNamed={setName} />
       <details className="disclosure mt-5">
         <summary>Connect an AI or watch this vault</summary>
         <p className="small soft">
@@ -297,6 +305,62 @@ function VaultActivity({ vault, network }: { vault: Hex; network: Network }) {
             </li>
           ))}
         </ol>
+      )}
+    </details>
+  )
+}
+
+type Naming = { phase: 'idle' } | { phase: 'sending' } | { phase: 'failed'; message: string } | { phase: 'done' }
+
+/** Names a vault on chain: one transaction from the owner's wallet to the launcher, stored under the owner's address. */
+function Rename({ vault, account, name, onNamed }: { vault: Hex; account: Hex; name: string; onNamed: (name: string) => void }) {
+  const [text, setText] = useState(name)
+  const [naming, setNaming] = useState<Naming>({ phase: 'idle' })
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault()
+    const wallet = injectedWallet()
+    if (!wallet) return setNaming({ phase: 'failed', message: 'No wallet found in this browser.' })
+    const { encodeName, setNameData } = await import('@/lib/live/mine')
+    const word = encodeName(text)
+    if (typeof word === 'string') return setNaming({ phase: 'failed', message: word })
+    setNaming({ phase: 'sending' })
+    try {
+      const { LAUNCHER } = await import('@/lib/live/launch')
+      const sent = await sendAsOwner(wallet, { from: account, to: LAUNCHER, data: setNameData(vault, word) })
+      const receipt = await waitFor(wallet, sent)
+      if (receipt.status !== '0x1') throw new Error('The network refused the change of name.')
+      onNamed(text.trim())
+      setNaming({ phase: 'done' })
+    } catch (error) {
+      setNaming({ phase: 'failed', message: isRefusal(error) ? 'You declined in the wallet. Nothing changed.' : plain(error) })
+    }
+  }
+
+  return (
+    <details className="disclosure mt-5">
+      <summary>Rename</summary>
+      <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={save}>
+        <label className="grid gap-1">
+          <span className="small">Name (up to 32 bytes; only you see it in your list)</span>
+          <input className="input" value={text} onChange={(event) => setText(event.target.value)} autoComplete="off" />
+        </label>
+        <button type="submit" className="btn" disabled={naming.phase === 'sending'}>
+          {naming.phase === 'sending' ? 'Waiting for the network…' : 'Save name'}
+        </button>
+      </form>
+      <p className="small soft mt-2">
+        Saving sends one transaction from your wallet to the launcher. It changes nothing about the vault or its rules.
+      </p>
+      {naming.phase === 'failed' && (
+        <p className="mt-2 text-stop" role="alert">
+          {naming.message}
+        </p>
+      )}
+      {naming.phase === 'done' && (
+        <p className="mt-2" role="status">
+          Saved on the network.
+        </p>
       )}
     </details>
   )

@@ -425,3 +425,76 @@ fn a_launch_that_fails_adds_nothing_to_the_list() uses (evm: mut Evm) {
     assert!(count(launcher, owner: me) == 1)
     assert!(nth(launcher, owner: me, index: 0) == first)
 }
+
+// --- names an owner gives their vaults ----------------------------------------
+
+msg NamerMsg {
+    #[selector = sol("name(address,address,uint256)")]
+    Name { launcher: Address, vault: Address, name: u256 },
+}
+
+/// Someone else: names a vault through the launcher as itself.
+contract Namer uses (call: mut Call) {
+    recv NamerMsg {
+        Name { launcher, vault, name } uses (mut call) {
+            call.call(
+                addr: launcher,
+                gas: 200000,
+                value: Wei::zero(),
+                message: LauncherMsg::SetName { vault, name },
+            )
+        }
+    }
+}
+
+fn name_of(_ launcher: Address, owner: Address, vault: Address) -> u256
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: launcher,
+        gas: GAS,
+        value: Wei::zero(),
+        message: LauncherMsg::NameOf { owner, vault },
+    )
+}
+
+fn set_name(_ launcher: Address, vault: Address, name: u256)
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: launcher,
+        gas: GAS,
+        value: Wei::zero(),
+        message: LauncherMsg::SetName { vault, name },
+    )
+}
+
+#[test]
+fn an_owner_names_a_vault_and_nobody_else_can_change_that_name()
+uses (evm: mut Evm)
+{
+    let launcher = launcher()
+    let me = evm.address()
+    let vault = launch(launcher, agent: key(), salt: 7)
+    assert!(name_of(launcher, owner: me, vault) == 0)
+    set_name(launcher, vault, name: 0x5265736561726368)
+    assert!(name_of(launcher, owner: me, vault) == 0x5265736561726368)
+
+    // Someone else naming the same vault writes under their own address only.
+    let other = evm.create2<Namer>(value: Wei::zero(), args: (), salt: 3)
+    let _ = evm
+        .call(
+            addr: other,
+            gas: GAS,
+            value: Wei::zero(),
+            message: NamerMsg::Name { launcher, vault, name: 0x6861636b6564 },
+        )
+    assert!(name_of(launcher, owner: me, vault) == 0x5265736561726368)
+    assert!(name_of(launcher, owner: other, vault) == 0x6861636b6564)
+
+    // Renaming and clearing.
+    set_name(launcher, vault, name: 0x4f7073)
+    assert!(name_of(launcher, owner: me, vault) == 0x4f7073)
+    set_name(launcher, vault, name: 0)
+    assert!(name_of(launcher, owner: me, vault) == 0)
+}

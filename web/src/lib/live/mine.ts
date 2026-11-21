@@ -74,3 +74,40 @@ export async function summarize(wallet: Wallet, network: Network, vault: Hex): P
     return { vault, problem }
   }
 }
+
+/** A vault name is at most this many bytes of UTF-8: one 32-byte word on chain. */
+export const NAME_BYTES = 32
+
+/** The word stored on chain for `text`, or a plain sentence saying why it cannot be a name. */
+export function encodeName(text: string): bigint | string {
+  const trimmed = text.trim()
+  const bytes = new TextEncoder().encode(trimmed)
+  if (bytes.length > NAME_BYTES) return `A name can be at most ${NAME_BYTES} bytes; this one is ${bytes.length}.`
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return 'A name cannot contain control characters.'
+  let word = 0n
+  for (const byte of bytes) word = (word << 8n) | BigInt(byte)
+  return word << BigInt(8 * (NAME_BYTES - bytes.length))
+}
+
+/** The text of a stored name; '' for none. Bytes that are not valid UTF-8 are replaced, never trusted as markup. */
+export function decodeName(word: bigint): string {
+  const bytes: number[] = []
+  for (let shift = BigInt(8 * (NAME_BYTES - 1)); shift >= 0n; shift -= 8n) bytes.push(Number((word >> shift) & 0xffn))
+  while (bytes.length > 0 && bytes[bytes.length - 1] === 0) bytes.pop()
+  return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes)).replace(/[\u0000-\u001f\u007f]/g, '')
+}
+
+/** The name `owner` gave `vault`; '' for none or when the launcher is not installed. */
+export async function nameOf(wallet: Wallet, owner: Hex, vault: Hex, launcher: Hex = LAUNCHER): Promise<string> {
+  const code = (await wallet.request({ method: 'eth_getCode', params: [launcher, 'latest'] })) as Hex
+  if (code.length <= 2) return ''
+  const word = await call(wallet, launcher, encodeFunctionData({ abi: launcherAbi, functionName: 'nameOf', args: [owner, vault] }), (data) =>
+    decodeFunctionResult({ abi: launcherAbi, functionName: 'nameOf', data }),
+  )
+  return decodeName(word)
+}
+
+/** The data for the owner's `setName` transaction. */
+export function setNameData(vault: Hex, word: bigint): Hex {
+  return encodeFunctionData({ abi: launcherAbi, functionName: 'setName', args: [vault, word] })
+}

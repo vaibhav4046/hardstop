@@ -636,7 +636,7 @@ pin_check_catches "prove accepting the transaction's origin as the owner" "$(cop
 # is left blank) compiled and passed fe test and everything above, since the
 # vault's own code did not change. launcher.fe is pinned the same way, and
 # web/tests/launcher.test.ts reads every rule of a launched vault back.
-PIN_LAUNCHER=5393f98e0fae7c1d9fefed7101f9d20750004c6dea56ecf1a01b33c99859f91c
+PIN_LAUNCHER=f4eb71ef31dab7e9d89aa4ae183fd331c99f305a49c00716a4ae6a3970958924
 check_launcher() {
   local got
   got=$(code_sha < "$1")
