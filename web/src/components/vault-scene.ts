@@ -225,6 +225,11 @@ export function mountVault(canvas: HTMLCanvasElement, options: Options): (() => 
   const debug = context.getExtension('WEBGL_debug_renderer_info')
   const name = String(context.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : context.RENDERER))
   if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name)) return null
+  // This canvas may have been drawn on before (the home page is kept in
+  // memory and returned to), so start from the context's default unpack
+  // state; settings left by the last scene make the browser warn.
+  context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL, false)
+  context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
   let renderer: WebGLRenderer | null = null
   try {
     renderer = new WebGLRenderer({ canvas, context, ...attributes })

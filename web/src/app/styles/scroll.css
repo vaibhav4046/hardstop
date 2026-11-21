@@ -18,8 +18,7 @@
     /* Section openers rise as they come in. */
     .band > .eyebrow,
     .band > .section-title,
-    .band > .section-lede,
-    .band > .column-title {
+    .band > .section-lede {
       animation: settle-in linear both;
       animation-timeline: view();
       animation-range: entry 0% entry 90%;
