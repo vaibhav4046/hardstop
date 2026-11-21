@@ -137,6 +137,8 @@ export function HeroBackdrop() {
         .then(({ mountVault }) => {
           if (isCancelled) return
           stop = mountVault(canvas, { onReady: () => set3d(true), onLost: () => set3d(false) })
+          // Could not start (this time): make sure the still picture is the one showing.
+          if (stop === null) set3d(false)
         })
         // A chunk that fails to load leaves the still picture, which is already drawn.
         .catch(() => set3d(false))

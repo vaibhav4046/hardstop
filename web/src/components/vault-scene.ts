@@ -218,15 +218,13 @@ export function mountVault(canvas: HTMLCanvasElement, options: Options): (() => 
     failIfMajorPerformanceCaveat: true,
   }
   const context = canvas.getContext('webgl2', attributes)
-  if (!context) return null
+  // A lost context (the graphics card reset, say) cannot draw; the still picture stays.
+  if (!context || context.isContextLost()) return null
   // Some browsers hand out a software renderer anyway (headless Chromium does,
   // with SwiftShader). Drawing on the processor is what this must never do.
   const debug = context.getExtension('WEBGL_debug_renderer_info')
   const name = String(context.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : context.RENDERER))
-  if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name)) {
-    context.getExtension('WEBGL_lose_context')?.loseContext()
-    return null
-  }
+  if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name)) return null
   let renderer: WebGLRenderer | null = null
   try {
     renderer = new WebGLRenderer({ canvas, context, ...attributes })
@@ -422,8 +420,11 @@ function run(canvas: HTMLCanvasElement, renderer: WebGLRenderer, { onReady, onLo
     halo.dispose()
     target.dispose()
     lighting.dispose()
+    // The context itself is left alive, never forced lost. The site keeps
+    // the home page in memory while another page is open and comes back to
+    // this same canvas, and a canvas whose context was killed can only show
+    // a blank, broken box from then on.
     renderer.dispose()
-    renderer.forceContextLoss()
   }
   const onContextLost = () => {
     stop()
