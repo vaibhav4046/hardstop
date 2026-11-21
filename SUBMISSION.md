@@ -46,10 +46,12 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
   kernel can see.
 - `fe/src/adversary.fe`: a seeded attacker written in Fe; it catches 15 of
   15 deliberately broken kernels on both targets.
-- `fe/src/launcher.fe`: creates a vault in one transaction. It is installed
-  through the deterministic deployment proxy, so on any network where it is
-  installed it has the same address. The current one is installed on Base
-  Sepolia (2026-11-21); on another network the site installs it on first
+- `fe/src/launcher.fe`: creates a vault in one transaction, owned by the
+  caller, and keeps each owner's list of vaults on chain. That list is the
+  account: the site's My vaults page signs in with the wallet alone (no
+  password, email or server) and shows only the vaults that wallet launched,
+  on any device. It is installed through the deterministic deployment proxy,
+  so it has the same address on every network; the site installs it on first
   use (one extra wallet approval).
 
 ## Fe highlight
@@ -89,8 +91,8 @@ each one (`scripts/pay-cannot-loosen.sh`).
 
 **Where the compiler stops.** Where `Pay` sends allowed money, what it tells
 the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
-values), and the bodies of `init`, `sealed.fe` and the launcher are guarded
-by tests and by source checks that read the text and pin that code (27
+values), and the bodies of `init`, the kernel, `sealed.fe` and the launcher are guarded
+by tests and by source checks that read the text and pin that code (30
 checks and catches), not by the compiler. One gap was a Fe bug: any type could
 implement Fe 26.6's private `Call` trait, so a forged `Call` compiled. This
 project reported it (argotorg/fe#2036) and fixed it in the compiler
@@ -101,8 +103,8 @@ command-line program. Every error code and limit:
 
 ## Evidence it works
 
-- `fe test`: 98 passed on the EVM; 52 passed natively.
-- Web: 90 unit tests (including the MCP server and watcher) and 61 browser
+- `fe test`: 100 passed on the EVM; 52 passed natively.
+- Web: 95 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

@@ -38,11 +38,11 @@ in Fe itself, private traits that anyone could implement; the fix,
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `98 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 64 lines starting `ok` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `100 passed; 0 failed` |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 67 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `90` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `95` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 61 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -161,7 +161,7 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
 refuse each attack (30 refusals, plus 7 control edits that must still
-compile and 27 source-check lines, in
+compile and 30 source-check lines, in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source
@@ -172,9 +172,9 @@ catches eight edits that compile. A further source check pins the vault's
 shape (its imports, storage, handlers and their `uses`, no token
 approvals, and the chain's own time for every `now` given to the kernel)
 and catches six more edits that compile and pass every test. `init`, the
-helpers around the contract, all of `kernel/sealed.fe` and all of
+helpers around the contract, and all of `kernel.fe`, `kernel/sealed.fe` and
 `launcher.fe` are pinned by their sha256, so a change to them fails CI until
-the pin is updated; that catches four more edits Fe judges found on
+the pin is updated; that catches six more edits Fe judges found on
 2026-11-21.
 
 The full account, with every error code and limit:
@@ -215,7 +215,8 @@ fe/src/
   kernel.fe           pure. decide / amend / cancel / exposure. Both targets.
   adversary.fe        pure. Seeded campaign + reference spec. Both targets.
   vault.fe            EVM only. Holds the token, gathers facts, obeys the kernel.
-  launcher.fe         EVM only. Creates a vault in one transaction, owned by the caller.
+  launcher.fe         EVM only. Creates a vault in one transaction, owned by the caller,
+                      and lists each owner's vaults on chain.
   token.fe            EVM only. 6-decimal test token.
   cli.fe              native only. decide / exposure / batch / campaign.
   tests.fe            kernel tests, run on both targets
@@ -232,7 +233,7 @@ web/
                       differential test: contract vs native kernel
   e2e/                scripted persona, accessibility and performance tests
                       in a real browser (Playwright)
-  src/app/            the practice-mode app
+  src/app/            the app: practice mode, a vault on a test network, My vaults
 ```
 
 ```
@@ -260,7 +261,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 98 tests on the EVM
+fe test                           # 100 tests on the EVM
 fe test --backend native          # the 52 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
@@ -270,7 +271,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 90 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 95 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 61 browser tests against the production build
@@ -286,7 +287,7 @@ Measured from 2026-11-17 to 2026-11-20; raw output in [`EVIDENCE_LOG.md`](EVIDEN
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 98 passed, 0 failed |
+| `fe test` (EVM) | 100 passed, 0 failed |
 | `fe test --backend native` | 52 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 15 of 15 mutants caught, on both targets (the 15th, a cancel that lands a raise at once, added after the third review) |
@@ -350,6 +351,32 @@ substitute for the second.
   console error.
 - **Locally:** `cd web && npm run dev`, then open http://localhost:3000.
 
+## Accounts, profiles and isolation
+
+There is no password, email or user table to steal, because there is no
+account server. **Your wallet is your account**: signing in on
+[My vaults](https://hardstop-omega.vercel.app/vaults) asks the wallet for
+its address and nothing else, and nothing is signed or sent.
+
+**Your profile is on chain.** The launcher (`fe/src/launcher.fe`) keeps,
+for each owner, the list of vaults it created for them (`vaultCount`,
+`vaultAt`). Only `launch` writes it, and only for its caller, so a vault is
+in your list only if you launched it, and the list is the same on any
+device. The page reads it, checks every vault's code against the known
+builds, and shows each vault's status, limits, balance and agent, with a
+link to its controls and its own setup for an AI and for the watcher.
+
+**Every user is isolated by the chain itself.** Each vault is its own
+contract with one owner, one agent and one token. Owner actions take a
+proof the compiler makes only for the vault's owner (`OwnerCall`), so
+another user, the site, the launcher or an agent cannot change your vault.
+Each AI connects through its own MCP server process holding only its own
+vault's agent key, so one user's agent cannot see or spend from another's
+vault. Tests: `fe/src/launcher_tests.fe` (each owner lists only the vaults
+they launched; a failed launch adds nothing), `web/tests/mine.test.ts`,
+and two browser tests in `web/e2e/live.spec.ts` (the owner sees both of
+their vaults; another wallet sees none).
+
 ## Connect your AI
 
 Any assistant that speaks MCP can become a vault's agent: Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code, or Python agents. `web/mcp/server.ts` gives it five tools: status, preview, pay, recipients, and asking the owner for more. There are no owner tools, and the server never holds the owner's key, so the AI cannot loosen its own limits. `web/mcp/watch.ts` watches the vault 24/7 for the owner and alerts on waiting loosenings, payments, refusals, pauses and the end date. To try it with nothing installed but Node 20+, add the demo to Claude Code in one line, `claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo`, or run that `npx` command in any MCP client's config (a one-file build of the server; the demo is an in-memory network, nothing real). From a clone: `cd web && HARDSTOP_FAKE=1 node mcp/server.ts`. Setup for each client is in [`web/mcp/README.md`](web/mcp/README.md).
@@ -378,10 +405,11 @@ approved recipient):
 ## Limitations
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee`, is
-  installed on Base Sepolia (2026-11-21, transactions in the results table);
-  on Sepolia the site installs it on first use, which takes one extra wallet
-  approval. Earlier launchers stay on Base Sepolia
+  The current launcher, `0xeac071c085b20c02f36ed1771cbf9826da6b8e02` (the
+  same vault code as `0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee`, installed on
+  Base Sepolia on 2026-11-21 with the transactions in the results table, plus
+  the per-owner vault list), is not installed on any network yet: the site
+  installs it on first use, which takes one extra wallet approval. Earlier launchers stay on Base Sepolia
   with the vaults opened through them (seven, listed in
   [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md#launchers-on-base-sepolia)). A
   launcher's address follows from its code, so every change to the
@@ -401,8 +429,8 @@ approved recipient):
 - **Open only vaults you launched yourself.** The launcher makes whoever
   calls it the owner, so the founding recipients are the owner's choice. A
   vault someone else deployed with the same code and you as owner can carry
-  founding recipients you did not choose, and the site cannot list a
-  vault's recipients; it checks the code, not who deployed it.
+  founding recipients you did not choose. My vaults lists only vaults your
+  wallet launched; a vault opened from a link is checked by its code only.
 - **Alerts need the watcher running.** The site has no server and sends
   nothing: every page shows a waiting loosening with a cancel button while
   it is open. The optional, self-hosted watcher (`web/mcp/watch.ts`) checks

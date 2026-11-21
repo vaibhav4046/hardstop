@@ -332,3 +332,96 @@ fn a_cooling_period_under_a_minute_is_rejected() uses (evm: mut Evm) {
     message.cooling_secs = 59
     let _: Address = evm.call(addr: launcher, gas: GAS, value: Wei::zero(), message)
 }
+
+// --- each owner's list of vaults ---------------------------------------------
+
+msg OpenerMsg {
+    #[selector = sol("open(address,uint256)")]
+    Open { launcher: Address, salt: u256 } -> Address,
+}
+
+/// Another owner: launches a vault of its own, so it is that vault's owner.
+contract Opener uses (call: mut Call) {
+    recv OpenerMsg {
+        Open { launcher, salt } -> Address uses (mut call) {
+            call.call(
+                addr: launcher,
+                gas: 4000000,
+                value: Wei::zero(),
+                message: order(agent: key(), token: Address::zero(), deposit: 0, salt),
+            )
+        }
+    }
+}
+
+fn count(_ launcher: Address, owner: Address) -> u256 uses (evm: mut Evm) {
+    evm.call(
+        addr: launcher,
+        gas: GAS,
+        value: Wei::zero(),
+        message: LauncherMsg::VaultCount { owner },
+    )
+}
+
+fn nth(_ launcher: Address, owner: Address, index: u256) -> Address
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: launcher,
+        gas: GAS,
+        value: Wei::zero(),
+        message: LauncherMsg::VaultAt { owner, index },
+    )
+}
+
+#[test]
+fn each_owner_lists_only_the_vaults_they_launched() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let me = evm.address()
+    assert!(count(launcher, owner: me) == 0)
+    let first = launch(launcher, agent: key(), salt: 7)
+    let second = launch(launcher, agent: key(), salt: 8)
+
+    let other = evm.create2<Opener>(value: Wei::zero(), args: (), salt: 2)
+    let theirs: Address = evm
+        .call(
+            addr: other,
+            gas: GAS,
+            value: Wei::zero(),
+            message: OpenerMsg::Open { launcher, salt: 7 },
+        )
+    assert!(theirs != first && theirs != second)
+
+    assert!(count(launcher, owner: me) == 2)
+    assert!(nth(launcher, owner: me, index: 0) == first)
+    assert!(nth(launcher, owner: me, index: 1) == second)
+    assert!(nth(launcher, owner: me, index: 2) == Address::zero())
+    assert!(count(launcher, owner: other) == 1)
+    assert!(nth(launcher, owner: other, index: 0) == theirs)
+    // The agent, the launcher and the vaults themselves own nothing here.
+    assert!(count(launcher, owner: key()) == 0)
+    assert!(count(launcher, owner: launcher) == 0)
+    assert!(count(launcher, owner: first) == 0)
+}
+
+#[test]
+fn a_launch_that_fails_adds_nothing_to_the_list() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let me = evm.address()
+    let first = launch(launcher, agent: key(), salt: 7)
+    let again = evm
+        .try_call(
+            addr: launcher,
+            gas: GAS,
+            value: Wei::zero(),
+            message: order(
+                agent: key(),
+                token: Address::zero(),
+                deposit: 100 * USD,
+                salt: 7,
+            ),
+        )
+    assert!(!again.success())
+    assert!(count(launcher, owner: me) == 1)
+    assert!(nth(launcher, owner: me, index: 0) == first)
+}

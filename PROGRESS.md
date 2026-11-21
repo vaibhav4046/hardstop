@@ -8,12 +8,12 @@ the reference; this page only says where things stand.
 | Check | Result |
 |---|---|
 | `fe fmt --check` | clean |
-| `fe test` (EVM) | 98 passed, 0 failed |
+| `fe test` (EVM) | 100 passed, 0 failed |
 | `fe test --backend native` (WSL) | 52 passed, 0 failed |
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
-| `scripts/pay-cannot-loosen.sh` | 64 lines starting `ok`: 30 compiler refusals, 7 controls that must compile, 27 source-check lines (6 checks, 21 edits they must catch) |
+| `scripts/pay-cannot-loosen.sh` | 67 lines starting `ok`: 30 compiler refusals, 7 controls that must compile, 30 source-check lines (7 checks, 23 edits they must catch) |
 | Committed web artifacts vs a fresh build | identical |
-| `npm test` (web) | 90 tests, all passing in CI (88 pass on this Windows machine; the 2 MCP-over-HTTP tests time out here, see EVIDENCE_LOG) |
+| `npm test` (web) | 95 tests, all passing in CI (92 pass on this Windows machine, 1 skipped; the 2 MCP-over-HTTP tests time out here, see EVIDENCE_LOG) |
 | `npx tsc --noEmit` | clean |
 | Browser suite | 61 tests; green in CI (GitHub Actions) |
 | Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app |

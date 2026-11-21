@@ -4,12 +4,15 @@
 //! dollars when asked to, and passes any ETH sent along to the agent so the
 //! agent's own key can pay for gas.
 //!
-//! The launcher has no owner, no settings and no storage that can change. It
-//! is never the owner of a vault it creates, so it has no way to move a
-//! vault's money or change a vault's rules.
+//! The launcher has no owner and no settings. Its only storage that changes
+//! is each owner's list of the vaults it created for them: `launch` appends
+//! the new vault to its caller's list and nothing else writes it, so a vault
+//! is in an owner's list only if that owner launched it. It is never the
+//! owner of a vault it creates, so it has no way to move a vault's money or
+//! change a vault's rules.
 #![cfg(target = "evm")]
 
-use std::evm::{Address, Call, Create, Ctx, Log, revert_error}
+use std::evm::{Address, Call, Create, Ctx, Log, StorageMap, revert_error}
 use std::evm::crypto::keccak_words
 use ingot::token::{TestDollar, TokenMsg}
 use ingot::vault::Vault
@@ -44,6 +47,20 @@ pub msg LauncherMsg {
     /// The test token created with this launcher.
     #[selector = sol("token()")]
     Token -> Address,
+
+    /// How many vaults `owner` has launched here.
+    #[selector = sol("vaultCount(address)")]
+    VaultCount { owner: Address } -> u256,
+
+    /// The `index`th vault `owner` launched here, oldest first (zero past
+    /// the end).
+    #[selector = sol("vaultAt(address,uint256)")]
+    VaultAt { owner: Address, index: u256 } -> Address,
+}
+
+/// Where the `index`th vault of `owner` is kept.
+fn slot(_ owner: Address, index: u256) -> u256 {
+    keccak_words([owner.word(), index])
 }
 
 #[event]
@@ -67,6 +84,8 @@ pub struct AgentRefusedEth {}
 
 pub contract Launcher uses (ctx: Ctx, call: mut Call, create: mut Create, log: mut Log) {
     test_dollar: Address,
+    mut vault_count: StorageMap<Address, u256>,
+    mut vault_at: StorageMap<u256, Address>,
 
     init()
     uses (mut create, mut test_dollar)
@@ -90,7 +109,7 @@ pub contract Launcher uses (ctx: Ctx, call: mut Call, create: mut Create, log: m
             deposit,
             salt,
         } -> Address
-        uses (ctx, test_dollar, mut call, mut create, mut log)
+        uses (ctx, test_dollar, mut call, mut create, mut log, mut vault_count, mut vault_at)
         {
             let owner = ctx.caller()
             let testing = token == Address::zero()
@@ -140,12 +159,25 @@ pub contract Launcher uses (ctx: Ctx, call: mut Call, create: mut Create, log: m
                 }
             }
 
+            // The owner's list, for finding their vaults from any device.
+            let count = vault_count.get(key: owner)
+            vault_at.set(key: slot(owner, index: count), value: vault)
+            vault_count.set(key: owner, value: count + 1)
+
             log.emit(Launched { owner, vault, agent, token: held })
             vault
         }
 
         Token -> Address uses (test_dollar) {
             test_dollar
+        }
+
+        VaultCount { owner } -> u256 uses (vault_count) {
+            vault_count.get(key: owner)
+        }
+
+        VaultAt { owner, index } -> Address uses (vault_at) {
+            vault_at.get(key: slot(owner, index))
         }
     }
 }

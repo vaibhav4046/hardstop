@@ -9,10 +9,11 @@ import type { Page } from '@playwright/test'
 import { FakeNetwork, FAKE_CHAIN_ID } from '../tests/fake-network.ts'
 import { attach, launchVault } from '../src/lib/live/launch.ts'
 import { NETWORKS } from '../src/lib/live/wallet.ts'
+import type { Setup } from '../src/lib/hardstop/sim.ts'
 import path from 'node:path'
 import { expect, newest, overflow, press, receipts, REPO, shot, test } from './helpers'
 
-const OWNER = '0x00000000000000000000000000000000000a11ce'
+const OWNER = '0x00000000000000000000000000000000000a11ce' as const
 const LIVE_KEY = 'hardstop.live.v1'
 
 /** Gives the page a wallet backed by `network`; `shown` replaces the account it shares with the site. */
@@ -246,5 +247,49 @@ test.describe('A vault on a test network', () => {
     await expect(page.getByText('There is no vault at 0x0000000000000000000000000000000000000bad', { exact: false })).toBeVisible()
     await page.goto('/activity?chain=1&vault=0x0000000000000000000000000000000000000bad')
     await expect(page.getByText('The link names a vault this site cannot open. Check the link.')).toBeVisible()
+  })
+
+  test("My vaults: signing in with the wallet lists the vaults it launched, read from the chain", async ({ page }) => {
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const network = await FakeNetwork.create(OWNER, now)
+    const chain = NETWORKS.find((candidate) => candidate.chainId === FAKE_CHAIN_ID)!
+    const setup: Setup = { owner: OWNER, agent: OWNER, perPayment: 10_000_000n, perWindow: 20_000_000n, validUntil: now + 86_400n * 30n, windowSecs: 86_400n, coolingSecs: 86_400n, payees: [], funding: 100_000_000n, now }
+    const first = await launchVault(network, chain, setup, () => {}, 1)
+    const second = await launchVault(network, chain, { ...setup, perWindow: 30_000_000n }, () => {}, 1)
+    const approvedBefore = network.approved.length
+    await connect(page, network)
+    await page.goto('/vaults')
+    await page.getByRole('button', { name: 'Connect wallet' }).click()
+    const account = page.locator('section[aria-labelledby="account-title"]')
+    await expect(account).toContainText(OWNER)
+    await expect(account).toContainText('Base Sepolia')
+    for (const live of [first, second]) {
+      const card = page.getByRole('region', { name: `Vault ${live.vault}` })
+      await expect(card).toContainText('Active')
+      await expect(card).toContainText('$100.00')
+      await expect(card.getByRole('link', { name: 'Open vault' })).toHaveAttribute('href', `/activity?chain=${FAKE_CHAIN_ID}&vault=${live.vault}`)
+    }
+    await expect(page.getByRole('region', { name: `Vault ${second.vault}` })).toContainText('$30.00 a day')
+    // Signing in asked for the address only: nothing was signed or sent.
+    expect(network.approved.length).toBe(approvedBefore)
+    expect((await overflow(page)).offenders).toEqual([])
+  })
+
+  test('My vaults: another wallet signing in sees none of them', async ({ page }) => {
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const network = await FakeNetwork.create(OWNER, now)
+    const chain = NETWORKS.find((candidate) => candidate.chainId === FAKE_CHAIN_ID)!
+    await launchVault(network, chain, { owner: OWNER, agent: OWNER, perPayment: 10_000_000n, perWindow: 20_000_000n, validUntil: now + 86_400n * 30n, windowSecs: 86_400n, coolingSecs: 86_400n, payees: [], funding: 0n, now }, () => {}, 1)
+    const stranger = '0x000000000000000000000000000000000000beef'
+    await connect(page, network)
+    await page.addInitScript((who) => {
+      const wallet = (window as unknown as { ethereum: { request: (args: { method: string }) => Promise<unknown> } }).ethereum
+      const ask = wallet.request
+      wallet.request = (args) => (args.method === 'eth_requestAccounts' ? Promise.resolve([who]) : ask(args))
+    }, stranger)
+    await page.goto('/vaults')
+    await page.getByRole('button', { name: 'Connect wallet' }).click()
+    await expect(page.locator('section[aria-labelledby="account-title"]')).toContainText(stranger)
+    await expect(page.getByText('No vaults launched from this wallet on Base Sepolia yet.', { exact: false })).toBeVisible()
   })
 })

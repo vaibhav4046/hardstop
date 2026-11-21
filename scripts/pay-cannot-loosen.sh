@@ -636,7 +636,7 @@ pin_check_catches "prove accepting the transaction's origin as the owner" "$(cop
 # is left blank) compiled and passed fe test and everything above, since the
 # vault's own code did not change. launcher.fe is pinned the same way, and
 # web/tests/launcher.test.ts reads every rule of a launched vault back.
-PIN_LAUNCHER=c7ecbc5d0a4c4e2c0903156802b22dfcf1c46568352862533c7ee57c738d7ec3
+PIN_LAUNCHER=5393f98e0fae7c1d9fefed7101f9d20750004c6dea56ecf1a01b33c99859f91c
 check_launcher() {
   local got
   got=$(code_sha < "$1")
@@ -656,6 +656,39 @@ if check_launcher "$edited_launcher" >/dev/null; then
 fi
 rm -f "$edited_launcher"
 echo "ok   source check catches: the launcher approving the agent when a recipient is left blank"
+
+# A fourth pass (2026-11-21) found kernel.fe unpinned: two one-line edits that
+# only act between two dates around today (every test runs at times before
+# or after them) let the agent pay past its caps, or let a raise mature after
+# one second. Both compiled and passed fe test, the static asserts, the
+# differential test (it builds both sides from this same file) and every
+# check above. kernel.fe is pinned the same way.
+PIN_KERNEL=4b9dd73a5253def66e564144886bc9676232258bdfe22869f9ebe0522b562f8e
+check_kernel() {
+  local got
+  got=$(code_sha < "$1")
+  [ "$got" = "$PIN_KERNEL" ] || { echo "kernel.fe changed (now $got)"; return 1; }
+}
+if ! why=$(check_kernel "$ROOT/fe/src/kernel.fe"); then
+  echo "FAIL $why"
+  exit 1
+fi
+echo "ok   source check: kernel.fe matches its pinned sha256"
+kernel_check_catches() {
+  local name=$1 edited
+  shift
+  edited=$(mktemp)
+  sed "$@" "$ROOT/fe/src/kernel.fe" > "$edited"
+  if cmp -s "$edited" "$ROOT/fe/src/kernel.fe" || check_kernel "$edited" >/dev/null; then
+    rm -f "$edited"
+    echo "FAIL source check missed: $name"
+    exit 1
+  fi
+  rm -f "$edited"
+  echo "ok   source check catches: $name"
+}
+kernel_check_catches 'decide ignoring the caps between two dates around today'   -e 's/^    if request.amount > policy.per_payment {$/    if request.amount > policy.per_payment \&\& !(now.secs > 1790000000 \&\& now.secs < 1800000000) {/'   -e 's/^    if request.amount > left {$/    if request.amount > left \&\& !(now.secs > 1790000000 \&\& now.secs < 1800000000) {/'
+kernel_check_catches 'a raise maturing after one second between two dates around today'   -e 's/^    let at = now + schedule.cooling_secs$/    let at = now + if now.secs > 1790000000 \&\& now.secs < 1800000000 { Seconds::of(1) } else { schedule.cooling_secs }/'
 
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no

@@ -12,7 +12,7 @@ With Fe 26.6.0 on your path, from the repository root:
 
 ```
 $ cd fe && fe test
-test result: ok. 98 passed; 0 failed
+test result: ok. 100 passed; 0 failed
 
 $ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
 ok   control: Pay may write its own ledger
@@ -20,7 +20,7 @@ ok   refused: Pay writing terms
 ok   refused: Pay approving a recipient
 ...
 ok   refused: amend applying a raise at once
-                                   (64 lines starting ok: 30 refused, 7 controls, 27 source checks)
+                                   (67 lines starting ok: 30 refused, 7 controls, 30 source checks)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
                                    (CI runs both on every push, plus the patched compiler: job patched-fe;
@@ -44,7 +44,7 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
 | Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide` | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires each of those lines exactly as written, once, and catches four edits that change them |
 | Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
-| Not covered by the compiler | the bodies of `init`, of `prove` and the rest of `kernel/sealed.fe`, of the helpers around the contract (`seconds`, `founded`), and all of `launcher.fe` | edits compile and pass `fe test` (an Fe judge found three on 2026-11-21: `init` also approving the agent, `prove` accepting `tx.origin`, `seconds` reading the clock a day ahead; and a later pass, the launcher approving the agent whenever a recipient is left blank); a source check pins that code by sha256, comments and blank lines ignored, and catches all four; `launcher.test.ts` also reads every rule of a launched vault back |
+| Not covered by the compiler | the bodies of `init`, of `prove` and the rest of `kernel/sealed.fe`, of the helpers around the contract (`seconds`, `founded`), and all of `launcher.fe` and `kernel.fe` | edits compile and pass `fe test` (an Fe judge found three on 2026-11-21: `init` also approving the agent, `prove` accepting `tx.origin`, `seconds` reading the clock a day ahead; later passes found the launcher approving the agent whenever a recipient is left blank, and two kernel edits that act only between two dates around today, paying past the caps or maturing a raise after one second); a source check pins that code by sha256, comments and blank lines ignored, and catches all six; `launcher.test.ts` also reads every rule of a launched vault back |
 | Not covered by the compiler or the source checks | the bodies of the view handlers (`policy()`, `queued()`, ...) | an edit that makes `policy()` show old limits compiles and passes `fe test`; the web tests catch it (`differential.test.ts` against the native kernel, and the vault code hash in `vault-code.test.ts`) |
 | Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 

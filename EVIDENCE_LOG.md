@@ -858,3 +858,31 @@ controls, 27 source-check lines). The same pass found the view handlers'
 bodies (`policy()` and the rest) guarded only by the web tests (the
 differential test and the vault code hash), now stated in FE_HIGHLIGHT, and
 no bug in the unedited code.
+
+### Accounts on chain, and a fourth attack pass, 21 Nov
+
+Asked for sign-up, profiles and per-user isolation. There is no account
+server: the wallet is the account. The launcher now keeps each owner's list
+of the vaults it created for them (`vaultCount`, `vaultAt` in
+`fe/src/launcher.fe`; only `launch` appends, for its caller), and a new
+page, My vaults (`/vaults`), signs in with the wallet (it asks for the
+address only; nothing is signed or sent), reads that list, checks each
+vault's code against the known builds and shows its status, limits,
+balance and agent, with its own setup for an AI and the watcher. The vault
+bytecode did not change; the launcher did, so its address is now
+`0xeac071c085b20c02f36ed1771cbf9826da6b8e02`, not yet installed on any
+network (the site installs it on first use). Tests: two new Fe launcher
+tests (`fe test` 100 passed), `web/tests/mine.test.ts` (5), and two browser
+tests (the owner sees both of their vaults with the right limits; another
+wallet sees none; signing in sends nothing).
+
+A fourth attack pass found `kernel.fe` unpinned: two one-line edits that act
+only between two dates around today (1,790,000,000 to 1,800,000,000
+seconds; every test runs before or after that) let the agent pay past its
+caps, or let a raise mature after one second. Both compiled and passed
+`fe test`, the static asserts, the refusal script and, with the vault's
+code hash list updated, every web test: the differential test builds both
+sides from the same `kernel.fe`. `kernel.fe` is now pinned by sha256 too,
+and the script requires both edits to be caught: 67 ok (30 refused, 7
+controls, 30 source-check lines). The same pass found nothing in the web
+app or the MCP server.
