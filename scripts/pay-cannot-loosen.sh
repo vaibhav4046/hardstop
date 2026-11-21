@@ -631,6 +631,32 @@ edited_sealed=$(mktemp)
 sed 's/ctx.caller() == owner.address {$/(ctx.caller() == owner.address || ctx.origin() == owner.address) {/' "$SEALED" > "$edited_sealed"
 pin_check_catches "prove accepting the transaction's origin as the owner" "$(copy_of "$ROOT/fe/src/vault.fe")" "$edited_sealed"
 
+# A third Fe judge pass (2026-11-21) found the launcher unchecked: an edit
+# to what `Launch` hands the vault (the agent approved whenever a recipient
+# is left blank) compiled and passed fe test and everything above, since the
+# vault's own code did not change. launcher.fe is pinned the same way, and
+# web/tests/launcher.test.ts reads every rule of a launched vault back.
+PIN_LAUNCHER=c7ecbc5d0a4c4e2c0903156802b22dfcf1c46568352862533c7ee57c738d7ec3
+check_launcher() {
+  local got
+  got=$(code_sha < "$1")
+  [ "$got" = "$PIN_LAUNCHER" ] || { echo "launcher.fe changed (now $got)"; return 1; }
+}
+if ! why=$(check_launcher "$ROOT/fe/src/launcher.fe"); then
+  echo "FAIL $why"
+  exit 1
+fi
+echo "ok   source check: launcher.fe matches its pinned sha256"
+edited_launcher=$(mktemp)
+sed 's/^                        payee_b,$/                        if payee_b == Address::zero() { agent } else { payee_b },/' "$ROOT/fe/src/launcher.fe" > "$edited_launcher"
+if check_launcher "$edited_launcher" >/dev/null; then
+  rm -f "$edited_launcher"
+  echo "FAIL source check missed: the launcher approving the agent when a recipient is left blank"
+  exit 1
+fi
+rm -f "$edited_launcher"
+echo "ok   source check catches: the launcher approving the agent when a recipient is left blank"
+
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no
 #    error other than code $4 (by default "static assertion failed", 8-0081).

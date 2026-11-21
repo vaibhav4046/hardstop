@@ -230,3 +230,26 @@ test('the deployed launcher is the runtime bytecode in the artifacts plus its to
   // Fe keeps a field that never changes in the code itself, as one word after the runtime.
   assert.equal(bytesToHex(code), launcherRuntimeBytecode + w.token.slice(2).padStart(64, '0'))
 })
+
+test('a launched vault holds exactly what the owner ordered: its limits, its schedule and only the named recipient', async () => {
+  // A launcher edit can change what it hands the vault without touching the
+  // vault's code (an Fe judge, 2026-11-21: approving the agent whenever a
+  // recipient is left blank). Read every rule back and compare with the order.
+  const w = await world()
+  const vault = launched(await launch(w))
+  const read = async <F extends 'policy' | 'schedule' | 'queued' | 'approvedFrom'>(functionName: F, args?: readonly [Hex]) => {
+    const data = encodeFunctionData({ abi: vaultAbi, functionName, args } as Parameters<typeof encodeFunctionData>[0])
+    const answer = await w.chain.read(OWNER, vault, data)
+    return decodeFunctionResult({ abi: vaultAbi, functionName, data: answer.data } as Parameters<typeof decodeFunctionResult>[0])
+  }
+  assert.deepEqual(await read('policy'), [order.perPayment, order.perWindow, order.validUntil, false])
+  const [anchor, windowSecs, coolingSecs] = (await read('schedule')) as readonly [bigint, bigint, bigint]
+  assert.deepEqual([windowSecs, coolingSecs], [order.windowSecs, order.coolingSecs])
+  assert.ok(anchor >= T0, 'the schedule starts at the launch')
+  // effective_at 0: nothing queued (the rest is the kernel's placeholder).
+  assert.equal(((await read('queued')) as readonly unknown[])[4], 0n)
+  assert.equal(await read('approvedFrom', [SHOP]), anchor)
+  for (const other of [AGENT, OWNER, ZERO, w.launcher, w.token]) {
+    assert.equal(await read('approvedFrom', [other]), 0n, `${other} is approved but was never named`)
+  }
+})

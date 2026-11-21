@@ -54,85 +54,55 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 
 ## Fe highlight
 
-`Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms,
-approved_from, mut ledger, mut call, mut log)`: the rules appear without
-`mut`, so the agent's only handler cannot change them.
+The agent's whole authority is one handler signature, in `fe/src/vault.fe`:
 
-The compiler guarantees that stored rules come only from the kernel's own
-functions, which apply the cooling period, at the chain's own time: the
-owner's proof (`OwnerCall`) is made by `prove` from the concrete `Evm` and
-carries the block time in a private field, and `Terms`'s functions take no
-time of their own, so a handler that passes a made-up time does not compile
-(8-0023). The
-vault stores them as `Terms`, whose field only `fe/src/kernel/sealed.fe`
-can see, so no handler can build terms, store a hand-built `Rules` or write
-a field. New
-terms come only from `open` and from `Terms::amend`, `cancel` and `pause`,
-which apply the kernel's cooling period. Two runtime checks complete it:
-`open` works only while the contract is being deployed, and zeroed storage
-cannot be amended. Recipient approvals are sealed the same way: the map
-stores `Approval`s, which only `founding` (at deployment) and
-`Terms::approve_from` (owner proof, cooling period) make, so storing a date
-or a hand-built approval does not compile. An approval copied under another
-address compiles but approves no one (a runtime check, tested). `Terms` is
-not `Copy` and changes in place, so a vault cannot keep an older copy of
-its rules and put it back later: saving the stored rules aside, or putting
-saved rules back, fails with "cannot move out of storage" (16-0002), and
-keeping a second copy of the founding rules fails with "cannot use a value
-after it was moved". What the compiler does not stop: the same trick with
-`Approval`, which is still `Copy`. CI source checks pin the vault's
-storage, imports and handlers exactly (so no second `Terms` or approval
-map, under its own name, an alias or a glob import, and no new handler or
-capability), and three tests fail if a cancel ever undoes a pause, a
-lowered limit or a removed recipient. These read the source; they are not
-compiler guarantees.
+```
+Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms,
+    approved_from, mut ledger, mut call, mut log)
+```
 
-The owner proof is bound to the real caller by the compiler. Changing the
-terms, approving a recipient and withdrawing each need an `OwnerCall`, which
-only `prove(owner, ctx)` makes: `owner` must be an `Owner`, which only
-`open` makes, and `ctx` must be the concrete `Evm`, so a stand-in context
-that implements `Ctx` does not type-check. The kernel's public
-`authorize(owner, caller)` still makes an `OwnerProof` for the tests and
-the native tool; nothing the vault calls accepts one. A proof is spent by
-its first use, and one thrown away as a bare statement is a compile error
-(`let _ =` still discards it). CI proves each of these on every push. What
-the compiler does not decide: which address `init` makes the owner (a CI
-source check pins it to the constructor's `owner_` argument), whether a
-handler passes on what the owner asked for, and where `Pay` sends the money
-a verdict allowed. An edit that pays the caller more compiles, even in a
-`Pay` without `mut call`, because any type can implement Fe 26.6's `Call`;
-the tests catch it, and a CI source check (it reads the text; it is not a
-compiler guarantee) requires `Pay`'s only transfer to be exactly
-`safe_transfer(token, receiver: to, amount)`, not the compiler. That last gap is a Fe bug (a private
-trait is not visibility-checked in an `impl` header or a bound), reported
-as argotorg/fe#2036, and this project's pull request argotorg/fe#2042
-fixed it in the compiler: merged into Fe on 2026-11-21. On Fe master (a
-nightly CI job builds it unpatched) the forged `Call` and the stand-in
-`Ctx` are refused (2-0003) and HARDSTOP's 98 tests pass; on the released
-Fe 26.6 the gap remains, and the refusal script shows both behaviours.
+The rules (`terms`) and recipient approvals come without `mut`, so a `Pay`
+that changes them does not compile. Around that, the compiler enforces:
 
-The ratchet's laws are checked when the kernel compiles. `amend`,
-`cancel`, `matures_at`, `loosens`, `meet`, `cooled`, `Rules::current` and
-the time operators (`+`, `-`, `<`, ...) are `const fn`, and
-`static_assert`s run them on fixed policies, zero and the maximum among
-them. No policy loosens itself; `meet` is never looser than either input;
-`NOT_SET` and `NEVER` never take effect; `+` saturates at `NEVER`; and
-`amend` itself, called on fixed rules, queues a raise for `now + cooling`,
-applies a tightening at once and drops a waiting raise, and splits a mixed
-proposal, while `cancel` never loosens. An edit that breaks one fails the
-build, and CI proves it for six such edits, including `amend` applying a
-raise at once. Each verdict's wire code is asserted the same way
-(`Reason::code` is a `const fn`), so a reason answering with another's code
-fails to build. These are representative cases, not every input (the tests
-and the adversary cover breadth). The asserts add no bytecode; marking
-`amend`, `cancel` and `matures_at` `const` did change it (the vault's
-runtime is 65 bytes smaller), and with it the launcher's address. The same pure `decide` also runs as a native command-line program.
-Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
+- **Rules only the kernel can make.** The vault stores them as `Terms`, a
+  sealed type whose field only `kernel/sealed.fe` can see. New rules come
+  only from `open` (at deployment) and `Terms::amend`, `cancel` and
+  `pause`, which apply the cooling period. Building, writing or storing
+  hand-made rules fails (2-0003, 8-0000).
+- **No putting old rules back.** `Terms` is not `Copy` and changes in
+  place: saving the stored rules aside or restoring them fails (16-0002).
+- **The chain's time, not the handler's.** The owner's proof carries the
+  block time, so a handler that passes a made-up time fails (8-0023).
+- **Recipients wait too.** Approvals are a sealed `Approval` only the kernel
+  makes; storing a date or a hand-built approval fails.
+- **The real owner, once.** Owner actions need an `OwnerCall`, which only
+  `prove(owner, ctx)` makes from the concrete `Evm`. A hand-made proof, a
+  stand-in context, a proof used twice or one thrown away as a bare
+  statement each fails to compile.
+- **The ratchet's laws at compile time.** `amend`, `cancel`, `meet`,
+  `loosens` and the time operators are `const fn`, and `static_assert`s run
+  them on fixed policies: no policy loosens itself, a raise waits out the
+  cooling period, a tightening applies at once. Breaking one fails the build.
+
+On every push CI makes 30 attack edits and requires the compiler to refuse
+each one (`scripts/pay-cannot-loosen.sh`).
+
+**Where the compiler stops.** Where `Pay` sends allowed money, what it tells
+the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
+values), and the bodies of `init`, `sealed.fe` and the launcher are guarded
+by tests and by source checks that read the text and pin that code (27
+checks and catches), not by the compiler. One gap was a Fe bug: any type could
+implement Fe 26.6's private `Call` trait, so a forged `Call` compiled. This
+project reported it (argotorg/fe#2036) and fixed it in the compiler
+(argotorg/fe#2042, merged 2026-11-21); on Fe master the forgery is refused
+and HARDSTOP's 98 tests pass. The same pure `decide` also runs as a native
+command-line program. Every error code and limit:
+[`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works
 
 - `fe test`: 98 passed on the EVM; 52 passed natively.
-- Web: 89 unit tests (including the MCP server and watcher) and 61 browser
+- Web: 90 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
