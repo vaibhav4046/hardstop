@@ -2,13 +2,14 @@
 // screenshots. A green build does not prove the live site works; this does.
 //
 //   node e2e/live-check.mjs https://hardstop-omega.vercel.app
+//   BROWSER=firefox node e2e/live-check.mjs ...   (or webkit, the engine of Safari)
 //
 // Exits non-zero on any console error, failed request or wrong verdict.
 
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium } from '@playwright/test'
+import { chromium, firefox, webkit } from '@playwright/test'
 
 const base = (process.argv[2] ?? '').replace(/\/$/, '')
 if (!/^https:\/\//.test(base)) {
@@ -16,19 +17,35 @@ if (!/^https:\/\//.test(base)) {
   process.exit(2)
 }
 
-const shots = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'qa', 'screenshots', 'live')
+const engine = process.env.BROWSER ?? 'chromium'
+const engines = { chromium, firefox, webkit }
+if (!(engine in engines)) {
+  console.error('BROWSER must be chromium, firefox or webkit')
+  process.exit(2)
+}
+const shots = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'qa', 'screenshots', engine === 'chromium' ? 'live' : 'live-' + engine)
 mkdirSync(shots, { recursive: true })
 
 const problems = []
-const browser = await chromium.launch()
+const browser = await engines[engine].launch()
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
 page.on('console', (message) => message.type() === 'error' && problems.push(`console: ${message.text()}`))
-page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
-// A prefetch that the next navigation cancels is reported as aborted; that is
-// the browser doing its job, not a failure of the site.
+// A Next.js prefetch (a URL with `_rsc=`) that this script's own page.goto
+// cancels is the browser doing its job, not a failure of the site. Each
+// engine words it its own way: Chromium "net::ERR_ABORTED", Firefox
+// "NS_BINDING_ABORTED", WebKit "Load request cancelled" plus a page error
+// "... due to access control checks". Staying on a page, or clicking a link
+// as a person does, shows none of these in any engine (checked 2026-11-21).
+const cancelledPrefetch = (text) => /_rsc=/.test(text)
+const ABORTED = new Set(['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'])
+page.on('pageerror', (error) => {
+  if (!(cancelledPrefetch(error.message) && /access control checks/.test(error.message))) problems.push(`pageerror: ${error.message}`)
+})
 page.on('requestfailed', (request) => {
   const reason = request.failure()?.errorText ?? 'unknown'
-  if (reason !== 'net::ERR_ABORTED') problems.push(`request failed (${reason}): ${request.url()}`)
+  if (!(ABORTED.has(reason) && (reason === 'net::ERR_ABORTED' || cancelledPrefetch(request.url())))) {
+    problems.push(`request failed (${reason}): ${request.url()}`)
+  }
 })
 page.on('response', (response) => response.status() >= 400 && problems.push(`${response.status()}: ${response.url()}`))
 
@@ -96,4 +113,4 @@ if (problems.length > 0) {
   console.log(`\n${problems.length} problem(s):\n` + problems.map((problem) => `  ${problem}`).join('\n'))
   process.exit(1)
 }
-console.log(`\nlive check passed against ${base}`)
+console.log(`\nlive check passed against ${base} in ${engine}`)

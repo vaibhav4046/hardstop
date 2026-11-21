@@ -945,3 +945,38 @@ waiting proposal, the $80 refusal and both $4 payments. Tests: one more Fe
 launcher test (`fe test` 101), `web/tests/history.test.ts` (a truthful
 index and one that lies: it cannot add events), two more name tests in
 `web/tests/mine.test.ts`, and a browser test of a card's Activity list.
+
+### Every use case tested, 21 Nov
+
+The owner asked for every use case in the README to be tested. What was
+not yet covered, and what covered it that night:
+
+- **Safari and Firefox.** `web/e2e/live-check.mjs` now takes
+  `BROWSER=chromium|firefox|webkit`; the live site passes the whole journey
+  in all three (WebKit is the engine of Safari). Each engine words a
+  Next.js prefetch cancelled by the script's own page loads differently;
+  those are ignored only for `_rsc=` prefetch URLs, after checking that
+  staying on each page, or clicking a link as a person does, shows no error
+  in any engine.
+- **A trial budget that expires, on a public chain.** A vault valid for 150
+  seconds paid $1 before its end and refused the same $1 after it with
+  code 5 (Expired) (`web/scripts/base-sepolia-usecases.ts`).
+- **An agent paying another agent.** A vault whose approved recipient is
+  another HARDSTOP vault paid $5 into it; that vault's balance went from
+  $92.00 to $97.00.
+- **One owner, many vaults.** The launcher lists the owner's three vaults,
+  each with the name the owner gave it ("Evidence vault", "Use-case vault",
+  "Expiring trial"); the activity feed read the expiry refusal back.
+- **AI agents on the current contracts.** A purchasing agent with a planted
+  prompt injection and a hostile agent, through the real MCP server (one
+  call per command, `web/scripts/mcp-call.mjs`), against the use-case vault:
+  the first paid what fit and ignored the injection, the second moved $0 in
+  11 calls ([`qa/agent-runs/2026-11-21-agents-current-build.md`](qa/agent-runs/2026-11-21-agents-current-build.md)).
+  Headless `claude` could not sign in on this machine, so neither had a
+  native MCP client connection.
+
+Still not tested by this project: the MCP setup inside the Claude Desktop,
+Cursor and VS Code apps themselves (their configs are written and the
+server runs over stdio with the official client, but no one has connected
+from those apps), and My vaults clicked through with a real MetaMask wallet
+(CI uses a stand-in wallet; the on-chain runs use a script with a test key).
