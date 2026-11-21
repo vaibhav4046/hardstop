@@ -12,9 +12,11 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import type { Hex } from 'viem'
+import type { HistoryEvent } from '@/lib/live/history'
 import type { Summary } from '@/lib/live/mine'
+import { explain } from '@/lib/hardstop/reasons'
 import { accountOf, injectedWallet, networkOf, NETWORKS, switchTo, type Network, type Wallet } from '@/lib/live/wallet'
-import { formatTime, formatUsd } from '@/lib/money'
+import { FORMAT, formatTime, formatUsd } from '@/lib/money'
 
 type Row = Summary | { vault: Hex; problem: string }
 type State =
@@ -207,6 +209,7 @@ function VaultCard({ row, network }: { row: Row; network: Network }) {
           Open vault
         </Link>
       </p>
+      <VaultActivity vault={row.vault} network={network} />
       <details className="disclosure mt-5">
         <summary>Connect an AI or watch this vault</summary>
         <p className="small soft">
@@ -222,5 +225,79 @@ function VaultCard({ row, network }: { row: Row; network: Network }) {
         </pre>
       </details>
     </section>
+  )
+}
+
+/** One line per event, from the vault's own log. Refusal reasons are the kernel's codes, worded by `explain`. */
+function line(event: HistoryEvent): string {
+  switch (event.kind) {
+    case 'paid':
+      return `Paid ${formatUsd(event.amount)} to ${short(event.to)}. ${formatUsd(event.leftInWindow)} left in that window.`
+    case 'blocked':
+      return `Refused ${formatUsd(event.amount)} to ${short(event.to)}. ${explain(event.code, event.detail, FORMAT).sentence}`
+    case 'proposed': {
+      const rules = `${formatUsd(event.perPayment)} a payment, ${formatUsd(event.perWindow)} a window${event.paused ? ', paused' : ''}`
+      const applied = event.effectiveAt === 0n
+      return applied ? `You set the rules to ${rules}. They applied at once.` : `You asked for ${rules}. It waits until ${formatTime(event.effectiveAt)}.`
+    }
+    case 'cancelled':
+      return 'You cancelled a waiting change.'
+    case 'recipient': {
+      const removed = event.approvedFrom === 0n
+      return removed ? `You removed ${short(event.who)} as a recipient.` : `You approved ${short(event.who)}, payable from ${formatTime(event.approvedFrom)}.`
+    }
+    case 'withdrawn':
+      return `You withdrew ${formatUsd(event.amount)}.`
+  }
+}
+
+type Feed = { phase: 'closed' } | { phase: 'loading' } | { phase: 'failed'; message: string } | { phase: 'shown'; events: HistoryEvent[] }
+
+function VaultActivity({ vault, network }: { vault: Hex; network: Network }) {
+  const [feed, setFeed] = useState<Feed>({ phase: 'closed' })
+
+  async function open() {
+    const wallet = injectedWallet()
+    if (!wallet) return setFeed({ phase: 'failed', message: 'No wallet found in this browser.' })
+    setFeed({ phase: 'loading' })
+    try {
+      const { vaultHistory } = await import('@/lib/live/history')
+      setFeed({ phase: 'shown', events: await vaultHistory(wallet, network, vault) })
+    } catch (error) {
+      setFeed({ phase: 'failed', message: plain(error) })
+    }
+  }
+
+  return (
+    <details className="disclosure mt-5" onToggle={(event) => event.currentTarget.open && feed.phase === 'closed' && open()}>
+      <summary>Activity</summary>
+      <p className="small soft">
+        What this vault&rsquo;s agent did and what you changed, read from the vault&rsquo;s own records on {network.name}. A
+        block explorer only says which transactions to look at; each line comes from the transaction itself.
+      </p>
+      {feed.phase === 'loading' && (
+        <p className="soft mt-3" role="status">
+          Reading the vault&rsquo;s records…
+        </p>
+      )}
+      {feed.phase === 'failed' && (
+        <p className="mt-3 text-stop" role="alert">
+          {feed.message}
+        </p>
+      )}
+      {feed.phase === 'shown' && feed.events.length === 0 && <p className="soft mt-3">Nothing yet.</p>}
+      {feed.phase === 'shown' && feed.events.length > 0 && (
+        <ol className="mt-3 grid gap-2" aria-label="Activity, newest first">
+          {feed.events.map((event, index) => (
+            <li key={`${event.tx}-${index}`} className={event.kind === 'blocked' ? 'text-stop' : undefined}>
+              <span className="small soft">{formatTime(event.time)}</span> {line(event)}{' '}
+              <a className="small" href={`${network.explorer}/tx/${event.tx}`}>
+                transaction
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
   )
 }

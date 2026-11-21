@@ -81570,6 +81570,7 @@ var init_wallet = __esm({
         name: "Base Sepolia",
         explorer: "https://sepolia.basescan.org",
         rpc: "https://sepolia.base.org",
+        indexer: "https://base-sepolia.blockscout.com/api",
         // 0.00003 ETH: about 34 agent payments at the fee measured on Base Sepolia
         // (0.00000088 ETH each, 2026-11-18). With the first launch's own fees
         // (0.000024 ETH) it still fits in one 0.0001 ETH faucet claim.
@@ -81580,6 +81581,7 @@ var init_wallet = __esm({
         name: "Sepolia",
         explorer: "https://sepolia.etherscan.io",
         rpc: "https://ethereum-sepolia-rpc.publicnode.com",
+        indexer: "https://eth-sepolia.blockscout.com/api",
         gasMoney: 3000000000000000n
         // 0.003 ETH: gas costs more there
       }

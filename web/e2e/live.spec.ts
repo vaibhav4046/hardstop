@@ -292,4 +292,36 @@ test.describe('A vault on a test network', () => {
     await expect(page.locator('section[aria-labelledby="account-title"]')).toContainText(stranger)
     await expect(page.getByText('No vaults launched from this wallet on Base Sepolia yet.', { exact: false })).toBeVisible()
   })
+
+  test("My vaults: a vault's activity is read back from the chain, one line per event", async ({ page }) => {
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    const network = await FakeNetwork.create(OWNER, now)
+    const chain = NETWORKS.find((candidate) => candidate.chainId === FAKE_CHAIN_ID)!
+    const shop = '0x0000000000000000000000000000000000005109' as const
+    const live = await launchVault(
+      network,
+      chain,
+      { owner: OWNER, agent: OWNER, perPayment: 10_000_000n, perWindow: 20_000_000n, validUntil: now + 86_400n * 30n, windowSecs: 86_400n, coolingSecs: 86_400n, payees: [shop], funding: 100_000_000n, now },
+      () => {},
+      1,
+    )
+    const { sim } = await attach(network, live, 1)
+    await sim.pay(shop, 4_000_000n, 0n)
+    await sim.pay(shop, 80_000_000n, 1n)
+    // The block explorer's index, answered from the in-memory chain's own logs.
+    await page.route('https://base-sepolia.blockscout.com/**', async (route) => {
+      const logs = (await network.request({ method: 'eth_getLogs', params: [{ address: live.vault, fromBlock: '0x0' }] })) as { transactionHash: string }[]
+      await route.fulfill({ json: { message: 'OK', result: logs.map((log) => ({ transactionHash: log.transactionHash })) } })
+    })
+    await connect(page, network)
+    await page.goto('/vaults')
+    await page.getByRole('button', { name: 'Connect wallet' }).click()
+    const card = page.getByRole('region', { name: `Vault ${live.vault}` })
+    await card.getByText('Activity', { exact: true }).click()
+    const list = card.getByRole('list', { name: 'Activity, newest first' })
+    await expect(list.getByRole('listitem')).toHaveCount(2)
+    await expect(list.getByRole('listitem').nth(0)).toContainText('Refused $80.00 to 0x0000…5109.')
+    await expect(list.getByRole('listitem').nth(1)).toContainText('Paid $4.00 to 0x0000…5109. $16.00 left in that window.')
+    await expect(list.getByRole('link', { name: 'transaction' }).first()).toHaveAttribute('href', /^https:\/\/sepolia\.basescan\.org\/tx\/0x[0-9a-f]{64}$/)
+  })
 })

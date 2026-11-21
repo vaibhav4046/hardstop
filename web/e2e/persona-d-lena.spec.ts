@@ -119,6 +119,10 @@ const COMPARES = /\s(<=|>=|<|>)\s|(===|!==)\s*(0n?|1)\b/
 // Not caught by the pattern, read by hand: `today()` in lib/session.ts compares the ledger's window with the
 // current one (`===`) to show "spent today". Display only; the file says so and "left today" comes from the contract.
 const JUDGED: Record<string, string> = {
+  'components/my-vaults.tsx|const applied = event.effectiveAt === 0n':
+    'Display: wording of a past PolicyProposed event. The contract logs effective_at 0 when the whole change applied at once.',
+  'components/my-vaults.tsx|const removed = event.approvedFrom === 0n':
+    'Display: wording of a past RecipientChanged event. The contract logs approved_from 0 when the recipient was removed.',
   "components/activity-board.tsx|<dd className={policy.paused || now >= policy.validUntil ? 'text-stop' : undefined}>":
     "Display: colours the Agent row red once the permission has ended. Compares the contract's clock with the end date the contract returned; the contract itself refuses every payment after it.",
   "components/activity-board.tsx|{now >= policy.validUntil ? 'Permission ended' : policy.paused ? 'Paused' : 'Active'}":

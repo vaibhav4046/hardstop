@@ -369,6 +369,15 @@ device. The page reads it, checks every vault's code against the known
 builds, and shows each vault's status, limits, balance and agent, with a
 link to its controls and its own setup for an AI and for the watcher.
 
+**Each vault's activity, from any device.** Open Activity on a vault's card
+and it lists what the agent paid, what was refused and why, and what the
+owner changed, newest first. The public RPCs only return 200 blocks of logs
+at a time, so a block explorer's index (Blockscout) is asked one thing:
+which transactions touched the vault. Each one's receipt is then fetched
+through the wallet and only events the vault itself logged are shown, so
+a lying index can hide history but cannot invent a payment
+(`web/src/lib/live/history.ts`, tested with an index that lies).
+
 **Every user is isolated by the chain itself.** Each vault is its own
 contract with one owner, one agent and one token. Owner actions take a
 proof the compiler makes only for the vault's owner (`OwnerCall`), so

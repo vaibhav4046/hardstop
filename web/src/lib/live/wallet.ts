@@ -15,6 +15,12 @@ export type Network = {
   rpc: string
   /** ETH handed to the trial agent's key at launch so that it can pay for its own requests. */
   gasMoney: bigint
+  /**
+   * A public indexer (Etherscan-style API) asked only which transactions
+   * touched a vault; every event shown is then read from the transaction's
+   * own receipt through the wallet (src/lib/live/history.ts).
+   */
+  indexer?: string
 }
 
 /** Public test networks only. Their coins and the test dollars have no value. */
@@ -24,6 +30,7 @@ export const NETWORKS: Network[] = [
     name: 'Base Sepolia',
     explorer: 'https://sepolia.basescan.org',
     rpc: 'https://sepolia.base.org',
+    indexer: 'https://base-sepolia.blockscout.com/api',
     // 0.00003 ETH: about 34 agent payments at the fee measured on Base Sepolia
     // (0.00000088 ETH each, 2026-11-18). With the first launch's own fees
     // (0.000024 ETH) it still fits in one 0.0001 ETH faucet claim.
@@ -34,6 +41,7 @@ export const NETWORKS: Network[] = [
     name: 'Sepolia',
     explorer: 'https://sepolia.etherscan.io',
     rpc: 'https://ethereum-sepolia-rpc.publicnode.com',
+    indexer: 'https://eth-sepolia.blockscout.com/api',
     gasMoney: 3_000_000_000_000_000n, // 0.003 ETH: gas costs more there
   },
 ]

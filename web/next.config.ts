@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// The app is static and talks to nothing: no API, no analytics, no remote
+// The app is static: no API of its own, no analytics, no remote
 // fonts or images. The policy below says so. `'unsafe-inline'` for scripts is
 // what Next's static output needs for its inline bootstrap; a per-request
 // nonce would require rendering every page on the server.
@@ -10,7 +10,8 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // The two block explorers My vaults asks which transactions touched a vault.
+  "connect-src 'self' https://base-sepolia.blockscout.com https://eth-sepolia.blockscout.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
