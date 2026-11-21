@@ -577,6 +577,60 @@ shape_check_catches 'Pay granting the caller an allowance on the token' \
 shape_check_catches 'a new handler that moves money with no owner check' \
   vault_sed 's/^        Owner -> Address uses (owner) {$/        Sweep { amount } uses (ctx, token, mut call) {\n            safe_transfer(token, receiver: ctx.caller(), amount)\n        }\n\n        Owner -> Address uses (owner) {/'
 
+# A second Fe judge (2026-11-21) found three edits that compiled, passed
+# fe test and every check above: `init` also approving the agent as a
+# recipient (it could pay itself), `prove` accepting the transaction's
+# origin as the owner (any contract the owner calls could act as the owner),
+# and `seconds()` reading the clock a day ahead through a wrapper type. The
+# code they changed is now pinned by its sha256, comments and blank lines
+# ignored: everything in vault.fe outside the contract (helpers, events,
+# `seconds`, `founded`), `init`'s body, and all of kernel/sealed.fe. A
+# source check, not a compiler guarantee: any change to that code fails here
+# until the pin below is updated, so it cannot go in unnoticed.
+PIN_PRELUDE=7513342fc0297187e30321445439eb69a8cc4673ac61796dc1d07a34a20e172c
+PIN_INIT=6b1f4723e2552bfceaaf731967477b1a688a486afcdf598c4321fdbeb6cf8234
+PIN_SEALED=c940bbd6a00468876c1ae2e21377f714a16849ea941b84edd518f8aa4a1f42da
+code_sha() { sed 's#//.*##; s/[ \t]*$//' | grep -v '^$' | sha256sum | cut -d' ' -f1; }
+prelude_of() { awk '/^pub contract Vault/ { exit } { print }' "$1"; }
+init_of() { awk '/^    init\(/ { on = 1 } on { print } on && /^    }$/ { exit }' "$1"; }
+check_pinned() {
+  local vault=$1 sealed=$2 got
+  got=$(prelude_of "$vault" | code_sha)
+  [ "$got" = "$PIN_PRELUDE" ] || { echo "vault.fe outside the contract changed (now $got)"; return 1; }
+  got=$(init_of "$vault" | code_sha)
+  [ "$got" = "$PIN_INIT" ] || { echo "init changed (now $got)"; return 1; }
+  got=$(code_sha < "$sealed")
+  [ "$got" = "$PIN_SEALED" ] || { echo "kernel/sealed.fe changed (now $got)"; return 1; }
+}
+if ! why=$(check_pinned "$ROOT/fe/src/vault.fe" "$ROOT/fe/src/kernel/sealed.fe"); then
+  echo "FAIL $why"
+  exit 1
+fi
+echo "ok   source check: init, the code around the contract, and kernel/sealed.fe match their pinned sha256"
+pin_check_catches() {
+  local name=$1 vault=$2 sealed=$3
+  if check_pinned "$vault" "$sealed" >/dev/null; then
+    rm -f "$vault" "$sealed"
+    echo "FAIL source check missed: $name"
+    exit 1
+  fi
+  rm -f "$vault" "$sealed"
+  echo "ok   source check catches: $name"
+}
+copy_of() { local out; out=$(mktemp); cat "$1" > "$out"; echo "$out"; }
+edited_vault() { local out; out=$(mktemp); vault_sed "$@" > "$out"; echo "$out"; }
+SEALED=$ROOT/fe/src/kernel/sealed.fe
+pin_check_catches 'init also approving the agent, so it can pay itself' \
+  "$(edited_vault 's/^\(            approved_from.set(key: payee_c, value: founded(ctx, who: payee_c))\)$/\1\n            approved_from.set(key: agent_, value: founded(ctx, who: agent_))/')" \
+  "$(copy_of "$SEALED")"
+pin_check_catches 'seconds() reading the clock a day ahead through a wrapper type' \
+  "$(edited_vault -e 's/^fn seconds(_ at: Timestamp) -> Instant {$/fn seconds(_ at: Timestamp) -> Instant {\n    let at = Ahead { at }/' \
+    -e 's/^const MIN_COOLING_SECS: u64 = 60$/struct Ahead { at: Timestamp }\nimpl Ahead {\n    fn as_seconds(self) -> u256 { self.at.as_seconds() + 86399 }\n}\n\nconst MIN_COOLING_SECS: u64 = 60/')" \
+  "$(copy_of "$SEALED")"
+edited_sealed=$(mktemp)
+sed 's/ctx.caller() == owner.address {$/(ctx.caller() == owner.address || ctx.origin() == owner.address) {/' "$SEALED" > "$edited_sealed"
+pin_check_catches "prove accepting the transaction's origin as the owner" "$(copy_of "$ROOT/fe/src/vault.fe")" "$edited_sealed"
+
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no
 #    error other than code $4 (by default "static assertion failed", 8-0081).

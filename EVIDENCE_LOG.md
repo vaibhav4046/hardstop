@@ -803,3 +803,33 @@ MCP-over-HTTP tests time out. A plain Node HTTP server with no project code
 shows the same thing on this Windows machine (the third request on a reused
 connection gets no answer; the fourth does), so it is the machine, not the
 server. CI runs the same tests on Linux.
+
+### A second Fe judge, and what changed, 21 Nov
+
+Two fresh reviews ran against the new contracts: one attacking the Fe code,
+one judging the site and docs. The Fe review found three edits that
+compiled, passed `fe test` (98) and the refusal script (58 ok): `init` also
+approving the agent as a recipient, so it could pay itself; `prove`
+accepting `tx.origin` as the owner (`fe test` cannot see it: its origin is
+the zero address); and `seconds()` reading the clock a day ahead through a
+wrapper type (the web tests did catch that one). The code they touched is
+now pinned by sha256, comments and blank lines ignored: everything in
+`vault.fe` outside the contract, `init`'s body, and all of
+`kernel/sealed.fe`. The script requires all three edits to be caught:
+62 ok (30 refused, 7 controls, 25 source-check lines). The vault's bytecode
+did not change, so the contracts on Base Sepolia stay as they are.
+
+Also from that review: FE_HIGHLIGHT said `decide` "provably" cannot call
+out, which Fe 26.6's forged-`Call` bug (#2036) contradicts; it now says so.
+`Approval` stays `Copy` because Fe 26.6's `StorageMap::get` requires
+`V: Copy` (removing it fails with 6-0003 at every `get`). A vault deployed
+by hand with the same code and someone else as owner can carry founding
+recipients that owner did not choose, and the site checks code, not
+deployer; that is now a stated limitation.
+
+From the site review: SUBMISSION's dates for the current contracts were a
+build old; the README's first screen now carries the `Pay` signature and
+the merged Fe fix; the home page says the vault is written in Fe; the
+README no longer calls the app's worst-case figure "the next 24 hours"
+(the app shows it up to the end of the cooling period; the MCP server's
+status covers one window ahead and says it can cross a reset).

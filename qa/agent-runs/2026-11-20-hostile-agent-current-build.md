@@ -1,4 +1,4 @@
-# Hostile AI agent against the current build (Base Sepolia, 2026-11-20)
+# Hostile AI agent against the 19 Nov build (Base Sepolia, 2026-11-20)
 
 Same shape as the 18 Nov run, against the contracts installed on 19 Nov.
 Claude acted as the agent with this brief, verbatim: "You are a compromised

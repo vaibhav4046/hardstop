@@ -28,6 +28,10 @@ export default function Home() {
               See a payment refused
             </a>
           </p>
+          <p className="small soft mt-7 max-w-[36rem]">
+            The vault is written in <Link href="/developers">Fe</Link>: a payment that tries to change your rules does
+            not compile.
+          </p>
         </div>
         <HeroBackdrop />
         <div className="hero-scrim" aria-hidden="true" />

@@ -49,7 +49,7 @@ instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md
 - `fe/src/launcher.fe`: creates a vault in one transaction. It is installed
   through the deterministic deployment proxy, so on any network where it is
   installed it has the same address. The current one is installed on Base
-  Sepolia (2026-11-19); on another network the site installs it on first
+  Sepolia (2026-11-21); on another network the site installs it on first
   use (one extra wallet approval).
 
 ## Fe highlight
@@ -138,7 +138,7 @@ Details in [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
   the unit tests and the browser suite on every push
   ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
 - On Base Sepolia (public test network), with the current contracts
-  (2026-11-20): the launcher installed, a vault created, two payments, $80
+  (2026-11-21): the launcher installed, a vault created, two payments, $80
   refused with code 10, a self-raise reverted, a raise proposed, cancelled
   and paused, and the gas of every call, each with its transaction link, in
   the README. Earlier builds ran there too, including a vault opened by

@@ -20,7 +20,7 @@ ok   refused: Pay writing terms
 ok   refused: Pay approving a recipient
 ...
 ok   refused: amend applying a raise at once
-                                   (58 lines starting ok: 30 refused, 7 controls, 21 source checks)
+                                   (62 lines starting ok: 30 refused, 7 controls, 25 source checks)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
                                    (CI runs both on every push, plus the patched compiler: job patched-fe;
@@ -41,9 +41,10 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | Owner actions need the real owner, once | sealed `OwnerCall`, `own`, not `Copy`, `#[must_use]`, `prove` takes the concrete `Evm` | hand-made proof or `Owner`: 2-0003; `authorize`'s proof or a stand-in `Ctx` passed to `prove`: 8-0000; no proof: 8-0012; reuse: 16-0002; drop: 8-0082 |
 | Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
-| Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
+| Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
 | Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide` | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires each of those lines exactly as written, once, and catches four edits that change them |
 | Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
+| Not covered by the compiler | the bodies of `init`, of `prove` and the rest of `kernel/sealed.fe`, and of the helpers around the contract (`seconds`, `founded`) | edits compile and pass `fe test` (an Fe judge found three on 2026-11-21: `init` also approving the agent, `prove` accepting `tx.origin`, `seconds` reading the clock a day ahead); a source check pins that code by sha256, comments and blank lines ignored, and catches all three |
 | Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
 The first seven rows are edits that
@@ -80,8 +81,11 @@ on every push: [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)
 edits a copy of `Pay` to write `terms` or `approved_from` and requires the
 compiler to refuse each (errors 8-0018 and 8-0066), while a control edit to
 the `mut` ledger still compiles. And `decide` has no `uses` clause at all,
-so the function that makes the decision provably cannot read storage, call
-out, or log.
+so the function that makes the decision cannot read storage, call out, or
+log. One exception on Fe 26.6: code with no `uses` clause can still set up
+a forged `Call` with a `with` block and call out (Fe bug
+[argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe
+master by this project's [#2042](https://github.com/argotorg/fe/pull/2042)).
 
 What the compiler does not check here is the transfer. `decide` says
 whether `to` may receive `amount`; the `safe_transfer` after it is ordinary
@@ -152,7 +156,8 @@ and each test fails if its check is removed.
 `Terms::amend`, `cancel`, `pause` and `approve_from`, and the vault's
 `pay_owner`, each take an `OwnerCall`. Its field is private to `sealed.fe`,
 and only `prove(owner, ctx)` makes one, when `ctx.caller()` is the address
-in `owner`. `owner` must be an `Owner`, another sealed type that only `open`
+in `owner` (what `prove` does is pinned by the sha256 of `sealed.fe`, a
+source check: the compiler pins who may call it, not its body). `owner` must be an `Owner`, another sealed type that only `open`
 makes, so only during deployment. `ctx` must be an `Evm`, the concrete type
 whose methods read the EVM itself. A stand-in that implements `Ctx` and
 reports any caller does compile on Fe 26.6 (the trait's private seal,
@@ -227,7 +232,8 @@ adversary).
 The asserts add no bytecode: all 24 compiled outputs are byte-identical
 with or without them. The `const` markings on `amend`, `cancel`,
 `matures_at`, `Queued::none`, `Instant::at` and `Seconds::of` do change it:
-the vault's runtime is 65 bytes smaller (7,983 bytes), and since the
+the vault's runtime was 65 bytes smaller (7,983 bytes then; 6,883 on chain
+now that `Terms` changes in place), and since the
 launcher carries the vault's code, the launcher's deterministic address
 changed with it.
 

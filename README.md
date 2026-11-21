@@ -18,12 +18,28 @@ Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 
 > Unaudited contest prototype. Do not put real money in it.
 
+**The Fe idea in ten seconds.** The agent's whole authority is one handler
+signature in [`fe/src/vault.fe`](fe/src/vault.fe):
+
+```fe
+Pay { to, amount, nonce } -> u8
+    uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log)
+```
+
+`terms` and `approved_from` come without `mut`, so a payment that changes
+the rules or approves a recipient does not compile. The rules themselves are
+a sealed type that only the kernel can make or change, and never at once
+when they loosen. CI makes 30 attack edits and requires the compiler
+to refuse each one ([details](FE_HIGHLIGHT.md)). Building this found a hole
+in Fe itself, private traits that anyone could implement; the fix,
+[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), is merged.
+
 ## For judges: one screen
 
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `98 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 58 lines starting `ok` |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 62 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `89` pass |
@@ -58,10 +74,8 @@ Two things about that result shaped this project:
   $40,000. Industry-wide crypto
   theft figures are not agent losses and are not used here.
 
-Every figure on the site was re-opened at its source on 2026-11-18: 49
-figures from 35 source pages, 48 confirmed on the source's page (the
-site's evidence page cites 12 of those sources), kept apart as controlled tests, recorded
-incidents, adoption signals and excluded figures. See
+Every figure was re-checked at its source on 2026-11-18: 48 of 49
+confirmed on the source page. See
 [`research/EVIDENCE_DATA.md`](research/EVIDENCE_DATA.md) (with corrections to
 the earlier [`research/SOURCE_REGISTER.md`](research/SOURCE_REGISTER.md)) and
 [`research/evidence.json`](research/evidence.json).
@@ -92,7 +106,9 @@ bound, which a greedy agent reaches when nothing is queued, a recipient is
 approved, request numbers are left and the vault holds that much.
 While `until` is inside the cooling period it holds whatever the owner signs
 in the meantime. The vault exposes it as a view, the native tool computes it
-offline, and the app shows it as "worst case in the next 24 hours".
+offline, and the app shows it up to the end of the cooling period: the most
+the agent can take before anything the owner signs now could loosen the rules.
+The MCP server's status gives it for one window ahead, which can cross a reset.
 
 **3. An attacker written in Fe.** `adversary.fe` plays seeded hostile games
 against the kernel: over the cap, one unit over, replayed, from a stranger,
@@ -145,7 +161,7 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
 refuse each attack (30 refusals, plus 7 control edits that must still
-compile and 21 source-check lines, in
+compile and 25 source-check lines, in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source
@@ -153,9 +169,12 @@ check (it reads the text; it is not a compiler guarantee) requires `Pay`'s
 only transfer to be exactly `safe_transfer(token, receiver: to, amount)`,
 right after the ledger is updated, pins what `Pay` tells the kernel, and
 catches eight edits that compile. A further source check pins the vault's
-whole shape (its imports, storage, handlers and their `uses`, no token
+shape (its imports, storage, handlers and their `uses`, no token
 approvals, and the chain's own time for every `now` given to the kernel)
-and catches six more edits that compile and pass every test.
+and catches six more edits that compile and pass every test. `init`, the
+helpers around the contract and all of `kernel/sealed.fe` are pinned by
+their sha256, so a change to them fails CI until the pin is updated; that
+catches three more edits an Fe judge found on 2026-11-21.
 
 The full account, with every error code and limit:
 [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -381,6 +400,11 @@ approved recipient):
   to be requested from MetaMask. Until then a visitor has to click past it.
 - **One vault, one token, one agent, three recipients at creation.** No Safe
   integration, no calldata rules, no multi-token caps.
+- **Open only vaults you launched yourself.** The launcher makes whoever
+  calls it the owner, so the founding recipients are the owner's choice. A
+  vault someone else deployed with the same code and you as owner can carry
+  founding recipients you did not choose, and the site cannot list a
+  vault's recipients; it checks the code, not who deployed it.
 - **Alerts need the watcher running.** The site has no server and sends
   nothing: every page shows a waiting loosening with a cancel button while
   it is open. The optional, self-hosted watcher (`web/mcp/watch.ts`) checks
