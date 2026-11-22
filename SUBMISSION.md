@@ -92,20 +92,20 @@ each one (`scripts/pay-cannot-loosen.sh`).
 
 **Where the compiler stops.** Where `Pay` sends allowed money, what it tells
 the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
-values), and the bodies of `init`, the kernel, `sealed.fe` and the launcher are guarded
-by tests and by source checks that read the text and pin that code (30
+values), and the bodies of `vault.fe`, the kernel, `sealed.fe` and the launcher are guarded
+by tests and by source checks that read the text and pin that code (35
 checks and catches), not by the compiler. One gap was a Fe bug: any type could
 implement Fe 26.6's private `Call` trait, so a forged `Call` compiled. This
 project reported it (argotorg/fe#2036) and fixed it in the compiler
 (argotorg/fe#2042, merged 2026-11-21); on Fe master the forgery is refused
-and HARDSTOP's 98 tests pass. The same pure `decide` also runs as a native
+and HARDSTOP's 101 tests pass. The same pure `decide` also runs as a native
 command-line program. Every error code and limit:
 [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works
 
 - `fe test`: 101 passed on the EVM; 52 passed natively.
-- Web: 100 unit tests (including the MCP server and watcher) and 61 browser
+- Web: 106 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
@@ -121,7 +121,7 @@ command-line program. Every error code and limit:
   vault. Each paid the allowed $3, had an unapproved recipient and a $15
   payment refused on chain, and could not raise its own limit (only a drafted
   request to the owner). Every receipt was read back
-  (`qa/agent-runs/2026-11-22-claude-code-native.md`, `2026-11-22-cursor-native.md`).
+  (`qa/agent-runs/2026-11-22-claude-code-native.md`, `qa/agent-runs/2026-11-22-cursor-native.md`).
 
 ## Honest limits
 

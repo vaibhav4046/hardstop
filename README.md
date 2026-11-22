@@ -39,10 +39,10 @@ in Fe itself, private traits that anyone could implement; the fix,
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `101 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 67 lines starting `ok` |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 72 lines starting `ok` |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `100` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `106` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 61 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -192,7 +192,7 @@ capabilities. Three have fixes from this project:
 the block time and number, was merged into Fe on 2026-11-20;
 [#2042](https://github.com/argotorg/fe/pull/2042), approved by micahscopes,
 was merged on 2026-11-21 with a test commit sbillig added;
-[#2041](https://github.com/argotorg/fe/pull/2041) is open. The nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its 98 tests there with the forged `Call` and stand-in `Ctx` refused. The
+[#2041](https://github.com/argotorg/fe/pull/2041) is open. The nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its 101 tests there with the forged `Call` and stand-in `Ctx` refused. The
 first two compiler patches are also in [`research/fe-patches/`](research/fe-patches/):
 `2-private-trait-visibility.patch` makes a private trait named outside its
 module "not visible" (2-0003) in an `impl` header, a bound, a `where`
@@ -204,15 +204,18 @@ test that also fails on unmodified `master` on Windows. With the patched
 compiler HARDSTOP passes `fe test`, and the refusal script requires the
 forged `Call` and `Ctx` to be refused instead of compiling. CI job
 `patched-fe` checks this on every push: it applies both patches to Fe
-`master` at `6cd57cc`, runs their UI tests, then HARDSTOP's tests and the
+`master` at `6cd57cc`, runs their UI tests, then HARDSTOP's 101 tests and the
 refusal script on that compiler. The contracts are built and deployed with
-the unpatched 26.6 release.
+the unpatched 26.6 release. (The nightly job `fe-master` builds unpatched
+Fe master, whose head on 2026-11-21 is the #2042 merge, and passes HARDSTOP's
+101 tests with the forged `Call` and stand-in `Ctx` refused.)
 
 ## Architecture
 
 ```
 fe/src/
   kernel.fe           pure. decide / amend / cancel / exposure. Both targets.
+  kernel/sealed.fe    sealed Terms, Owner, Approval, OwnerCall. Only kernel sees fields.
   adversary.fe        pure. Seeded campaign + reference spec. Both targets.
   vault.fe            EVM only. Holds the token, gathers facts, obeys the kernel.
   launcher.fe         EVM only. Creates a vault in one transaction, owned by the caller,
@@ -271,7 +274,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 100 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 106 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 61 browser tests against the production build
@@ -283,7 +286,7 @@ Every command above except the `decide` example, the browser suite included, run
 
 ### Results
 
-Measured from 2026-11-17 to 2026-11-20; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
+Measured from 2026-11-17 to 2026-11-22; raw output in [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md).
 
 | What | Result |
 |---|---|
@@ -340,9 +343,10 @@ and within 1.4% per call (the first contracts' first allowed `pay`:
 A refusal is recorded on chain as a transaction, so it costs gas; an agent's
 attempt to change the rules reverts in the rehearsal and is never sent.
 
-The personas are scripts, not people: no human participant, screen
-reader, Firefox, Safari or physical device was tested. Method, steps,
-screenshots and every issue found are in [`qa/`](qa/).
+The personas are scripts, not people: the Playwright persona suite ran on
+Chromium only (no human participant, screen reader or physical device was
+tested; Firefox and WebKit were checked with `web/e2e/live-check.mjs`).
+Method, steps, screenshots and every issue found are in [`qa/`](qa/).
 
 `fe test` has no fuzzer and cannot move the block timestamp. The seeded
 campaign is the substitute for the first; the JS-EVM tests are the
