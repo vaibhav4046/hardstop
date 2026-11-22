@@ -319,6 +319,8 @@ check_pay() {
       need["                from_agent: ctx.caller() == agent,"] = 0
       need["                to_approved: cooled(at: approved_from.get(key: to).of(to), now),"] = 0
       need["            match decide(rules, ledger, request, now) {"] = 0
+      need["                Decision::Allow(next) => {"] = 0
+      need["                    ledger = next"] = 0
     }
     index(code, "        Pay {") == 1 { inpay = 1; prevcode = ""; prev = code; next }
     inpay && (code ~ /^        [A-Z][A-Za-z]* \{/ || code == "    }") { inpay = 0 }
@@ -328,7 +330,13 @@ check_pay() {
         if (code != "                    safe_transfer(token, receiver: to, amount)") bad = "Pay moves money differently: " $0
         else if (prevcode != "                    ledger = next") bad = "Pay transfers somewhere other than right after ledger = next"
       }
-      if (code ~ /(let|var) +(mut +)?(token|to|amount|nonce)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount|nonce) *[-+*\/]?= /) bad = "Pay rebinds token, to, amount or nonce: " $0
+      if (code == "                Decision::Allow(next) => {" && prevcode != "            match decide(rules, ledger, request, now) {") {
+        bad = "Decision::Allow is not right after match decide"
+      }
+      if (code == "                    ledger = next" && prevcode != "                Decision::Allow(next) => {") {
+        bad = "Pay writes ledger outside Decision::Allow"
+      }
+      if (code ~ /(let|var) +([^=]*[^A-Za-z0-9_])?(token|to|amount|nonce|next)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount|nonce|next) *[-+*\/]?= [^=>]/) bad = "Pay rebinds token, to, amount, nonce or next: " $0
       if (code in need) need[code]++
       else if (code ~ /decide\(|Request *\{|from_agent|to_approved|(let|var) +(mut +)?(now|rules|request)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(now|rules|request) *= /) bad = "Pay asks the kernel something else: " $0
       if (code !~ /^ *$/) prevcode = code
@@ -381,6 +389,10 @@ pay_check_catches 'Pay deciding against an empty ledger' \
   'match decide(rules, Ledger { window: 0, spent: 0, next_nonce: nonce }, request, now) {'
 pay_check_catches 'Pay deciding with rules other than the stored ones' \
   "$PAY" 'let rules = terms.rules()' replace 'let rules = Rules { schedule: terms.rules().schedule, active: terms.rules().queued.policy, queued: terms.rules().queued }'
+pay_check_catches 'Pay bypassing Decision::Deny with a catch-all arm' \
+  "$PAY" 'Decision::Allow(next) => {' replace $'    _ => {\n                    let next = ledger'
+pay_check_catches 'Pay rebinding to and amount with a tuple destructuring' \
+  "$PAY" 'match decide(' before 'let (to, amount) = (ctx.caller(), amount * 1000)'
 
 # What the compiler does not stop either: a vault that keeps a second copy
 # of its rules or approvals in storage and puts it back later (Terms and
@@ -396,6 +408,9 @@ check_state() {
     { terms += gsub(/[^A-Za-z0-9_]Terms[^A-Za-z0-9_]/, "&", code) }
     { approvals += gsub(/[^A-Za-z0-9_]Approval[^A-Za-z0-9_]/, "&", code) }
     { built += gsub(/[^A-Za-z0-9_]Ledger *\{/, "&", code) }
+    code ~ /[^A-Za-z0-9_.]ledger\.[A-Za-z0-9_]+ *[-+*\/]?= [^=>]/ {
+      bad = "ledger field written another way: " $0
+    }
     code ~ /[^A-Za-z0-9_.]ledger *= [^=]/ {
       writes++
       if (code !~ /^ +ledger = next *$/ && code !~ /^ +ledger = Ledger \{ window: 0, spent: 0, next_nonce: 0 \} *$/) bad = "ledger written another way: " $0
@@ -431,6 +446,8 @@ state_check_catches 'a second stored Terms, to put old rules back later' with_fi
 state_check_catches 'a second Approval map, to put old approvals back later' with_field 'mut kept: StorageMap<Address, Approval>,'
 state_check_catches 'Pay resetting what was spent today' \
   edit_handler "$PAY" "$TRANSFER" after 'ledger = Ledger { window: next.window, spent: 0, next_nonce: next.next_nonce }'
+state_check_catches 'Pay zeroing ledger.spent directly' \
+  edit_handler "$PAY" "$TRANSFER" after 'ledger.spent = 0'
 
 # Putting older rules back is also the compiler's for Terms: Terms is not
 # Copy and changes in place (amend, cancel and pause take `mut self`), so a
@@ -589,6 +606,7 @@ shape_check_catches 'a new handler that moves money with no owner check' \
 # until the pin below is updated, so it cannot go in unnoticed.
 PIN_PRELUDE=7513342fc0297187e30321445439eb69a8cc4673ac61796dc1d07a34a20e172c
 PIN_INIT=6b1f4723e2552bfceaaf731967477b1a688a486afcdf598c4321fdbeb6cf8234
+PIN_VAULT=fa5222f870c06313a504b8e77b2f07caa3a6f19f3223a348b8de66271c8cadf7
 PIN_SEALED=c940bbd6a00468876c1ae2e21377f714a16849ea941b84edd518f8aa4a1f42da
 code_sha() { sed 's#//.*##; s/[ \t]*$//' | grep -v '^$' | sha256sum | cut -d' ' -f1; }
 prelude_of() { awk '/^pub contract Vault/ { exit } { print }' "$1"; }
@@ -599,6 +617,8 @@ check_pinned() {
   [ "$got" = "$PIN_PRELUDE" ] || { echo "vault.fe outside the contract changed (now $got)"; return 1; }
   got=$(init_of "$vault" | code_sha)
   [ "$got" = "$PIN_INIT" ] || { echo "init changed (now $got)"; return 1; }
+  got=$(code_sha < "$vault")
+  [ "$got" = "$PIN_VAULT" ] || { echo "vault.fe changed (now $got)"; return 1; }
   got=$(code_sha < "$sealed")
   [ "$got" = "$PIN_SEALED" ] || { echo "kernel/sealed.fe changed (now $got)"; return 1; }
 }
@@ -606,7 +626,7 @@ if ! why=$(check_pinned "$ROOT/fe/src/vault.fe" "$ROOT/fe/src/kernel/sealed.fe")
   echo "FAIL $why"
   exit 1
 fi
-echo "ok   source check: init, the code around the contract, and kernel/sealed.fe match their pinned sha256"
+echo "ok   source check: vault.fe, init, prelude, and kernel/sealed.fe match their pinned sha256"
 pin_check_catches() {
   local name=$1 vault=$2 sealed=$3
   if check_pinned "$vault" "$sealed" >/dev/null; then
@@ -630,6 +650,13 @@ pin_check_catches 'seconds() reading the clock a day ahead through a wrapper typ
 edited_sealed=$(mktemp)
 sed 's/ctx.caller() == owner.address {$/(ctx.caller() == owner.address || ctx.origin() == owner.address) {/' "$SEALED" > "$edited_sealed"
 pin_check_catches "prove accepting the transaction's origin as the owner" "$(copy_of "$ROOT/fe/src/vault.fe")" "$edited_sealed"
+pin_check_catches 'Withdraw sending tokens to caller before owner proof' \
+  "$(edited_vault 's/pay_owner(proof, token, owner, amount)/safe_transfer(token, receiver: ctx.caller(), amount); pay_owner(proof, token, owner, amount)/')" \
+  "$(copy_of "$SEALED")"
+with_postlude=$(mktemp)
+cat "$ROOT/fe/src/vault.fe" > "$with_postlude"
+printf '%s\n' "$FORGED_CALL" >> "$with_postlude"
+pin_check_catches 'forged-Call helper appended after Vault contract' "$with_postlude" "$(copy_of "$SEALED")"
 
 # A third Fe judge pass (2026-11-21) found the launcher unchecked: an edit
 # to what `Launch` hands the vault (the agent approved whenever a recipient
