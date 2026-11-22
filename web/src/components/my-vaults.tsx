@@ -289,9 +289,12 @@ function VaultActivity({ vault, network }: { vault: Hex; network: Network }) {
         </p>
       )}
       {feed.phase === 'failed' && (
-        <p className="mt-3 text-stop" role="alert">
-          {feed.message}
-        </p>
+        <div className="mt-3" role="alert">
+          <p className="text-stop">{feed.message}</p>
+          <button type="button" className="btn mt-3" onClick={open}>
+            Try again
+          </button>
+        </div>
       )}
       {feed.phase === 'shown' && feed.events.length === 0 && <p className="soft mt-3">Nothing yet.</p>}
       {feed.phase === 'shown' && feed.events.length > 0 && (
@@ -299,7 +302,7 @@ function VaultActivity({ vault, network }: { vault: Hex; network: Network }) {
           {feed.events.map((event, index) => (
             <li key={`${event.tx}-${index}`} className={event.kind === 'blocked' ? 'text-stop' : undefined}>
               <span className="small soft">{formatTime(event.time)}</span> {line(event)}{' '}
-              <a className="small" href={`${network.explorer}/tx/${event.tx}`}>
+              <a className="small tx-link" href={`${network.explorer}/tx/${event.tx}`}>
                 transaction
               </a>
             </li>
@@ -337,13 +340,22 @@ function Rename({ vault, account, name, onNamed }: { vault: Hex; account: Hex; n
     }
   }
 
+  const errorId = `rename-error-${vault}`
+
   return (
     <details className="disclosure mt-5">
       <summary>Rename</summary>
       <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={save}>
         <label className="grid gap-1">
           <span className="small">Name (up to 32 bytes; only you see it in your list)</span>
-          <input className="input" value={text} onChange={(event) => setText(event.target.value)} autoComplete="off" />
+          <input
+            className="input"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            autoComplete="off"
+            aria-invalid={naming.phase === 'failed' ? true : undefined}
+            aria-describedby={naming.phase === 'failed' ? errorId : undefined}
+          />
         </label>
         <button type="submit" className="btn" disabled={naming.phase === 'sending'}>
           {naming.phase === 'sending' ? 'Waiting for the network…' : 'Save name'}
@@ -353,7 +365,7 @@ function Rename({ vault, account, name, onNamed }: { vault: Hex; account: Hex; n
         Saving sends one transaction from your wallet to the launcher. It changes nothing about the vault or its rules.
       </p>
       {naming.phase === 'failed' && (
-        <p className="mt-2 text-stop" role="alert">
+        <p id={errorId} className="mt-2 text-stop" role="alert">
           {naming.message}
         </p>
       )}

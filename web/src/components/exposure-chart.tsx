@@ -60,9 +60,19 @@ export function ExposureChart() {
   }, [view])
 
   if (view === null || curve === null) {
+    if (status === 'failed') {
+      return (
+        <div className="soft" data-practice-vault role="alert">
+          <p>The practice vault could not start in this browser.</p>
+          <button type="button" className="btn mt-3" onClick={restart}>
+            Try again
+          </button>
+        </div>
+      )
+    }
     return (
-      <p className="soft" data-practice-vault role={status === 'failed' ? 'alert' : undefined}>
-        {status === 'failed' ? 'The practice vault could not start in this browser.' : 'Asking the practice vault…'}
+      <p className="soft" data-practice-vault>
+        Asking the practice vault…
       </p>
     )
   }

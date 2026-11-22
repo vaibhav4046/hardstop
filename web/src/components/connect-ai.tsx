@@ -12,6 +12,7 @@
 // for OpenAI and Hermes (the Nous Research mark). Neither set has a VS Code
 // logo, so that entry shows GitHub Copilot, which is how it runs there.
 
+import Link from 'next/link'
 import { useState, type CSSProperties } from 'react'
 import { source } from '@/lib/links'
 
@@ -102,7 +103,7 @@ export function ConnectAI() {
         <CommandLine command={DEMO_COMMAND} what="demo line" />
         <p className="panel-title mt-8">With your own vault</p>
         <p className="small soft mt-1">
-          <a href="/protect">Create a vault</a> first; its page then fills in the agent key and vault for you.
+          <Link href="/protect">Create a vault</Link> first; its page then fills in the agent key and vault for you.
         </p>
         <CommandLine command={INSTALL_COMMAND} what="install line" />
         <p className="small soft mt-4">
