@@ -39,10 +39,10 @@ refused payment does not use up a request number.
 
 ## Other native clients tried the same day
 
-- **Cursor**: Cursor's own MCP client connected the server with 5 tools
-  (from Cursor's logs; see `2026-11-22-cursor-native.md`). The chat prompts
-  were not run, because desktop control is not available on this machine
-  ("Computer use isn't available for your organization").
+- **Cursor**: passed. Cursor's own MCP client connected the server with 5
+  tools (from Cursor's logs), and Cursor's official agent CLI ran the same
+  six steps: $3 paid, GPU Market and $15 refused on chain, the self-raise only
+  drafted. See `2026-11-22-cursor-native.md`.
 - **Codex CLI** 0.130.0-alpha.5: it listed the `hardstop` server, but the
   ChatGPT account refused every model this CLI version asks for
   ("The 'gpt-5.5' model is not supported when using Codex with a ChatGPT
