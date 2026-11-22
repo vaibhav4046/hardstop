@@ -61,7 +61,7 @@ export function revertData(error: unknown): Hex | null {
   const seen = new Set<unknown>()
   const search = (value: unknown, depth: number): Hex | null => {
     if (depth > 4 || value === null || seen.has(value)) return null
-    if (typeof value === 'string') return /^0x([0-9a-fA-F]{2})*$/.test(value) ? (value as Hex) : null
+    if (typeof value === 'string') return /^0x([0-9a-fA-F]{2})+$/.test(value) ? (value as Hex) : null
     if (typeof value !== 'object') return null
     seen.add(value)
     const record = value as Record<string, unknown>
@@ -140,10 +140,19 @@ type RawReceipt = { status: Hex; gasUsed: Hex; blockNumber: Hex; logs: { address
 /** Waits until the network has included the transaction. */
 export async function waitFor(wallet: Wallet, hash: Hex, everyMs = 1500, forMs = 180_000): Promise<RawReceipt> {
   const deadline = Date.now() + forMs
+  let lastError: unknown
   for (;;) {
-    const receipt = (await wallet.request({ method: 'eth_getTransactionReceipt', params: [hash] })) as RawReceipt | null
-    if (receipt !== null && receipt.blockNumber) return receipt
-    if (Date.now() > deadline) throw new Error('The network has not confirmed the transaction after three minutes.')
+    try {
+      const receipt = (await wallet.request({ method: 'eth_getTransactionReceipt', params: [hash] })) as RawReceipt | null
+      if (receipt !== null && receipt.blockNumber) return receipt
+      lastError = undefined
+    } catch (error) {
+      lastError = error
+    }
+    if (Date.now() > deadline) {
+      if (lastError !== undefined) throw lastError
+      throw new Error('The network has not confirmed the transaction after three minutes.')
+    }
     await new Promise((resolve) => setTimeout(resolve, everyMs))
   }
 }

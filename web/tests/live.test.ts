@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { Hex } from 'viem'
 import { DEPLOYER, LAUNCHER, attach, launchVault, type Step } from '../src/lib/live/launch.ts'
-import { NETWORKS } from '../src/lib/live/wallet.ts'
+import { NETWORKS, revertData, waitFor, type Wallet } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
 import { AGENT_RAISE, apply, leftToday, snapshot, type Session } from '../src/lib/session.ts'
 import { verdict } from '../src/lib/describe.ts'
@@ -237,4 +237,23 @@ test('the verdict is what happened on chain, not the rehearsal: refused when ask
   assert.equal(entry.outcome.detail, 16n * USD)
   assert.equal(verdict(entry).tone, 'paid')
   assert.equal(await sim.balanceOf(PAYEE), 24n * USD)
+})
+
+test('waitFor retries past a transient RPC error on receipt polling, and revertData ignores empty 0x', async () => {
+  assert.equal(revertData('0x'), null)
+  assert.equal(revertData({ data: '0x' }), null)
+  assert.equal(revertData('0x08c379a0'), '0x08c379a0')
+
+  let calls = 0
+  const expected = { status: '0x1' as Hex, gasUsed: '0x5208' as Hex, blockNumber: '0x1' as Hex, logs: [] }
+  const flaky: Wallet = {
+    request: async () => {
+      calls += 1
+      if (calls === 1) throw new Error('HTTP 429 rate limited')
+      return expected
+    },
+  }
+  const receipt = await waitFor(flaky, `0x${'ab'.repeat(32)}`, 1, 500)
+  assert.deepEqual(receipt, expected)
+  assert.equal(calls, 2)
 })

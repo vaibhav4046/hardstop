@@ -81556,7 +81556,7 @@ function revertData(error62) {
   const seen = /* @__PURE__ */ new Set();
   const search = (value, depth) => {
     if (depth > 4 || value === null || seen.has(value)) return null;
-    if (typeof value === "string") return /^0x([0-9a-fA-F]{2})*$/.test(value) ? value : null;
+    if (typeof value === "string") return /^0x([0-9a-fA-F]{2})+$/.test(value) ? value : null;
     if (typeof value !== "object") return null;
     seen.add(value);
     const record2 = value;
@@ -81612,10 +81612,19 @@ async function switchTo(wallet, network) {
 }
 async function waitFor(wallet, hash4, everyMs = 1500, forMs = 18e4) {
   const deadline = Date.now() + forMs;
+  let lastError;
   for (; ; ) {
-    const receipt = await wallet.request({ method: "eth_getTransactionReceipt", params: [hash4] });
-    if (receipt !== null && receipt.blockNumber) return receipt;
-    if (Date.now() > deadline) throw new Error("The network has not confirmed the transaction after three minutes.");
+    try {
+      const receipt = await wallet.request({ method: "eth_getTransactionReceipt", params: [hash4] });
+      if (receipt !== null && receipt.blockNumber) return receipt;
+      lastError = void 0;
+    } catch (error62) {
+      lastError = error62;
+    }
+    if (Date.now() > deadline) {
+      if (lastError !== void 0) throw lastError;
+      throw new Error("The network has not confirmed the transaction after three minutes.");
+    }
     await new Promise((resolve) => setTimeout(resolve, everyMs));
   }
 }

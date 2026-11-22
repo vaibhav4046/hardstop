@@ -25,22 +25,28 @@ type Receipt = { status: Hex; blockNumber: Hex; logs: { address: string; topics:
 type Fetch = (url: string) => Promise<{ ok: boolean; json(): Promise<unknown> }>
 
 const HASH = /^0x[0-9a-f]{64}$/
+const defaultFetch: Fetch = (url) => fetch(url, { signal: AbortSignal.timeout(15_000) })
 
 /** Transaction hashes the index names for `vault`, newest first, unique, at most MAX_HISTORY. */
 async function indexed(indexer: string, vault: Hex, get: Fetch): Promise<Hex[]> {
   const query = new URLSearchParams({ module: 'logs', action: 'getLogs', address: vault, fromBlock: '0', toBlock: 'latest' })
-  const response = await get(`${indexer}?${query}`)
+  let response: { ok: boolean; json(): Promise<unknown> }
+  try {
+    response = await get(`${indexer}?${query}`)
+  } catch (error) {
+    throw new Error('The block explorer did not answer. Try again in a moment.', { cause: error })
+  }
   if (!response.ok) throw new Error('The block explorer did not answer. Try again in a moment.')
   let body: unknown
   try {
     body = await response.json()
-  } catch {
-    throw new Error('The block explorer did not answer. Try again in a moment.')
+  } catch (error) {
+    throw new Error('The block explorer did not answer. Try again in a moment.', { cause: error })
   }
   const result = body && typeof body === 'object' ? (body as { result?: unknown }).result : undefined
   if (!Array.isArray(result)) throw new Error('The block explorer did not answer. Try again in a moment.')
   const hashes: Hex[] = []
-  for (const row of [...result].reverse()) {
+  for (const row of result.toReversed()) {
     const hash = typeof row?.transactionHash === 'string' ? row.transactionHash.toLowerCase() : ''
     if (HASH.test(hash) && !hashes.includes(hash as Hex)) hashes.push(hash as Hex)
     if (hashes.length === MAX_HISTORY) break
@@ -79,7 +85,7 @@ function decode(tx: Hex, time: bigint, log: Receipt['logs'][number]): HistoryEve
  * the wallet. `get` is the network fetch (a parameter so tests can give it
  * an index that lies).
  */
-export async function vaultHistory(wallet: Wallet, network: Network, vault: Hex, get: Fetch = fetch): Promise<HistoryEvent[]> {
+export async function vaultHistory(wallet: Wallet, network: Network, vault: Hex, get: Fetch = defaultFetch): Promise<HistoryEvent[]> {
   if (!network.indexer) throw new Error(`No block explorer is set up for ${network.name}.`)
   const self = vault.toLowerCase()
   const events: HistoryEvent[] = []
@@ -90,7 +96,7 @@ export async function vaultHistory(wallet: Wallet, network: Network, vault: Hex,
     if (ours.length === 0) continue
     const block = (await wallet.request({ method: 'eth_getBlockByNumber', params: [receipt.blockNumber, false] })) as { timestamp: Hex } | null
     const time = block ? BigInt(block.timestamp) : 0n
-    for (const log of [...ours].reverse()) {
+    for (const log of ours.toReversed()) {
       const event = decode(tx, time, log)
       if (event) events.push(event)
     }
