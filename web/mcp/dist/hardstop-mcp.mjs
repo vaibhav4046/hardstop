@@ -85174,7 +85174,7 @@ No transaction was sent.`,
       const address = typed.toLowerCase();
       return { address, name: v.config.recipients.find((r) => r.address === address)?.name };
     }
-    throw new Error(`"${to.slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows. hardstop_recipients lists the names it knows.`);
+    throw new Error(`"${oneLine(to).slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows. hardstop_recipients lists the names it knows.`);
   };
   return () => {
     const server = new McpServer({ name: "hardstop", version: "0.1.0" }, { instructions: INSTRUCTIONS });
@@ -85319,6 +85319,8 @@ No transaction was sent.`,
         annotations: { readOnlyHint: true, openWorldHint: false }
       },
       ({ reason, per_payment_usd, per_day_usd, recipient }) => run(async (v) => {
+        const cleanReason = oneLine(reason);
+        if (!cleanReason) throw new Error("reason cannot be blank. Say why you need more, in a sentence or two.");
         const perPayment = per_payment_usd === void 0 ? void 0 : dollars(per_payment_usd, "per_payment_usd");
         const perDay = per_day_usd === void 0 ? void 0 : dollars(per_day_usd, "per_day_usd");
         const wanted = recipient === void 0 ? void 0 : resolve(v, recipient);
@@ -85344,7 +85346,7 @@ No transaction was sent.`,
           "",
           asks.length ? `The agent asks for:
 ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
-          `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${oneLine(reason)}"`,
+          `The agent's own words, not checked by anyone (nothing here comes from you or from HARDSTOP): "${cleanReason}"`,
           "",
           `Rules in force now: up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${per}.`,
           `To agree, ${page ? `open ${page} with the owner wallet and` : "the owner would"} ${wanted ? "approve the recipient and propose any new limits" : "propose the new limits"}.${page ? "" : " (This is a demo: the vault exists only inside this server, so it has no page.)"} Looser rules take effect after ${formatDuration(schedule.coolingSecs)}, and can be cancelled until then. To refuse, do nothing.`
@@ -85354,7 +85356,7 @@ ${asks.join("\n")}` : "The agent asks for more room under the current rules.",
           json: {
             changed: false,
             owner_page: page,
-            reason: oneLine(reason),
+            reason: cleanReason,
             current: { per_payment_usd: usd(policy.perPayment), per_day_usd: usd(policy.perWindow) },
             requested: {
               per_payment_usd: perPayment === void 0 ? null : usd(perPayment),
@@ -85428,7 +85430,7 @@ async function main2() {
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 }
-var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, oneLine, createServer2;
+var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, HIDDEN, oneLine, createServer2;
 var init_server3 = __esm({
   "mcp/server.ts"() {
     init_entry();
@@ -85453,7 +85455,8 @@ var init_server3 = __esm({
     });
     failed = (error62) => ({ isError: true, content: [{ type: "text", text: plain(error62) }] });
     formatFor = (v) => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left });
-    oneLine = (text) => text.replace(/\s+/g, " ").trim();
+    HIDDEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g;
+    oneLine = (text) => text.replace(/\s+/g, " ").replace(HIDDEN, "").trim();
     createServer2 = (options = {}) => hardstop(options)();
     if (isMain(import.meta.url)) {
       main2().catch((error62) => {
