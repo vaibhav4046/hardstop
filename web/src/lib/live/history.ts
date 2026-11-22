@@ -31,10 +31,16 @@ async function indexed(indexer: string, vault: Hex, get: Fetch): Promise<Hex[]> 
   const query = new URLSearchParams({ module: 'logs', action: 'getLogs', address: vault, fromBlock: '0', toBlock: 'latest' })
   const response = await get(`${indexer}?${query}`)
   if (!response.ok) throw new Error('The block explorer did not answer. Try again in a moment.')
-  const body = (await response.json()) as { result?: unknown }
-  if (!Array.isArray(body.result)) return []
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    throw new Error('The block explorer did not answer. Try again in a moment.')
+  }
+  const result = body && typeof body === 'object' ? (body as { result?: unknown }).result : undefined
+  if (!Array.isArray(result)) throw new Error('The block explorer did not answer. Try again in a moment.')
   const hashes: Hex[] = []
-  for (const row of [...body.result].reverse()) {
+  for (const row of [...result].reverse()) {
     const hash = typeof row?.transactionHash === 'string' ? row.transactionHash.toLowerCase() : ''
     if (HASH.test(hash) && !hashes.includes(hash as Hex)) hashes.push(hash as Hex)
     if (hashes.length === MAX_HISTORY) break

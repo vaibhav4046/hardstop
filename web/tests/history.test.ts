@@ -93,3 +93,36 @@ test('a network with no index says so, and the list is capped', async () => {
   await assert.rejects(vaultHistory(network, { ...NETWORK, indexer: undefined }, OWNER), /No block explorer/)
   assert.equal(MAX_HISTORY, 25)
 })
+
+test('malformed or error answers from the block explorer fail loudly, empty lists succeed, and reverted transactions are dropped', async () => {
+  const { network, live } = await busyVault()
+  const badAnswers = [
+    async () => ({ ok: true, json: async () => { throw new SyntaxError('Unexpected token <') } }),
+    async () => ({ ok: true, json: async () => null }),
+    async () => ({ ok: true, json: async () => ({ status: '0', message: 'NOTOK', result: 'Max rate limit reached' }) }),
+  ]
+  for (const get of badAnswers) {
+    await assert.rejects(vaultHistory(network, NETWORK, live.vault, get), /block explorer did not answer/)
+  }
+
+  const empty = async () => ({ ok: true, json: async () => ({ status: '0', message: 'No logs found', result: [] }) })
+  assert.deepEqual(await vaultHistory(network, NETWORK, live.vault, empty), [])
+
+  const truthful = await vaultHistory(network, NETWORK, live.vault, index(network, live.vault).get)
+  const revertedHash = (`0x${'cd'.repeat(32)}`) as Hex
+  const firstReceipt = (await network.request({ method: 'eth_getTransactionReceipt', params: [truthful[0].tx] })) as {
+    status: Hex
+    blockNumber: Hex
+    logs: { address: string; topics: Hex[]; data: Hex }[]
+  }
+  const withRevertedReceipt = {
+    request: async (req: { method: string; params?: unknown[] }) => {
+      if (req.method === 'eth_getTransactionReceipt' && req.params?.[0] === revertedHash) {
+        return { ...firstReceipt, status: '0x0' as Hex }
+      }
+      return network.request(req)
+    },
+  }
+  const withReverted = index(network, live.vault, [revertedHash])
+  assert.deepEqual(await vaultHistory(withRevertedReceipt, NETWORK, live.vault, withReverted.get), truthful)
+})
