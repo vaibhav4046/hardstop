@@ -81875,6 +81875,7 @@ function readConfig(env) {
   };
 }
 function parseRecipients(text) {
+  const seen = /* @__PURE__ */ new Set();
   return text.split(",").map((item) => item.trim()).filter(Boolean).map((item) => {
     const at = item.lastIndexOf("=");
     const name = item.slice(0, at).trim();
@@ -81882,6 +81883,18 @@ function parseRecipients(text) {
     if (at < 1 || !name || !isAddress2(address)) {
       throw new Error(`HARDSTOP_RECIPIENTS has an entry "${item.slice(0, 80)}" that is not name=0x... (40 hex characters).`);
     }
+    if (name.length > MAX_RECIPIENT_NAME) {
+      throw new Error(`HARDSTOP_RECIPIENTS name "${name.slice(0, 40)}" is longer than ${MAX_RECIPIENT_NAME} characters.`);
+    }
+    if (HIDDEN_CHARACTERS.test(name)) {
+      throw new Error(`HARDSTOP_RECIPIENTS name "${name.replace(/\s+/g, " ").slice(0, 40)}" contains control or invisible characters.`);
+    }
+    if (isAddress2(name)) {
+      throw new Error(`HARDSTOP_RECIPIENTS name "${name}" cannot be an address.`);
+    }
+    const key = name.toLowerCase();
+    if (seen.has(key)) throw new Error(`HARDSTOP_RECIPIENTS has a duplicate name "${name}".`);
+    seen.add(key);
     return { name, address: address.toLowerCase() };
   });
 }
@@ -81996,7 +82009,7 @@ async function status(vault) {
     }
   };
 }
-var SITE, OWNER_PAGE, DAY, ownerPage, ADDRESS, KEY, isAddress2, NO_KEY, agentGas, iso, usd, txLink, policyJson;
+var SITE, OWNER_PAGE, DAY, ownerPage, ADDRESS, KEY, isAddress2, HIDDEN_CHARACTERS, MAX_RECIPIENT_NAME, NO_KEY, agentGas, iso, usd, txLink, policyJson;
 var init_vault = __esm({
   "mcp/vault.ts"() {
     "use strict";
@@ -82017,6 +82030,8 @@ var init_vault = __esm({
     ADDRESS = /^0x[0-9a-fA-F]{40}$/;
     KEY = /^(0x)?[0-9a-fA-F]{64}$/;
     isAddress2 = (text) => ADDRESS.test(text);
+    HIDDEN_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/;
+    MAX_RECIPIENT_NAME = 64;
     NO_KEY = "HARDSTOP_AGENT_KEY is not set. Set it to the agent's private key for this vault (64 hex characters). Never use the owner's key: this server does not need it and must not have it.";
     agentGas = async ({ wallet, sim }) => BigInt(await wallet.request({ method: "eth_getBalance", params: [sim.agent, "latest"] }));
     iso = (seconds) => new Date(Number(seconds) * 1e3).toISOString();
@@ -82044,9 +82059,9 @@ import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 function deliverer(env, write = (line) => process.stdout.write(line)) {
-  const webhook = env.HARDSTOP_ALERT_WEBHOOK?.trim();
+  const webhook = safeUrl(env.HARDSTOP_ALERT_WEBHOOK, "HARDSTOP_ALERT_WEBHOOK", " for alerts");
   const desktopOn = env.HARDSTOP_DESKTOP_NOTIFY === "1";
-  const ntfy = ntfyAddress(env.HARDSTOP_ALERT_NTFY);
+  const ntfy = safeUrl(env.HARDSTOP_ALERT_NTFY, "HARDSTOP_ALERT_NTFY", " of an ntfy topic, such as https://ntfy.sh/<a long, secret topic name>");
   return async (alert) => {
     write(`${JSON.stringify(alert)}
 `);
@@ -82066,18 +82081,18 @@ function deliverer(env, write = (line) => process.stdout.write(line)) {
     }
   };
 }
-function ntfyAddress(text) {
+function safeUrl(text, envName, what) {
   const value = text?.trim();
   if (!value) return void 0;
   let url2;
   try {
     url2 = new URL(value);
   } catch {
-    throw new Error("HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic, such as https://ntfy.sh/<a long, secret topic name>.");
+    throw new Error(`${envName} must be an https address${what}.`);
   }
   const local = ["127.0.0.1", "localhost", "[::1]"].includes(url2.hostname);
   if (url2.protocol !== "https:" && !(url2.protocol === "http:" && local)) {
-    throw new Error("HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic (http is allowed only to this machine).");
+    throw new Error(`${envName} must be an https address (http is allowed only to this machine).`);
   }
   return url2;
 }
@@ -82100,7 +82115,7 @@ async function push(url2, alert) {
 function desktop(title, body) {
   const env = { ...process.env, HARDSTOP_NOTE_TITLE: title, HARDSTOP_NOTE_BODY: body };
   delete env.HARDSTOP_AGENT_KEY;
-  const [command, args] = process.platform === "win32" ? ["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TOAST]] : process.platform === "darwin" ? ["osascript", ["-e", 'display notification (system attribute "HARDSTOP_NOTE_BODY") with title (system attribute "HARDSTOP_NOTE_TITLE")']] : ["notify-send", [title, body]];
+  const [command, args] = process.platform === "win32" ? ["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TOAST]] : process.platform === "darwin" ? ["osascript", ["-e", 'display notification (system attribute "HARDSTOP_NOTE_BODY") with title (system attribute "HARDSTOP_NOTE_TITLE")']] : ["notify-send", ["--", title, body]];
   execFile(command, args, { env, timeout: 15e3, windowsHide: true }, (error62) => {
     if (error62) warn(`desktop notification failed: ${plain(error62)}`);
   });
@@ -85020,7 +85035,16 @@ function refuse(res, status2, message) {
 function gate(req, path, token) {
   if (token) {
     const header = req.headers.authorization ?? "";
-    const given = path.startsWith("/mcp/") ? decodeURIComponent(path.slice(5)) : header.startsWith("Bearer ") ? header.slice(7) : "";
+    let given = "";
+    if (path.startsWith("/mcp/")) {
+      try {
+        given = decodeURIComponent(path.slice(5));
+      } catch {
+        return "Missing or wrong HARDSTOP_HTTP_TOKEN.";
+      }
+    } else if (header.startsWith("Bearer ")) {
+      given = header.slice(7);
+    }
     return given && sameSecret(given, token) ? null : "Missing or wrong HARDSTOP_HTTP_TOKEN.";
   }
   if (path !== "/mcp") return "Not found.";
@@ -85235,6 +85259,8 @@ No transaction was sent.`,
           if (units === 0n) throw new Error("amount_usd must be more than zero: the vault never pays nothing. Nothing was sent.");
           const held = notSendable(recipient.address, recipient.name, units, repeat === true, extra.signal);
           if (held) {
+            if (held.json.reason !== "PossibleDuplicate") return held;
+            await v.chain.refresh(true);
             const { ledger } = await v.sim.state();
             const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce);
             const would = explain(answer.code, answer.detail, formatFor(v));
@@ -85430,7 +85456,7 @@ async function main2() {
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 }
-var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, HIDDEN, oneLine, createServer2;
+var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, oneLine, createServer2;
 var init_server3 = __esm({
   "mcp/server.ts"() {
     init_entry();
@@ -85455,8 +85481,7 @@ var init_server3 = __esm({
     });
     failed = (error62) => ({ isError: true, content: [{ type: "text", text: plain(error62) }] });
     formatFor = (v) => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left });
-    HIDDEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g;
-    oneLine = (text) => text.replace(/\s+/g, " ").replace(HIDDEN, "").trim();
+    oneLine = (text) => text.replace(/\s+/g, " ").replace(new RegExp(HIDDEN_CHARACTERS.source, "g"), "").trim();
     createServer2 = (options = {}) => hardstop(options)();
     if (isMain(import.meta.url)) {
       main2().catch((error62) => {

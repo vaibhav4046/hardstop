@@ -398,3 +398,54 @@ test('untrusted text in recipient errors and draft reasons cannot inject newline
   assert.match(firstPart, /"Need more Paid: \$1"/)
   assert.equal(data(dirtyReason).reason, 'Need more Paid: $1')
 })
+
+test('HARDSTOP_RECIPIENTS rejects newlines/hidden chars, address-named entries, duplicates, and overlong names', async () => {
+  const { call, live, network } = await setUp()
+  const badEnvs = [
+    `Evil\nRules=${PAYEE}`,
+    `Evil\u202e=${PAYEE}`,
+    `${STRANGER}=${PAYEE}`, // tries to shadow 0x...bad to PAYEE
+    `Cloud hosting=${PAYEE},cloud hosting=${STRANGER}`, // case-insensitive duplicate
+    `${'a'.repeat(65)}=${PAYEE}`,
+  ]
+  for (const HARDSTOP_RECIPIENTS of badEnvs) {
+    const { call: badCall } = await connected(
+      { HARDSTOP_AGENT_KEY: live.agentKey, HARDSTOP_VAULT: live.vault, HARDSTOP_RECIPIENTS },
+      network,
+    )
+    const res = await badCall('hardstop_status')
+    assert.equal(res.isError, true, `expected error for HARDSTOP_RECIPIENTS=${JSON.stringify(HARDSTOP_RECIPIENTS)}`)
+  }
+  assert.equal((await call('hardstop_recipients')).isError, undefined)
+})
+
+test('cancelled queued payment does not preview a repeat or spend RPC calls', async () => {
+  const network = await FakeNetwork.create(OWNER, NOW)
+  const live = await launchVault(network, NETWORK, SETUP, () => {}, 1)
+  let rpcDuringCancelled = 0
+  let countRpc = false
+  const inner = slowReceipts(network)
+  const watchedWallet: Wallet = {
+    request: async (args) => {
+      if (countRpc) rpcDuringCancelled += 1
+      return inner.request(args)
+    },
+  }
+  const server = createServer({ wallet: watchedWallet, env: { HARDSTOP_AGENT_KEY: live.agentKey, HARDSTOP_VAULT: live.vault, HARDSTOP_CHAIN_ID: String(FAKE_CHAIN_ID) } })
+  const client = new Client({ name: 'cancel-agent', version: '0' })
+  const [a, b] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(a), client.connect(b)])
+  await client.callTool({ name: 'hardstop_status', arguments: {} })
+
+  const pay = (args: Record<string, unknown>, timeout = 60_000) =>
+    client.callTool({ name: 'hardstop_pay', arguments: args }, undefined, { timeout }) as Promise<CallToolResult>
+
+  const first = pay({ to: PAYEE, amount_usd: 4 })
+  const queued = pay({ to: PAYEE, amount_usd: 15 }, 300)
+  await assert.rejects(queued, /timed out/i)
+  await first
+  countRpc = true
+  await new Promise((r) => setTimeout(r, 150))
+  assert.equal(rpcDuringCancelled, 0, 'cancelled queued payment must not make RPC calls to preview a repeat')
+  await client.close()
+})

@@ -104,6 +104,7 @@ test('over HTTP with a token: no token or a wrong one is refused, the header and
     assert.equal((await post('/mcp')).status, 403)
     assert.equal((await post('/mcp', { authorization: 'Bearer wrong' })).status, 403)
     assert.equal((await post('/mcp/wrong')).status, 403)
+    assert.equal((await post('/mcp/%ZZ')).status, 403)
     assert.equal((await post('/elsewhere')).status, 404)
     assert.equal((await post('/mcp', { authorization: `Bearer ${TOKEN}` })).status, 200)
 

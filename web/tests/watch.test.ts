@@ -183,6 +183,13 @@ test('HARDSTOP_ALERT_NTFY must be an https address, or http only to this machine
   deliverer({ HARDSTOP_ALERT_NTFY: 'http://127.0.0.1:8080/topic' })
 })
 
+test('HARDSTOP_ALERT_WEBHOOK must be an https address, or http only to this machine', () => {
+  assert.throws(() => deliverer({ HARDSTOP_ALERT_WEBHOOK: 'http://webhook.example.com/hook' }), /https/)
+  assert.throws(() => deliverer({ HARDSTOP_ALERT_WEBHOOK: 'not a url' }), /https/)
+  deliverer({ HARDSTOP_ALERT_WEBHOOK: 'https://webhook.example.com/hook' })
+  deliverer({ HARDSTOP_ALERT_WEBHOOK: 'http://127.0.0.1:8080/hook' })
+})
+
 const PROPOSAL = { perPayment: 10n * USD, perWindow: 50n * USD, validUntil: SETUP.validUntil, paused: false }
 
 test('a raise proposed and cancelled between two checks is still reported, as a sign of a stolen owner key', async () => {

@@ -25,6 +25,7 @@ import type { Wallet } from '../src/lib/live/wallet.ts'
 import { FORMAT, formatDuration, formatTime, formatUsd, parseUsd } from '../src/lib/money.ts'
 import { apply } from '../src/lib/session.ts'
 import {
+  HIDDEN_CHARACTERS,
   NO_KEY,
   ownerPage,
   connect,
@@ -66,10 +67,8 @@ const failed = (error: unknown): CallToolResult => ({ isError: true, content: [{
 /** The app's wording, with this vault's window in place of "today". */
 const formatFor = (v: Vault): Formatters => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left })
 
-const HIDDEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g
-
 /** The agent's text on one line with hidden/bidi characters removed, so it cannot pass itself off as more of the draft. */
-const oneLine = (text: string): string => text.replace(/\s+/g, ' ').replace(HIDDEN, '').trim()
+const oneLine = (text: string): string => text.replace(/\s+/g, ' ').replace(new RegExp(HIDDEN_CHARACTERS.source, 'g'), '').trim()
 
 function dollars(value: number | string, what: string): bigint {
   const units = parseUsd(String(value))
@@ -235,7 +234,9 @@ No transaction was sent.`,
             if (units === 0n) throw new Error('amount_usd must be more than zero: the vault never pays nothing. Nothing was sent.')
             const held = notSendable(recipient.address, recipient.name, units, repeat === true, extra.signal)
             if (held) {
+              if (held.json.reason !== 'PossibleDuplicate') return held
               // Before advising a deliberate repeat, check that the vault would pay it now.
+              await v.chain.refresh(true)
               const { ledger } = await v.sim.state()
               const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce)
               const would = explain(answer.code, answer.detail, formatFor(v))

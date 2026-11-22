@@ -86,8 +86,12 @@ export function readConfig(env: Env): Config {
   }
 }
 
+export const HIDDEN_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/
+const MAX_RECIPIENT_NAME = 64
+
 /** `name=0x...,name2=0x...` */
 export function parseRecipients(text: string): Recipient[] {
+  const seen = new Set<string>()
   return text
     .split(',')
     .map((item) => item.trim())
@@ -99,6 +103,18 @@ export function parseRecipients(text: string): Recipient[] {
       if (at < 1 || !name || !isAddress(address)) {
         throw new Error(`HARDSTOP_RECIPIENTS has an entry "${item.slice(0, 80)}" that is not name=0x... (40 hex characters).`)
       }
+      if (name.length > MAX_RECIPIENT_NAME) {
+        throw new Error(`HARDSTOP_RECIPIENTS name "${name.slice(0, 40)}" is longer than ${MAX_RECIPIENT_NAME} characters.`)
+      }
+      if (HIDDEN_CHARACTERS.test(name)) {
+        throw new Error(`HARDSTOP_RECIPIENTS name "${name.replace(/\s+/g, ' ').slice(0, 40)}" contains control or invisible characters.`)
+      }
+      if (isAddress(name)) {
+        throw new Error(`HARDSTOP_RECIPIENTS name "${name}" cannot be an address.`)
+      }
+      const key = name.toLowerCase()
+      if (seen.has(key)) throw new Error(`HARDSTOP_RECIPIENTS has a duplicate name "${name}".`)
+      seen.add(key)
       return { name, address: address.toLowerCase() as Hex }
     })
 }

@@ -345,9 +345,9 @@ export type Deliver = (alert: Alert) => Promise<void>
 
 /** stdout, plus the webhook and desktop notification when configured. */
 export function deliverer(env: Env, write: (line: string) => void = (line) => process.stdout.write(line)): Deliver {
-  const webhook = env.HARDSTOP_ALERT_WEBHOOK?.trim()
+  const webhook = safeUrl(env.HARDSTOP_ALERT_WEBHOOK, 'HARDSTOP_ALERT_WEBHOOK', ' for alerts')
   const desktopOn = env.HARDSTOP_DESKTOP_NOTIFY === '1'
-  const ntfy = ntfyAddress(env.HARDSTOP_ALERT_NTFY)
+  const ntfy = safeUrl(env.HARDSTOP_ALERT_NTFY, 'HARDSTOP_ALERT_NTFY', ' of an ntfy topic, such as https://ntfy.sh/<a long, secret topic name>')
   return async (alert) => {
     write(`${JSON.stringify(alert)}\n`)
     if (desktopOn) desktop(`HARDSTOP: ${alert.kind.replace(/_/g, ' ')}`, alert.message)
@@ -372,19 +372,19 @@ const warn = (text: string) => process.stderr.write(`hardstop-watch: ${text}\n`)
 /** Alerts the owner must act on before a cooling period ends: pushed as urgent, with a link to where they can. */
 const ACT_NOW = new Set(['loosening_waiting', 'loosening_withdrawn', 'loosening_in_force', 'recipient_approved'])
 
-/** HARDSTOP_ALERT_NTFY: an ntfy topic address (https://ntfy.sh/<topic>, or a self-hosted server). http only to this machine. */
-function ntfyAddress(text: string | undefined): URL | undefined {
+/** Checks an alert destination address: https anywhere, or http only to this machine. */
+function safeUrl(text: string | undefined, envName: string, what: string): URL | undefined {
   const value = text?.trim()
   if (!value) return undefined
   let url: URL
   try {
     url = new URL(value)
   } catch {
-    throw new Error('HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic, such as https://ntfy.sh/<a long, secret topic name>.')
+    throw new Error(`${envName} must be an https address${what}.`)
   }
   const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) {
-    throw new Error('HARDSTOP_ALERT_NTFY must be an https address of an ntfy topic (http is allowed only to this machine).')
+    throw new Error(`${envName} must be an https address (http is allowed only to this machine).`)
   }
   return url
 }
@@ -425,7 +425,7 @@ function desktop(title: string, body: string): void {
       ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', WINDOWS_TOAST]]
       : process.platform === 'darwin'
         ? ['osascript', ['-e', 'display notification (system attribute "HARDSTOP_NOTE_BODY") with title (system attribute "HARDSTOP_NOTE_TITLE")']]
-        : ['notify-send', [title, body]]
+        : ['notify-send', ['--', title, body]]
   execFile(command, args, { env, timeout: 15_000, windowsHide: true }, (error) => {
     if (error) warn(`desktop notification failed: ${plain(error)}`)
   })

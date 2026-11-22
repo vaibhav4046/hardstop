@@ -41,7 +41,16 @@ const isLoopback = (address: string | undefined) => address === '::1' || /^(::ff
 export function gate(req: Pick<IncomingMessage, 'headers' | 'socket'>, path: string, token: string | undefined): string | null {
   if (token) {
     const header = req.headers.authorization ?? ''
-    const given = path.startsWith('/mcp/') ? decodeURIComponent(path.slice(5)) : header.startsWith('Bearer ') ? header.slice(7) : ''
+    let given = ''
+    if (path.startsWith('/mcp/')) {
+      try {
+        given = decodeURIComponent(path.slice(5))
+      } catch {
+        return 'Missing or wrong HARDSTOP_HTTP_TOKEN.'
+      }
+    } else if (header.startsWith('Bearer ')) {
+      given = header.slice(7)
+    }
     return given && sameSecret(given, token) ? null : 'Missing or wrong HARDSTOP_HTTP_TOKEN.'
   }
   if (path !== '/mcp') return 'Not found.'
