@@ -53,4 +53,4 @@ restart the app, and ask it for the HARDSTOP status. That needs a person at the 
 
 - **Ollama** (0.40.4) is installed. It runs models; it is not an MCP client and cannot connect to an MCP server by itself. It was used here only as the local model behind the Python frameworks, Hermes Agent and OpenCode.
 - **aider** (0.86.2) is installed. Its `--help` lists no MCP option, so it was not tried.
-- `codex`, `gemini`, `cursor-agent`, `goose`, `qwen` and `windsurf` are not on PATH.
+- `gemini`, `goose`, `qwen` and `windsurf` are not on PATH. (`cursor-agent` was installed on 2026-11-22 and ran the test: see `qa/agent-runs/2026-11-22-cursor-native.md`.)

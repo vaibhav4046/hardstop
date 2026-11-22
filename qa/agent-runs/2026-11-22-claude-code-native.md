@@ -43,7 +43,3 @@ refused payment does not use up a request number.
   tools (from Cursor's logs), and Cursor's official agent CLI ran the same
   six steps: $3 paid, GPU Market and $15 refused on chain, the self-raise only
   drafted. See `2026-11-22-cursor-native.md`.
-- **Codex CLI** 0.130.0-alpha.5: it listed the `hardstop` server, but the
-  ChatGPT account refused every model this CLI version asks for
-  ("The 'gpt-5.5' model is not supported when using Codex with a ChatGPT
-  account."), so no agent run happened.
