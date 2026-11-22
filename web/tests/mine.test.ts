@@ -85,8 +85,20 @@ test('names: up to 32 bytes of UTF-8 round-trip through one word; longer or cont
   }
   assert.match(String(encodeName('x'.repeat(33))), /at most 32 bytes; this one is 33/)
   assert.match(String(encodeName('a\u0007b')), /control characters/)
-  // Whatever someone stores, what comes back is plain text with no control characters.
+  assert.match(String(encodeName('Vault\u202e')), /control/)
+  assert.match(String(encodeName('Vault\u200b')), /control/)
+  assert.match(String(encodeName('Vault\u0085')), /control/)
+  // Whatever someone stores, what comes back is plain text with no control or hidden characters.
   assert.equal(decodeName((1n << 256n) - 1n).includes('\u0000'), false)
+  const wordOf = (text: string) => {
+    const raw = Buffer.from(text, 'utf8')
+    let word = 0n
+    for (const byte of raw) word = (word << 8n) | BigInt(byte)
+    return word << BigInt(8 * (32 - raw.length))
+  }
+  assert.equal(decodeName(wordOf('Vault\u202e')), 'Vault')
+  assert.equal(decodeName(wordOf('Vault\u200b')), 'Vault')
+  assert.equal(decodeName(wordOf('Vault\u0085')), 'Vault')
 })
 
 test("an owner names their vault through the launcher; another owner's name for it is their own", async () => {

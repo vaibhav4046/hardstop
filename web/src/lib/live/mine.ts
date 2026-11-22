@@ -78,12 +78,14 @@ export async function summarize(wallet: Wallet, network: Network, vault: Hex): P
 /** A vault name is at most this many bytes of UTF-8: one 32-byte word on chain. */
 export const NAME_BYTES = 32
 
+const HIDDEN_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/
+
 /** The word stored on chain for `text`, or a plain sentence saying why it cannot be a name. */
 export function encodeName(text: string): bigint | string {
   const trimmed = text.trim()
   const bytes = new TextEncoder().encode(trimmed)
   if (bytes.length > NAME_BYTES) return `A name can be at most ${NAME_BYTES} bytes; this one is ${bytes.length}.`
-  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return 'A name cannot contain control characters.'
+  if (HIDDEN_CHARACTERS.test(trimmed)) return 'A name cannot contain invisible or control characters.'
   let word = 0n
   for (const byte of bytes) word = (word << 8n) | BigInt(byte)
   return word << BigInt(8 * (NAME_BYTES - bytes.length))
@@ -94,7 +96,7 @@ export function decodeName(word: bigint): string {
   const bytes: number[] = []
   for (let shift = BigInt(8 * (NAME_BYTES - 1)); shift >= 0n; shift -= 8n) bytes.push(Number((word >> shift) & 0xffn))
   while (bytes.length > 0 && bytes[bytes.length - 1] === 0) bytes.pop()
-  return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes)).replace(/[\u0000-\u001f\u007f]/g, '')
+  return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes)).replace(new RegExp(HIDDEN_CHARACTERS.source, 'g'), '')
 }
 
 /** The name `owner` gave `vault`; '' for none or when the launcher is not installed. */
