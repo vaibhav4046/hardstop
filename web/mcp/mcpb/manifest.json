@@ -1,0 +1,77 @@
+{
+  "manifest_version": "0.2",
+  "name": "hardstop",
+  "display_name": "HARDSTOP",
+  "version": "0.1.0",
+  "description": "A spending firewall for your AI agent: it pays only through your vault, inside limits it cannot change.",
+  "long_description": "HARDSTOP gives the assistant one wallet: a vault whose contract enforces your limits (per payment, per day, an end date, approved recipients, a pause switch). The assistant can check the vault, preview a payment, pay, list recipients and draft a request for more room. It cannot raise its own limit; no tool here can. Test networks only (Base Sepolia, Sepolia): the dollars have no value. Turn on Practice vault to try it with no keys.",
+  "author": { "name": "Vaibhav Lalwani", "url": "https://github.com/vaibhav4046" },
+  "homepage": "https://hardstop-omega.vercel.app",
+  "documentation": "https://github.com/vaibhav4046/hardstop/blob/main/web/mcp/README.md",
+  "support": "https://github.com/vaibhav4046/hardstop/issues",
+  "repository": { "type": "git", "url": "https://github.com/vaibhav4046/hardstop" },
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": ["payments", "agent", "wallet", "limits", "security", "testnet"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/hardstop-mcp.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/hardstop-mcp.mjs"],
+      "env": {
+        "HARDSTOP_FAKE": "${user_config.demo}",
+        "HARDSTOP_AGENT_KEY": "${user_config.agent_key}",
+        "HARDSTOP_VAULT": "${user_config.vault}",
+        "HARDSTOP_CHAIN_ID": "${user_config.chain_id}",
+        "HARDSTOP_RECIPIENTS": "${user_config.recipients}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "hardstop_status", "description": "Limits, spending left today, balance and the worst case, read from the contract." },
+    { "name": "hardstop_preview_payment", "description": "Ask the vault whether a payment would go through, without sending it." },
+    { "name": "hardstop_pay", "description": "Pay from the vault; the contract refuses anything outside the limits." },
+    { "name": "hardstop_recipients", "description": "Which named recipients the vault will pay." },
+    { "name": "hardstop_request_more", "description": "Draft a request to the owner for more room. Changes nothing." }
+  ],
+  "user_config": {
+    "demo": {
+      "type": "boolean",
+      "title": "Practice vault (no keys)",
+      "description": "Start a practice vault in memory: $10 a payment, $20 a day. Nothing is real. Turn off to use your own vault.",
+      "default": true
+    },
+    "agent_key": {
+      "type": "string",
+      "title": "Agent key",
+      "description": "The agent's private key from your vault's page on hardstop-omega.vercel.app. Never the owner's key. Stored in your system keychain.",
+      "sensitive": true,
+      "required": false
+    },
+    "vault": {
+      "type": "string",
+      "title": "Vault address",
+      "description": "Your vault's address (0x followed by 40 hex characters).",
+      "required": false
+    },
+    "chain_id": {
+      "type": "string",
+      "title": "Network",
+      "description": "84532 for Base Sepolia or 11155111 for Sepolia. Networks with real money are refused.",
+      "default": "84532",
+      "required": false
+    },
+    "recipients": {
+      "type": "string",
+      "title": "Recipient names",
+      "description": "Optional names for approved recipients, such as Cloud hosting=0x...,GPU Market=0x...",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=20.0.0" }
+  },
+  "privacy_policies": []
+}

@@ -46,6 +46,16 @@ test.describe('Connect your AI', () => {
     await section.getByRole('button', { name: 'Copy demo line' }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(demo)
 
+    // One-click installs of the same demo server: the Claude Desktop extension is served here, the others open the app's own install prompt.
+    const oneClick = section.getByRole('list', { name: 'One-click install' })
+    const desktop = oneClick.getByRole('link', { name: 'Claude Desktop' })
+    await expect(desktop).toHaveAttribute('href', '/install/hardstop.mcpb')
+    expect((await page.request.get('/install/hardstop.mcpb')).status()).toBe(200)
+    const cursor = await oneClick.getByRole('link', { name: 'Cursor' }).getAttribute('href')
+    const config = JSON.parse(atob(new URL(cursor ?? '').searchParams.get('config') ?? ''))
+    expect(config).toEqual({ command: 'npx', args: ['-y', 'github:vaibhav4046/hardstop', '--demo'] })
+    await expect(oneClick.getByRole('link', { name: 'VS Code' })).toHaveAttribute('href', /^vscode:mcp\/install\?/)
+
     await expect(section.getByRole('link', { name: 'full setup guide' })).toHaveAttribute(
       'href',
       'https://github.com/vaibhav4046/hardstop/blob/main/web/mcp/README.md',

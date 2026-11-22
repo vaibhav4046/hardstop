@@ -155,7 +155,7 @@ test('status, a paid payment, refusals over the limit and to a stranger, and sta
   const tooBig = await call('hardstop_pay', { to: PAYEE, amount_usd: 12.5 })
   assert.equal(data(tooBig).result, 'refused')
   assert.equal(data(tooBig).reason, 'OverPaymentLimit')
-  assert.match(text(tooBig), /^Refused: \$12\.50 .*at most \$10\.00/)
+  assert.match(text(tooBig), /^⛔ Refused: \$12\.50 .*at most \$10\.00/)
 
   const stranger = await call('hardstop_pay', { to: STRANGER, amount_usd: 1 })
   assert.equal(data(stranger).result, 'refused')
@@ -178,6 +178,28 @@ test('status, a paid payment, refusals over the limit and to a stranger, and sta
   const first = resource.contents[0]
   assert.ok('text' in first)
   assert.equal(first.text, text(after).split('\n{')[0])
+})
+
+test('replies are readable text for people; the data for programs is only in structuredContent', async () => {
+  const { call } = await setUp()
+  const results = [
+    await call('hardstop_preview_payment', { to: 'Cloud hosting', amount_usd: 4 }),
+    await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 4 }),
+    await call('hardstop_pay', { to: STRANGER, amount_usd: 1 }),
+    await call('hardstop_recipients'),
+    await call('hardstop_request_more', { reason: 'More GPU time', per_day_usd: 40 }),
+    await call('hardstop_status'),
+  ]
+  for (const result of results) {
+    assert.equal(result.content.length, 1, text(result))
+    assert.doesNotMatch(text(result), /^\s*\{|^\s*"\w+":/m, 'no JSON dump in the text')
+    assert.ok(result.structuredContent, 'the facts are still there for programs')
+  }
+  const [preview, paid, refused, , , status] = results
+  assert.match(text(status), /^\[█{4}░{16}\] \$4\.00 of \$20\.00 used/m, 'a bar shows the window used')
+  assert.match(text(preview), /^✅ Would be paid: \$4\.00 to Cloud hosting/)
+  assert.match(text(paid), /^✅ Paid: \$4\.00 to Cloud hosting/)
+  assert.match(text(refused), /^⛔ Refused: \$1\.00/)
 })
 
 test('recipients are checked on chain; a waiting loosening shows in status', async () => {
@@ -281,7 +303,7 @@ test('a payment mined but reverted is reported as sent and reverted, with its li
   assert.equal(data(reverted).paid, false)
   assert.match(String(data(reverted).transaction), /^0x[0-9a-f]{64}$/)
   assert.match(String(data(reverted).explorer), /^https:\/\/sepolia\.basescan\.org\/tx\/0x[0-9a-f]{64}$/)
-  assert.match(text(reverted), /^Sent, reverted \(nothing was paid\): \$4\.00 to Cloud hosting\. The payment was sent, but the network reverted it/)
+  assert.match(text(reverted), /^⚠️ Sent, reverted \(nothing was paid\): \$4\.00 to Cloud hosting\. The payment was sent, but the network reverted it/)
   assert.match(text(reverted), /Transaction: https:\/\/sepolia\.basescan\.org\/tx\//)
   assert.equal(await owner.sim.balanceOf(PAYEE), 0n)
 
@@ -289,7 +311,7 @@ test('a payment mined but reverted is reported as sent and reverted, with its li
   const notSent = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 4 })
   assert.equal(data(notSent).result, 'not_sent')
   assert.equal(data(notSent).transaction, null)
-  assert.match(text(notSent), /^Not sent: [^\n]*\nLeft today: [^\n]*\nNo transaction was sent\.\n/)
+  assert.match(text(notSent), /^⏸️ Not sent: [^\n]*\nLeft today: [^\n]*\nNo transaction was sent\.$/)
   assert.equal(network.relayed.length, 1)
 })
 

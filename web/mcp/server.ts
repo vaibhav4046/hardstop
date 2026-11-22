@@ -53,14 +53,8 @@ type Reply = { text: string; json: Record<string, unknown> }
 /** How long an identical payment counts as a possible duplicate of one already paid. */
 const REPEAT_WINDOW_MS = 10 * 60 * 1000
 
-/** A tool result: the plain sentence first, then the same facts as JSON for programs. */
-const ok = ({ text, json }: Reply): CallToolResult => ({
-  content: [
-    { type: 'text', text },
-    { type: 'text', text: JSON.stringify(json, null, 2) },
-  ],
-  structuredContent: json,
-})
+/** A tool result: readable lines for the person (and the model), the same facts as data in structuredContent for programs. */
+const ok = ({ text, json }: Reply): CallToolResult => ({ content: [{ type: 'text', text }], structuredContent: json })
 
 const failed = (error: unknown): CallToolResult => ({ isError: true, content: [{ type: 'text', text: plain(error) }] })
 
@@ -129,7 +123,7 @@ export function hardstop({ env = process.env, wallet, networkName }: Options = {
   /** Why this payment must not be sent now, as the reply to give, or undefined to go ahead. */
   const notSendable = (to: Hex, name: string | undefined, units: bigint, repeat: boolean, signal: AbortSignal): Reply | undefined => {
     const held = (reason: string, sentence: string): Reply => ({
-      text: `Not sent: ${formatUsd(units)} to ${name ?? to}. ${sentence}
+      text: `⏸️ Not sent: ${formatUsd(units)} to ${name ?? to}. ${sentence}
 No transaction was sent.`,
       json: { paid: false, result: 'not_sent', reason, explanation: sentence, to, amount_usd: usd(units), nonce: null, left_today_usd: null, transaction: null, explorer: null },
     })
@@ -199,7 +193,7 @@ No transaction was sent.`,
           const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce)
           const said = explain(answer.code, answer.detail, formatFor(v))
           return {
-            text: `${said.allowed ? 'Would be paid' : 'Would be refused'}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence} Nothing was sent.`,
+            text: `${said.allowed ? '✅ Would be paid' : '⛔ Would be refused'}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence} Nothing was sent.`,
             json: {
               would_pay: said.allowed,
               reason: said.name,
@@ -261,7 +255,7 @@ No transaction was sent.`,
             if (paid) recentlyPaid.set(payKey(recipient.address, units), { at: Date.now(), nonce: number, tx: entry.outcome.tx })
             // A transaction that was mined and reverted was sent; only one that never left was not.
             const result = paid ? 'paid' : said.tone === 'blocked' ? 'refused' : entry.outcome.tx ? 'reverted' : 'not_sent'
-            const label = { paid: 'Paid', refused: 'Refused', reverted: 'Sent, reverted (nothing was paid)', not_sent: 'Not sent' }[result]
+            const label = { paid: '✅ Paid', refused: '⛔ Refused', reverted: '⚠️ Sent, reverted (nothing was paid)', not_sent: '⏸️ Not sent' }[result]
             const link = entry.outcome.tx && v.config.network.explorer ? txLink(v.config.network, entry.outcome.tx) : undefined
             const lines = [
               `${label}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence}`,
@@ -311,7 +305,7 @@ No transaction was sent.`,
             const state = from === 0n ? 'not_approved' : from <= now ? 'approved' : 'waiting'
             rows.push({ ...r, state, approved_from: from === 0n ? null : iso(from) })
             const words = state === 'approved' ? 'approved' : state === 'waiting' ? `approved from ${formatTime(from)}` : 'not approved'
-            lines.push(`${r.name} (${r.address}): ${words}`)
+            lines.push(`${{ approved: '✅', waiting: '⏳', not_approved: '⛔' }[state]} ${r.name} (${r.address}): ${words}`)
           }
           const text = lines.length
             ? lines.join('\n')
@@ -360,7 +354,7 @@ No transaction was sent.`,
             wanted && `- approve a new recipient: ${wanted.address}${wanted.name ? ` (${wanted.name})` : ''}`,
           ].filter(Boolean)
           const text = [
-            `Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
+            `📝 Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
             `Drafted by the agent. Nothing has been changed or sent.`,
             '',
             asks.length ? `The agent asks for:\n${asks.join('\n')}` : 'The agent asks for more room under the current rules.',
@@ -425,7 +419,8 @@ async function main(): Promise<void> {
   if (values.watch) return (await import('./watch.ts')).main()
   let options: Options = {}
   // --demo is the same as HARDSTOP_FAKE=1, for one-line installs (npx) where setting a variable is awkward.
-  if (process.env.HARDSTOP_FAKE === '1' || values.demo) {
+  // "true" is what the Claude Desktop extension's Practice vault switch (mcp/mcpb) passes.
+  if (process.env.HARDSTOP_FAKE === '1' || process.env.HARDSTOP_FAKE === 'true' || values.demo) {
     const { demo, DEMO_NAME } = await import('./demo.ts')
     options = { ...(await demo()), networkName: DEMO_NAME }
     process.stderr.write('hardstop: demo mode, an in-memory network with a freshly launched vault. Nothing is real.\n')

@@ -30,13 +30,9 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   // Makes the social image (app/opengraph-image.png) an absolute URL, as link previews need.
   metadataBase: new URL('https://hardstop-omega.vercel.app'),
-  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     siteName: 'HARDSTOP',
-    url: '/',
-    title: 'HARDSTOP: spending limits your AI agent cannot change',
-    description: DESCRIPTION,
   },
   twitter: { card: 'summary_large_image' },
   title: { default: 'HARDSTOP: spending limits your AI agent cannot change', template: '%s | HARDSTOP' },

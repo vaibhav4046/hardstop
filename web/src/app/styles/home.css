@@ -314,6 +314,12 @@
     flex: none;
   }
 
+  .connect-oneclick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   /* A setup to copy, on the Activity page: the text in a dark well that
      scrolls inside itself, the Copy button beside it (under it on a phone). */
   .setup {

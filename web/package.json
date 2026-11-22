@@ -12,7 +12,8 @@
     "sync:artifacts": "node ../scripts/sync-artifacts.mjs",
     "mcp": "node mcp/server.ts",
     "mcp:watch": "node mcp/watch.ts",
-    "bundle:mcp": "node scripts/bundle-mcp.mjs"
+    "bundle:mcp": "node scripts/bundle-mcp.mjs",
+    "pack:mcpb": "node scripts/pack-mcpb.mjs"
   },
   "dependencies": {
     "@ethereumjs/block": "^10.1.3",

@@ -105,7 +105,7 @@ command-line program. Every error code and limit:
 ## Evidence it works
 
 - `fe test`: 101 passed on the EVM; 52 passed natively.
-- Web: 106 unit tests (including the MCP server and watcher) and 61 browser
+- Web: 107 unit tests (including the MCP server and watcher) and 61 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
@@ -116,12 +116,18 @@ command-line program. Every error code and limit:
   and paused, and the gas of every call, each with its transaction link, in
   the README. Earlier builds ran there too, including a vault opened by
   clicking through MetaMask on the live site.
-- Real AI agents through real MCP clients (2026-11-22): Claude Code's and
-  Cursor's own MCP clients each ran the same six steps against a Base Sepolia
-  vault. Each paid the allowed $3, had an unapproved recipient and a $15
-  payment refused on chain, and could not raise its own limit (only a drafted
-  request to the owner). Every receipt was read back
-  (`qa/agent-runs/2026-11-22-claude-code-native.md`, `qa/agent-runs/2026-11-22-cursor-native.md`).
+- Real AI agents through real MCP clients (2026-11-22): Claude Code's,
+  Cursor's and Antigravity's own MCP clients each ran the same six steps
+  against a Base Sepolia vault. Each paid an allowed amount ($3, or $1 when
+  only $1 was left that day), had an unapproved recipient and a $15 payment
+  refused on chain, and could not raise its own limit (only a drafted request
+  to the owner). Every receipt was read back
+  (`qa/agent-runs/2026-11-22-claude-code-native.md`, `-cursor-native.md`,
+  `-antigravity-native.md`).
+- Install with nothing cloned: a Claude Desktop extension
+  (https://hardstop-omega.vercel.app/install/hardstop.mcpb, with a practice
+  vault switch), one-click Cursor and VS Code install links, and
+  `npx -y github:vaibhav4046/hardstop` for any other client.
 
 ## Honest limits
 

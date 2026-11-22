@@ -1,6 +1,6 @@
 # HARDSTOP for AI assistants (MCP)
 
-This folder makes any AI assistant that speaks the Model Context Protocol an agent of a HARDSTOP vault. There are ready setups for Claude Code, Claude Desktop, ChatGPT, Cursor, VS Code and Python agent frameworks; the Install table below says which were run (the desktop apps were not). The assistant can check its limits, preview a payment, pay, and ask its owner for more. It cannot do anything else.
+This folder makes any AI assistant that speaks the Model Context Protocol an agent of a HARDSTOP vault. There are ready setups for Claude Code, Claude Desktop, Antigravity, ChatGPT, Cursor, VS Code and Python agent frameworks; the Install table below says which were run. The assistant can check its limits, preview a payment, pay, and ask its owner for more. It cannot do anything else.
 
 - `server.ts`: the MCP server, over stdio (default) or Streamable HTTP (`--http`).
 - `watch.ts`: a 24/7 watcher for the owner, which reads the vault and raises alerts.
@@ -41,10 +41,11 @@ The key is never logged, never echoed in an error, and never passed to child pro
 | Client | Transport | Config | Verified |
 |---|---|---|---|
 | Claude Code | stdio or HTTP | `claude mcp add ...` ([clients/claude-code/](clients/claude-code/README.md)), or [example.mcp.json](example.mcp.json) | **Partly.** `claude mcp add --scope project` was run and wrote the expected `.mcp.json`. `claude mcp get` parsed both it and `example.mcp.json`. A headless `claude -p` run (CLI 2.1.319) started the demo server, connected and listed the five tools. No tool was called: the CLI's login had expired ("Failed to authenticate: OAuth session expired and could not be refreshed"). [Evidence](../../qa/mcp-clients/cli-claude-code.md). |
-| Claude Desktop | stdio | [clients/claude-desktop/](clients/claude-desktop/claude_desktop_config.json) | **Docs only** ([modelcontextprotocol.io](https://modelcontextprotocol.io/docs/develop/connect-local-servers)). Not loaded in the app. |
+| Claude Desktop | stdio | One click: [hardstop.mcpb](https://hardstop-omega.vercel.app/install/hardstop.mcpb) (a Claude Desktop extension, built by `npm run pack:mcpb` from [mcpb/manifest.json](mcpb/manifest.json)); or [clients/claude-desktop/](clients/claude-desktop/claude_desktop_config.json) | **Partly.** The packed extension was unzipped and its server started with the environment the manifest gives (Practice vault on, then off with no key) and driven by the MCP TypeScript SDK client: five tools, a $15 payment refused; off, a plain "HARDSTOP_VAULT is not set". Opening the file in the Claude Desktop app was not done here. |
+| Antigravity | stdio | `mcp_config.json` (below) | **Yes, native, 2026-11-22.** Antigravity's own agent ran the six-step test against the Base Sepolia vault: $1 paid, GPU Market and $15 refused on chain, the self-raise only drafted. Receipts read back: [qa/agent-runs/2026-11-22-antigravity-native.md](../../qa/agent-runs/2026-11-22-antigravity-native.md). |
 | ChatGPT (developer mode) | Streamable HTTP over HTTPS | [clients/chatgpt.md](clients/chatgpt.md) | **Partly.** The HTTP mode is tested with the SDK client, token in header or path. Steps follow the OpenAI docs. Not tried in ChatGPT. Enabling developer mode is unverified (help page returned 403). |
-| Cursor | stdio (HTTP variant) | [clients/cursor.json](clients/cursor.json) as `.cursor/mcp.json` | **Docs only** ([cursor.com](https://cursor.com/docs/context/mcp)). |
-| VS Code / GitHub Copilot | stdio (HTTP variant) | [clients/vscode.json](clients/vscode.json) as `.vscode/mcp.json` | **Docs only** ([code.visualstudio.com](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration)). |
+| Cursor | stdio (HTTP variant) | One click: the Cursor button on the home page (a `cursor://` install link for the demo); or [clients/cursor.json](clients/cursor.json) as `.cursor/mcp.json` | **Yes, native, 2026-11-22.** Cursor's MCP client loaded the server (5 tools) and Cursor's agent CLI ran the six-step test on Base Sepolia: [qa/agent-runs/2026-11-22-cursor-native.md](../../qa/agent-runs/2026-11-22-cursor-native.md). The install link itself was not clicked here. |
+| VS Code / GitHub Copilot | stdio (HTTP variant) | One click: the VS Code button on the home page (a `vscode:mcp/install` link for the demo); or [clients/vscode.json](clients/vscode.json) as `.vscode/mcp.json` | **Docs only** ([code.visualstudio.com](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration)). |
 | Windsurf (now Devin Desktop) | stdio (HTTP variant) | [clients/windsurf.json](clients/windsurf.json) | **Partly, docs only.** The current Devin paths are documented. The legacy `~/.codeium/windsurf/mcp_config.json` path is unverified. |
 | Hermes Agent (Nous Research) | stdio (HTTP variant) | [clients/hermes-agent.md](clients/hermes-agent.md), `~/.hermes/config.yaml` | **Yes, with a local model.** Hermes Agent v0.18.2 on Windows: `hermes mcp test` connected and found the five tools, and a headless `hermes chat -q` session read the status, previewed a payment, paid $4 and was refused $15, against the demo server. The model was `qwen3.5:9b` in Ollama, not a hosted one. The HTTP variant was not run. On Windows the file is `%LOCALAPPDATA%\hermes\config.yaml`. [Evidence](../../qa/mcp-clients/hermes-agent.md). |
 | OpenCode | stdio | An `mcp` entry in `opencode.json` (`"type": "local"`, `command`, `environment`); the one that was run is in the evidence | **Partly, with a local model.** `opencode` 1.18.11 on Windows: `opencode mcp list` reported the server connected, and a headless `opencode run` read the status, previewed a payment, paid $4 and was refused $15, against the demo server, with `qwen3.5:9b` in Ollama. The run was stopped by its time limit before the model wrote its closing summary. [Evidence](../../qa/mcp-clients/opencode.md). |
@@ -52,7 +53,7 @@ The key is never logged, never echoed in an error, and never passed to child pro
 | OpenAI Agents SDK, LangChain/LangGraph, Pydantic AI | stdio | [clients/python/README.md](clients/python/README.md) | **Yes, with a local model.** In each framework (`openai-agents` 0.25.0, `langchain` 1.5.2 with `langchain-mcp-adapters` 0.3.2, `pydantic-ai-slim` 2.71.0) an agent read the status, previewed a payment, paid $4 and was refused $15, against the demo server. No model API key was available, so the model was `qwen3.5:9b` in Ollama; no hosted model was run. Pydantic AI's first attempt timed out at start-up and passed on the second. Evidence: [OpenAI Agents SDK](../../qa/mcp-clients/openai-agents-sdk.md), [LangChain/LangGraph](../../qa/mcp-clients/langchain-langgraph.md), [Pydantic AI](../../qa/mcp-clients/pydantic-ai.md). |
 | Any MCP client (TypeScript SDK) | stdio and HTTP | `node mcp/server.ts` / `--http` | **Yes.** `tests/mcp-transports.test.ts` drives a child process over stdio and over Streamable HTTP through every tool. |
 
-The runs behind this table are in [qa/mcp-clients/](../../qa/mcp-clients/) (2026-11-19, Windows, demo server): the command, the versions and the output of each. "With a local model" means the client ran its own agent loop and made the tool calls, and the model choosing them ran on the same machine in Ollama, not at a hosted provider; Ollama is not an MCP client itself. The desktop apps (Claude Desktop, Cursor, VS Code, Windsurf, ChatGPT) were not run: [what was checked instead](../../qa/mcp-clients/gui-apps.md) is that their config files here parse and have the documented shape.
+The runs behind this table are in [qa/mcp-clients/](../../qa/mcp-clients/) (2026-11-19, Windows, demo server): the command, the versions and the output of each. "With a local model" means the client ran its own agent loop and made the tool calls, and the model choosing them ran on the same machine in Ollama, not at a hosted provider; Ollama is not an MCP client itself. On 2026-11-22 Claude Code, Cursor and Antigravity ran the test natively against a Base Sepolia vault ([qa/agent-runs/](../../qa/agent-runs/)). The other desktop apps (Claude Desktop's chat, VS Code, Windsurf, ChatGPT) were not run: [what was checked instead](../../qa/mcp-clients/gui-apps.md) is that their config files here parse and have the documented shape.
 
 **Claude Code** (stdio, user scope):
 
@@ -79,6 +80,24 @@ claude mcp add \
 }
 ```
 
+**Claude Desktop, one click.** Download [hardstop.mcpb](https://hardstop-omega.vercel.app/install/hardstop.mcpb) and open it: Claude Desktop shows an install page. Keep **Practice vault** on to try it with no keys, or turn it off and paste your agent key (kept in the system keychain) and vault address.
+
+**Antigravity** (`~/.gemini/antigravity/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "hardstop": {
+      "command": "npx",
+      "args": ["-y", "github:vaibhav4046/hardstop"],
+      "env": { "HARDSTOP_AGENT_KEY": "0xYOUR_AGENT_KEY", "HARDSTOP_VAULT": "0xYOUR_VAULT_ADDRESS", "HARDSTOP_CHAIN_ID": "84532" }
+    }
+  }
+}
+```
+
+For the practice vault, use `"args": ["-y", "github:vaibhav4046/hardstop", "--demo"]` and no `env`.
+
 **ChatGPT and other remote clients.** ChatGPT connects to MCP servers over HTTPS, so it cannot start a local process. Run the HTTP mode with a token and put an HTTPS tunnel in front of it. [clients/chatgpt.md](clients/chatgpt.md) has the steps.
 
 ```bash
@@ -93,7 +112,7 @@ In HTTP mode, the agent key lives on whatever machine runs the server, and anyon
 
 ## Tools
 
-Each tool returns a plain-language answer first, then the same facts as JSON (`structuredContent`, also repeated as a text block for older clients).
+Each tool returns one block of plain text a person can read in the chat: a mark for the outcome (✅ paid or would be paid, ⛔ refused, ⏸️ not sent, ⚠️ reverted), the sentence that explains it, and for the status a bar of the window's allowance used. The same facts as data are in `structuredContent`, for programs; they are no longer repeated as a JSON text block.
 
 | Tool | What it does |
 |---|---|

@@ -243,6 +243,13 @@ export const policyJson = (policy: Policy) => ({
 
 export type Status = { text: string; json: Record<string, unknown> }
 
+const BAR_CELLS = 20
+/** How much of the window's allowance is used, as a text bar that reads the same in any client: [█████░░░░░…]. */
+export function bar(used: bigint, limit: bigint): string {
+  const filled = limit <= 0n ? BAR_CELLS : Math.min(BAR_CELLS, Number((used * BigInt(BAR_CELLS) + limit / 2n) / limit))
+  return `[${'█'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)}]`
+}
+
 /** Everything the agent may want to know before spending, as the contract reports it. */
 export async function status(vault: Vault): Promise<Status> {
   const { sim, chain, config } = vault
@@ -257,7 +264,8 @@ export async function status(vault: Vault): Promise<Status> {
   const { policy, queued } = state
 
   const lines = [
-    `HARDSTOP vault ${sim.vault} on ${config.network.name} (a test network: its dollars have no value).`,
+    `🛡️ HARDSTOP vault ${sim.vault} on ${config.network.name} (a test network: its dollars have no value).`,
+    `${bar(spent, policy.perWindow)} ${formatUsd(spent)} of ${formatUsd(policy.perWindow)} used ${words.left}.`,
     `Rules in force: ${describePolicy(policy, windowSecs)}.`,
     `${words.current}: ${formatUsd(spent)} spent, ${formatUsd(leftToday)} left. The ${words.period} resets ${formatTime(resetsAt)}.`,
     `The vault holds ${formatUsd(state.vaultBalance)}. The agent has ${formatEther(gas)} ETH left for network fees.`,

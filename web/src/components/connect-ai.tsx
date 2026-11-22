@@ -23,6 +23,15 @@ export const INSTALL_COMMAND =
 export const DEMO_COMMAND = 'claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo'
 const SETUP_GUIDE = source('web/mcp/README.md')
 
+/** The demo server as a client config: the same process DEMO_COMMAND starts. */
+const DEMO_SERVER = { command: 'npx', args: ['-y', 'github:vaibhav4046/hardstop', '--demo'] }
+/** One-click installs of the demo server. Cursor and VS Code open their own "install MCP server" prompt; Claude Desktop opens the .mcpb file (web/mcp/mcpb). */
+const ONE_CLICK = [
+  { label: 'Claude Desktop', href: '/install/hardstop.mcpb', download: true },
+  { label: 'Cursor', href: `cursor://anysphere.cursor-deeplink/mcp/install?name=hardstop-demo&config=${btoa(JSON.stringify(DEMO_SERVER))}` },
+  { label: 'VS Code', href: `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: 'hardstop-demo', ...DEMO_SERVER }))}` },
+] as const
+
 // Each logo's own colour, shown on hover (and always on a touch screen).
 // Brands whose mark is black use their light-on-dark form, white. Python's
 // two colours are split along the diagonal, as its two snakes are.
@@ -101,6 +110,20 @@ export function ConnectAI() {
           write <code>cmd /c npx</code> for <code>npx</code>.
         </p>
         <CommandLine command={DEMO_COMMAND} what="demo line" />
+        <p className="small soft mt-4">Or add it in one click, nothing to clone:</p>
+        <ul className="connect-oneclick mt-2" aria-label="One-click install">
+          {ONE_CLICK.map((item) => (
+            <li key={item.label}>
+              <a className="btn" href={item.href} download={'download' in item ? 'hardstop.mcpb' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p className="small soft mt-2">
+          Claude Desktop: open the downloaded file and keep Practice vault on, or turn it off and paste your agent key and
+          vault. Antigravity: paste the demo line&apos;s server into its MCP config (the guide shows it).
+        </p>
         <p className="panel-title mt-8">With your own vault</p>
         <p className="small soft mt-1">
           <Link href="/protect">Create a vault</Link> first; its page then fills in the agent key and vault for you.

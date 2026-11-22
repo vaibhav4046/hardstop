@@ -81976,6 +81976,10 @@ function windowWords(windowSecs) {
 function describePolicy(policy, windowSecs) {
   return `up to ${formatUsd(policy.perPayment)} per payment and ${formatUsd(policy.perWindow)} ${windowWords(windowSecs).per}, until ${formatTime(policy.validUntil)}${policy.paused ? ", paused" : ""}`;
 }
+function bar(used, limit) {
+  const filled = limit <= 0n ? BAR_CELLS : Math.min(BAR_CELLS, Number((used * BigInt(BAR_CELLS) + limit / 2n) / limit));
+  return `[${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}]`;
+}
 async function status(vault) {
   const { sim, chain, config: config2 } = vault;
   await chain.refresh(true);
@@ -81987,7 +81991,8 @@ async function status(vault) {
   const [leftToday2, worstCase, gas] = await Promise.all([leftToday(sim, state), sim.exposure(until), agentGas(vault)]);
   const { policy, queued } = state;
   const lines = [
-    `HARDSTOP vault ${sim.vault} on ${config2.network.name} (a test network: its dollars have no value).`,
+    `\u{1F6E1}\uFE0F HARDSTOP vault ${sim.vault} on ${config2.network.name} (a test network: its dollars have no value).`,
+    `${bar(spent, policy.perWindow)} ${formatUsd(spent)} of ${formatUsd(policy.perWindow)} used ${words.left}.`,
     `Rules in force: ${describePolicy(policy, windowSecs)}.`,
     `${words.current}: ${formatUsd(spent)} spent, ${formatUsd(leftToday2)} left. The ${words.period} resets ${formatTime(resetsAt)}.`,
     `The vault holds ${formatUsd(state.vaultBalance)}. The agent has ${formatEther2(gas)} ETH left for network fees.`,
@@ -82018,7 +82023,7 @@ async function status(vault) {
     }
   };
 }
-var SITE, OWNER_PAGE, DAY, ownerPage, ADDRESS, KEY, isAddress2, HIDDEN_CHARACTERS, MAX_RECIPIENT_NAME, NO_KEY, agentGas, iso, usd, txLink, policyJson;
+var SITE, OWNER_PAGE, DAY, ownerPage, ADDRESS, KEY, isAddress2, HIDDEN_CHARACTERS, MAX_RECIPIENT_NAME, NO_KEY, agentGas, iso, usd, txLink, policyJson, BAR_CELLS;
 var init_vault = __esm({
   "mcp/vault.ts"() {
     "use strict";
@@ -82052,6 +82057,7 @@ var init_vault = __esm({
       valid_until: iso(policy.validUntil),
       paused: policy.paused
     });
+    BAR_CELLS = 20;
   }
 });
 
@@ -85176,7 +85182,7 @@ function hardstop({ env = process.env, wallet, networkName } = {}) {
   const payKey = (to, units) => to.toLowerCase() + "|" + units;
   const notSendable = (to, name, units, repeat, signal) => {
     const held = (reason, sentence) => ({
-      text: `Not sent: ${formatUsd(units)} to ${name ?? to}. ${sentence}
+      text: `\u23F8\uFE0F Not sent: ${formatUsd(units)} to ${name ?? to}. ${sentence}
 No transaction was sent.`,
       json: { paid: false, result: "not_sent", reason, explanation: sentence, to, amount_usd: usd(units), nonce: null, left_today_usd: null, transaction: null, explorer: null }
     });
@@ -85236,7 +85242,7 @@ No transaction was sent.`,
         const answer = await v.sim.preview(recipient.address, units, ledger.nextNonce);
         const said = explain(answer.code, answer.detail, formatFor(v));
         return {
-          text: `${said.allowed ? "Would be paid" : "Would be refused"}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence} Nothing was sent.`,
+          text: `${said.allowed ? "\u2705 Would be paid" : "\u26D4 Would be refused"}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence} Nothing was sent.`,
           json: {
             would_pay: said.allowed,
             reason: said.name,
@@ -85292,7 +85298,7 @@ No transaction was sent.`,
           const paid = said.tone === "paid";
           if (paid) recentlyPaid.set(payKey(recipient.address, units), { at: Date.now(), nonce: number4, tx: entry.outcome.tx });
           const result = paid ? "paid" : said.tone === "blocked" ? "refused" : entry.outcome.tx ? "reverted" : "not_sent";
-          const label = { paid: "Paid", refused: "Refused", reverted: "Sent, reverted (nothing was paid)", not_sent: "Not sent" }[result];
+          const label = { paid: "\u2705 Paid", refused: "\u26D4 Refused", reverted: "\u26A0\uFE0F Sent, reverted (nothing was paid)", not_sent: "\u23F8\uFE0F Not sent" }[result];
           const link = entry.outcome.tx && v.config.network.explorer ? txLink(v.config.network, entry.outcome.tx) : void 0;
           const lines = [
             `${label}: ${formatUsd(units)} to ${recipient.name ?? recipient.address}. ${said.sentence}`,
@@ -85334,7 +85340,7 @@ No transaction was sent.`,
           const state = from === 0n ? "not_approved" : from <= now ? "approved" : "waiting";
           rows.push({ ...r, state, approved_from: from === 0n ? null : iso(from) });
           const words = state === "approved" ? "approved" : state === "waiting" ? `approved from ${formatTime(from)}` : "not approved";
-          lines.push(`${r.name} (${r.address}): ${words}`);
+          lines.push(`${{ approved: "\u2705", waiting: "\u23F3", not_approved: "\u26D4" }[state]} ${r.name} (${r.address}): ${words}`);
         }
         const text = lines.length ? lines.join("\n") : "This server was given no recipient names (HARDSTOP_RECIPIENTS is empty). You can still pay an address the owner approved; hardstop_preview_payment tells you whether it is approved.";
         return { text, json: { recipients: rows } };
@@ -85376,7 +85382,7 @@ No transaction was sent.`,
           wanted && `- approve a new recipient: ${wanted.address}${wanted.name ? ` (${wanted.name})` : ""}`
         ].filter(Boolean);
         const text = [
-          `Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
+          `\u{1F4DD} Request to the owner of HARDSTOP vault ${v.sim.vault} on ${v.config.network.name}.`,
           `Drafted by the agent. Nothing has been changed or sent.`,
           "",
           asks.length ? `The agent asks for:
@@ -85434,7 +85440,7 @@ async function main2() {
   });
   if (values.watch) return (await Promise.resolve().then(() => (init_watch(), watch_exports))).main();
   let options = {};
-  if (process.env.HARDSTOP_FAKE === "1" || values.demo) {
+  if (process.env.HARDSTOP_FAKE === "1" || process.env.HARDSTOP_FAKE === "true" || values.demo) {
     const { demo: demo2, DEMO_NAME: DEMO_NAME2 } = await Promise.resolve().then(() => (init_demo(), demo_exports));
     options = { ...await demo2(), networkName: DEMO_NAME2 };
     process.stderr.write("hardstop: demo mode, an in-memory network with a freshly launched vault. Nothing is real.\n");
@@ -85481,13 +85487,7 @@ var init_server3 = __esm({
     amount = external_exports.union([external_exports.number(), external_exports.string()]).describe('Dollar amount of test dollars, for example 4 or "12.50". At most two decimals.');
     INSTRUCTIONS = `This server lets you spend from a HARDSTOP vault as its agent. The vault's contract enforces the owner's limits (per payment, per spending window, an end date, approved recipients, a pause switch); you cannot change them, and no tool here can. Check hardstop_status before spending, use hardstop_preview_payment when unsure, and if you need more room use hardstop_request_more and show the draft to your user. These are test networks: the dollars have no value.`;
     REPEAT_WINDOW_MS = 10 * 60 * 1e3;
-    ok = ({ text, json: json3 }) => ({
-      content: [
-        { type: "text", text },
-        { type: "text", text: JSON.stringify(json3, null, 2) }
-      ],
-      structuredContent: json3
-    });
+    ok = ({ text, json: json3 }) => ({ content: [{ type: "text", text }], structuredContent: json3 });
     failed = (error62) => ({ isError: true, content: [{ type: "text", text: plain(error62) }] });
     formatFor = (v) => ({ ...FORMAT, window: windowWords(v.schedule.windowSecs).left });
     oneLine = (text) => text.replace(/\s+/g, " ").replace(new RegExp(HIDDEN_CHARACTERS.source, "g"), "").trim();

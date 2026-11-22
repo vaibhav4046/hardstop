@@ -600,7 +600,8 @@ shape_check_catches 'a new handler that moves money with no owner check' \
 # origin as the owner (any contract the owner calls could act as the owner),
 # and `seconds()` reading the clock a day ahead through a wrapper type. The
 # code they changed is now pinned by its sha256, comments and blank lines
-# ignored: everything in vault.fe outside the contract (helpers, events,
+# ignored: all of vault.fe (PIN_VAULT, added 2026-11-22), and on its own
+# everything in vault.fe outside the contract (helpers, events,
 # `seconds`, `founded`), `init`'s body, and all of kernel/sealed.fe. A
 # source check, not a compiler guarantee: any change to that code fails here
 # until the pin below is updated, so it cannot go in unnoticed.
@@ -618,7 +619,7 @@ check_pinned() {
   got=$(init_of "$vault" | code_sha)
   [ "$got" = "$PIN_INIT" ] || { echo "init changed (now $got)"; return 1; }
   got=$(code_sha < "$vault")
-  [ "$got" = "$PIN_VAULT" ] || { echo "vault.fe changed (now $got)"; return 1; }
+  [ "$got" = "$PIN_VAULT" ] || { echo "vault.fe changed (now $got): an intended edit needs PIN_VAULT updated in this script"; return 1; }
   got=$(code_sha < "$sealed")
   [ "$got" = "$PIN_SEALED" ] || { echo "kernel/sealed.fe changed (now $got)"; return 1; }
 }
