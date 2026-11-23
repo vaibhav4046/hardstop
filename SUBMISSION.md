@@ -48,8 +48,10 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    raise: $40 over the next 24 hours before the tricked approval, $1,020
    after, shown a day before the raise could be used.
 3. **The agent's authority is a type.** `Pay` gets the rules read-only, as
-   sealed types only the kernel can build, so an edit that lets a payment
-   change them does not compile (30 such edits refused in CI).
+   sealed types only the kernel can build, so a payment that writes them
+   does not compile (30 such edits refused in CI). Giving `Pay` write access
+   means editing its `uses` list, which compiles but fails a CI check on that
+   list, and a rule change would still need the owner's use-once proof.
 
 `research/COMPETITOR_MATRIX.md` compares this with Safe, Zodiac's Delay
 Modifier, Argent and the closest Fe entry, Leash, whose policy is fixed at
@@ -87,7 +89,8 @@ Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms,
 ```
 
 The rules (`terms`) and recipient approvals come without `mut`, so a `Pay`
-that changes them does not compile. Around that, the compiler enforces:
+that writes them does not compile (adding `mut` to its `uses` compiles, but
+a CI check pins every handler's `uses` list). Around that, the compiler enforces:
 
 - **Rules only the kernel can make.** The vault stores them as `Terms`, a
   sealed type whose field only `kernel/sealed.fe` can see. New rules come

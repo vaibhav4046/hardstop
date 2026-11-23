@@ -27,8 +27,9 @@ Pay { to, amount, nonce } -> u8
     uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log)
 ```
 
-`terms` and `approved_from` come without `mut`, so a payment that changes
-the rules or approves a recipient does not compile. The rules themselves are
+`terms` and `approved_from` come without `mut`, so a payment that writes
+the rules or approves a recipient does not compile (adding `mut` to the
+`uses` list compiles, but a CI check pins that list). The rules themselves are
 a sealed type that only the kernel can make or change, and never at once
 when they loosen. CI makes 30 attack edits and requires the compiler
 to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
@@ -143,7 +144,8 @@ npm test                          # 108 tests
 ## What the compiler does and does not guard
 
 - **Guarded:** `Pay` has no `mut` on `terms` or `approved_from`, so a payment
-  that changes the rules or approves a recipient does not compile.
+  that writes the rules or approves a recipient does not compile; a CI
+  check pins the `uses` list itself.
 - **Guarded:** rules and approvals are sealed types (`Terms`, `Approval` in
   [`fe/src/kernel/sealed.fe`](fe/src/kernel/sealed.fe)) that only the kernel
   can make; `Terms` is not `Copy`, so saving the rules aside and putting them
