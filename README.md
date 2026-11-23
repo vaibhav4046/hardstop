@@ -58,7 +58,8 @@ Then ask it to pay Cloud hosting $4, then $15. What it reads back:
 
 **Or install nothing.** Any assistant that takes a remote MCP server can use
 the site's practice server; each session gets its own practice vault, kept
-in memory and forgotten after 30 idle minutes:
+in memory, forgotten after 30 idle minutes, and reset if the host moves the
+session to another server instance:
 
 ```bash
 claude mcp add --transport http hardstop-practice https://hardstop-omega.vercel.app/mcp

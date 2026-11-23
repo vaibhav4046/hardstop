@@ -4,6 +4,12 @@
 // here is real: no keys are read, no network is reached, and a vault is
 // forgotten after 30 idle minutes or when the process restarts.
 //
+// The host may run several copies of this process and send a session's
+// requests to any of them. So the MCP layer is stateless (a fresh MCP server
+// per request) and the session id is this module's own: a copy that does not
+// hold the session's vault opens a new one under the same id, and the session
+// carries on with a reset vault instead of failing.
+//
 // Framework-free: `handle` takes a web `Request` and returns a `Response`,
 // so the site's route (src/app/mcp/route.ts) and the tests use it the same way.
 
@@ -13,7 +19,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { demo } from './demo.ts'
 import { hardstop } from './server.ts'
 
-export const PRACTICE_NAME = 'public practice server (an in-memory vault for this session only; nothing is real)'
+export const PRACTICE_NAME = 'public practice server (an in-memory vault for this session only; nothing is real, and it may reset)'
 const MAX_BODY = 100_000
 const IDLE_MS = 30 * 60_000
 const MAX_SESSIONS = 50
@@ -21,7 +27,8 @@ const MAX_SESSIONS = 50
 const REQUESTS_PER_MINUTE = 120
 const SESSIONS_PER_TEN_MINUTES = 10
 
-type Session = { transport: WebStandardStreamableHTTPServerTransport; server: McpServer; lastUsed: number }
+/** A session's vault and payment queue; each request gets its own MCP server over them. */
+type Session = { make: () => McpServer; lastUsed: number }
 type Counter = { count: number; since: number }
 
 const CORS = {
@@ -71,6 +78,9 @@ async function readLimited(request: Request, limit: number): Promise<string | nu
   return new TextDecoder().decode(Buffer.concat(chunks))
 }
 
+/** Session ids this server hands out (UUIDs); anything else gets a new one. */
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
 const isInitialize = (body: unknown): boolean =>
   (Array.isArray(body) ? body : [body]).some(
     (message) => typeof message === 'object' && message !== null && (message as { method?: unknown }).method === 'initialize',
@@ -109,11 +119,7 @@ export function practice({ trickedRaise = false, now = Date.now }: PracticeOptio
   }
 
   const close = (id: string) => {
-    const session = sessions.get(id)
-    if (!session) return
     sessions.delete(id)
-    void session.transport.close()
-    void session.server.close()
   }
 
   /** Forget idle vaults, and the counters of addresses that went quiet. */
@@ -130,20 +136,7 @@ export function practice({ trickedRaise = false, now = Date.now }: PracticeOptio
     const { env, wallet } = await demo({ trickedRaise })
     // Without the in-memory wallet the server would fall back to a real network's RPC.
     if (!wallet) throw new Error('the practice vault has no in-memory network')
-    const server = hardstop({ env, wallet, networkName: PRACTICE_NAME })()
-    const session: Session = { server, lastUsed: now(), transport: undefined as never }
-    session.transport = new WebStandardStreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      enableJsonResponse: true,
-      onsessioninitialized: (id) => {
-        sessions.set(id, session)
-      },
-      onsessionclosed: (id) => {
-        sessions.delete(id)
-      },
-    })
-    await server.connect(session.transport)
-    return session
+    return { make: hardstop({ env, wallet, networkName: PRACTICE_NAME }), lastUsed: now() }
   }
 
   async function handle(request: Request): Promise<Response> {
@@ -173,13 +166,13 @@ export function practice({ trickedRaise = false, now = Date.now }: PracticeOptio
       return jsonError(400, 'The request body is not JSON.')
     }
 
-    let session: Session | undefined
-    if (id) {
-      session = sessions.get(id)
-      // The MCP way to say "start again": the client opens a new session and gets a new practice vault.
-      if (!session) return jsonError(404, 'This practice session has ended (idle for 30 minutes, or the server restarted). Start a new one.')
-    } else {
-      if (!isInitialize(body)) return jsonError(400, 'Start with an initialize request; this server keeps one practice vault per session.')
+    if (!id && !isInitialize(body)) {
+      return jsonError(400, 'Start with an initialize request; this server keeps one practice vault per session.')
+    }
+    const sessionId = id && SESSION_ID.test(id) ? id : randomUUID()
+    let session = sessions.get(sessionId)
+    if (!session) {
+      // A new session, or one this copy of the server does not hold: a new practice vault either way.
       if (over(starts, who, SESSIONS_PER_TEN_MINUTES, 10 * 60_000)) {
         return jsonError(429, 'Too many new practice sessions from this address. Wait ten minutes.', { 'retry-after': '600' })
       }
@@ -197,10 +190,24 @@ export function practice({ trickedRaise = false, now = Date.now }: PracticeOptio
       } finally {
         opening -= 1
       }
+      sessions.set(sessionId, session)
     }
     session.lastUsed = now()
-    const replay = new Request(request.url, { method: 'POST', headers: request.headers, body: text })
-    return withCors(await session.transport.handleRequest(replay, { parsedBody: body }))
+    // Stateless at the MCP layer: this request's own server and transport, over the session's vault.
+    const server = session.make()
+    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
+    await server.connect(transport)
+    const headers = new Headers(request.headers)
+    headers.delete('mcp-session-id')
+    const replay = new Request(request.url, { method: 'POST', headers, body: text })
+    try {
+      const response = withCors(await transport.handleRequest(replay, { parsedBody: body }))
+      response.headers.set('mcp-session-id', sessionId)
+      return response
+    } finally {
+      void transport.close()
+      void server.close()
+    }
   }
 
   return {

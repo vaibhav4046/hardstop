@@ -128,7 +128,7 @@ export function ConnectAI() {
         </p>
         <p className="small soft mt-4">
           Or install nothing: give any assistant that takes a remote MCP server this address. Each session gets its own
-          practice vault, in memory on this site&apos;s server; it is forgotten after 30 idle minutes.
+          practice vault, in memory on this site&apos;s server; it is forgotten after 30 idle minutes, and may reset sooner.
         </p>
         <CommandLine command={PRACTICE_URL} what="practice server address" />
         <p className="panel-title mt-8">With your own vault</p>
