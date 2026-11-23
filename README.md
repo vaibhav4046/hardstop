@@ -8,6 +8,8 @@ loss is a number you can read before anything goes wrong.
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 Live app: https://hardstop-omega.vercel.app
 
+**New: update film (85 s, 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4): the tricked-owner run, the three AI agents refused on Base Sepolia, and the compiler refusals. ([`web/public/demo/hardstop-update.mp4`](web/public/demo/hardstop-update.mp4))
+
 **Demo video (2 min, narrated, with music and captions):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 (also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)).
 The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.

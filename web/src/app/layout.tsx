@@ -85,6 +85,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                 <Link href="/developers">Developers</Link>
               </li>
               <li>
+                <a href="/demo/hardstop-update.mp4">Update film (85 s)</a>
+              </li>
+              <li>
                 <a href="/demo/hardstop-demo.mp4">Demo film (2 min)</a>
               </li>
               <li>
