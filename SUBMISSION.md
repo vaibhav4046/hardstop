@@ -55,7 +55,7 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    and the contract does not build.
 3. **The agent's authority is a type.** `Pay` gets the rules read-only, as
    sealed types only the kernel can build, so a payment that writes them
-   does not compile (CI makes 36 attack edits and requires the compiler to refuse each). Giving `Pay` write access
+   does not compile (CI makes 46 attack edits and requires the compiler to refuse each). Giving `Pay` write access
    means editing its `uses` list, which compiles but fails a CI check on that
    list, and a rule change would still need the owner's use-once proof.
 
@@ -139,7 +139,7 @@ a maintainer, an AI coding assistant) cannot loosen the agent's authority
 without the build failing. The running agent is stopped by the deployed
 contract itself, its owner checks and cooling period.
 
-On every push CI makes 36 attack edits and requires the compiler to refuse
+On every push CI makes 46 attack edits and requires the compiler to refuse
 each one (`scripts/pay-cannot-loosen.sh`).
 
 **Where the compiler stops.** `vault.fe` importing a transfer of its own and
@@ -160,8 +160,8 @@ command-line program. Every error code and limit:
 
 ## Evidence it works
 
-- `fe test`: 106 passed on the EVM; 54 passed natively.
-- Web: 117 unit tests (including the MCP server and watcher) and 64 browser
+- `fe test`: 112 passed on the EVM; 54 passed natively.
+- Web: 120 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

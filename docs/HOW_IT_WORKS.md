@@ -77,8 +77,8 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 `own`, `#[must_use]`) bound to the real caller; and `static_assert`s run the
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
-refuse each attack (36 refusals, plus 7 control edits that must still
-compile, 8 source checks and 29 edits they catch, and 7 edits a test must catch, in
+refuse each attack (46 refusals, plus 6 control edits that must still
+compile, 8 source checks and 23 edits they catch, and 7 edits a test must catch, in
 [`scripts/pay-cannot-loosen.sh`](../scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source

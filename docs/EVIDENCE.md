@@ -6,13 +6,13 @@ The full results, on-chain transactions and gas figures, moved here from the [RE
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 87 lines starting `ok` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `112 passed; 0 failed` |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 90 lines starting `ok` |
 | The compiler checks the worst-case promise over a grid of 128 policies (16,384 pairs): no signature raises it before the cooling period ends, no payment beats it, an agent reaches it exactly | `cd fe && fe check` | no output (about 26 s); a kernel broken so a law fails stops with 8-0081 |
 | A contract the owner calls cannot act as the owner (the vault checks the caller, not the transaction's origin) | `web/tests/vault.test.ts`, "the vault checks the caller, not the origin"; on a vault built with `prove` also accepting `ctx.origin()` that test fails (run 2026-11-24, below) | passes on the real vault |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `117` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `120` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 64 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](../qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -63,7 +63,7 @@ Measured from 2026-11-17 to 2026-11-22; raw output in [`EVIDENCE_LOG.md`](../EVI
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 106 passed, 0 failed |
+| `fe test` (EVM) | 112 passed, 0 failed |
 | `fe test --backend native` | 54 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 15 of 15 mutants caught, on both targets (the 15th, a cancel that lands a raise at once, added after the third review) |

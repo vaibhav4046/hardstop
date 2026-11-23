@@ -35,7 +35,7 @@ writes the rules, approves a recipient or swaps its own key does not compile
 And it can pay only through a sealed `Payout` the kernel returns: only
 that recipient, only that amount. The rules themselves are
 a sealed type that only the kernel can make or change, and never at once
-when they loosen. CI makes 36 attack edits and requires the compiler
+when they loosen. CI makes 46 attack edits and requires the compiler
 to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
 contest's scope: building this found a hole in Fe itself, private traits
 that anyone could implement; the fix,
@@ -87,13 +87,13 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
-| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 87 lines starting `ok` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `112 passed; 0 failed` |
+| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 90 lines starting `ok` |
 | The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 26 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel and it fails with 8-0081 |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `117` pass |
-| Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 117; `fe-time`: 4 passed |
+| Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `120` pass |
+| Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 120; `fe-time`: 4 passed |
 | The whole site in a browser | `cd web && npm run e2e` | 64 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions and gas: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
@@ -148,14 +148,14 @@ and Node 24. Every command, with notes: [`docs/BUILD.md`](docs/BUILD.md).
 
 ```sh
 cd fe
-fe test                           # 106 tests on the EVM
+fe test                           # 112 tests on the EVM
 fe test --backend native          # the 54 kernel + adversary tests again, natively
 fe build --backend native         # writes out/hardstop
 ./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
                                   # prints "10 10 0 0 0": code 10, over the per-payment limit of 10
 cd ../web
 npm ci
-npm test                          # 117 tests
+npm test                          # 120 tests
 ```
 
 ## What the compiler does and does not guard
@@ -186,8 +186,8 @@ npm test                          # 117 tests
   source check (it reads the text) refuse any transfer in `vault.fe`;
   `Approval` is still `Copy`, so a source check and three tests catch an
   older approval put back.
-- **Pinned by CI:** 36 compiler refusals, 7 control edits that must compile,
-  8 source checks and 29 edits they catch, 7 of them also by a failing test, and sha256 pins on `kernel.fe`,
+- **Pinned by CI:** 46 compiler refusals, 6 control edits that must compile,
+  8 source checks and 23 edits they catch, 7 edits also caught by a failing test, and sha256 pins on `kernel.fe`,
   `kernel/sealed.fe` and `launcher.fe`
   ([`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)).
 
