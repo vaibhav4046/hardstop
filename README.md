@@ -25,7 +25,7 @@ Check it: `cd fe && fe test` (112 passed), `FE=fe bash scripts/pay-cannot-loosen
 assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15.
 What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
-**Newest film (70 s, recorded the evening of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. Every shot is a real run. ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4))
+**Newest film (70 s, recorded the evening of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. Every shot is a real run; sources in [`docs/FILM_SOURCES_2026-11-23.md`](docs/FILM_SOURCES_2026-11-23.md). ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4))
 
 **Update film (85 s, recorded the morning of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4): the tricked-owner run, the three AI agents refused on Base Sepolia, and the compiler refusals. ([`web/public/demo/hardstop-update.mp4`](web/public/demo/hardstop-update.mp4))
 
