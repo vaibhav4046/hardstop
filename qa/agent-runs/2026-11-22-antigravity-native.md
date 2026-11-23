@@ -39,3 +39,14 @@ payment does not use up a request number.
 This run used the server before the 2026-11-22 output change, so its replies
 still carried a JSON block after each sentence; that block is what the owner
 asked to remove (see `web/mcp/README.md`, Tools).
+
+## Screenshots: the three transactions on the explorer
+
+Captured 2026-11-23 from Blockscout (base-sepolia.blockscout.com; BaseScan
+shows a bot check to scripts), with the explorer's ad banners blocked. Each
+page says "Success" because each transaction was mined. Only the payment has
+a "Tokens transferred" row; the two refusals moved nothing.
+
+| The $1 payment | GPU Market refused | $15 refused |
+|---|---|---|
+| ![$1 paid](screens/2026-11-22-antigravity-1-paid-1.png) | ![GPU Market refused](screens/2026-11-22-antigravity-2-refused-gpu-market.png) | ![$15 refused](screens/2026-11-22-antigravity-3-refused-15.png) |

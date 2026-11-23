@@ -43,3 +43,14 @@ refused payment does not use up a request number.
   tools (from Cursor's logs), and Cursor's official agent CLI ran the same
   six steps: $3 paid, GPU Market and $15 refused on chain, the self-raise only
   drafted. See `2026-11-22-cursor-native.md`.
+
+## Screenshots: the three transactions on the explorer
+
+Captured 2026-11-23 from Blockscout (base-sepolia.blockscout.com; BaseScan
+shows a bot check to scripts), with the explorer's ad banners blocked. Each
+page says "Success" because each transaction was mined. Only the payment has
+a "Tokens transferred" row; the two refusals moved nothing.
+
+| The $3 payment | GPU Market refused | $15 refused |
+|---|---|---|
+| ![$3 paid](screens/2026-11-22-claude-code-1-paid-3.png) | ![GPU Market refused](screens/2026-11-22-claude-code-2-refused-gpu-market.png) | ![$15 refused](screens/2026-11-22-claude-code-3-refused-15.png) |

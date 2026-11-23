@@ -59,3 +59,14 @@ blocks 61961185, 61961219 and 61961246.
   $5.00 to `0x…60f0` and $15.00 to `0x…5109`. No `Transfer`; nothing moved.
 - Request numbers: the payment used 4; both refusals carry 5. A refusal does
   not use up a request number.
+
+## Screenshots: the three transactions on the explorer
+
+Captured 2026-11-23 from Blockscout (base-sepolia.blockscout.com; BaseScan
+shows a bot check to scripts), with the explorer's ad banners blocked. Each
+page says "Success" because each transaction was mined. Only the payment has
+a "Tokens transferred" row; the two refusals moved nothing.
+
+| The $3 payment | GPU Market refused | $15 refused |
+|---|---|---|
+| ![$3 paid](screens/2026-11-22-cursor-1-paid-3.png) | ![GPU Market refused](screens/2026-11-22-cursor-2-refused-gpu-market.png) | ![$15 refused](screens/2026-11-22-cursor-3-refused-15.png) |
