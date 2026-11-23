@@ -261,8 +261,42 @@ fn pick_step(_ rng: mut Rng, window_secs: u64, now: u64, anchor: u64, raise_at: 
     }
 }
 
+/// The latest a game may start: far enough below the end of time that the
+/// clock, a deadline or a cooling period can never run past it.
+const LATEST: u64 = MAX_U64 - 0x10000000
+
+/// Where a game's schedule starts, for `campaign_anywhen`: anywhere in the
+/// u64 range, but half the time among the dates a deployed vault will see
+/// (2020 to 2040), so a kernel that misbehaves only between two dates
+/// around today is caught, and a quarter of the time just below the end of
+/// time.
+fn pick_anchor(_ rng: mut Rng) -> u64 {
+    let roll = rng.below(4)
+    if roll < 2 {
+        1577836800 + rng.below(631152000)
+    } else if roll == 2 {
+        // A number of any size: random bits, shifted down a random amount.
+        let any = rng.next() >> rng.below(64)
+        if any < 6 {
+            6
+        } else if any > LATEST { LATEST } else { any }
+    } else {
+        LATEST - rng.below(1000)
+    }
+}
+
 /// Play `cases` games of `steps` requests each against engine `E`.
 pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
+    games<E>(seed, cases, steps, anywhen: false)
+}
+
+/// The same games, with each schedule starting at `pick_anchor` instead of
+/// shortly after second 1,000,000.
+pub fn campaign_anywhen<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
+    games<E>(seed, cases, steps, anywhen: true)
+}
+
+fn games<E: Engine>(seed: u64, cases: u64, steps: u64, anywhen: bool) -> Report {
     var report = Report {
         cases,
         requests: 0,
@@ -286,7 +320,11 @@ pub fn campaign<E: Engine>(seed: u64, cases: u64, steps: u64) -> Report {
         let cooling_secs: u64 = if cooling_roll == 0 {
             30
         } else if cooling_roll == 1 { 3600 } else { 86400 }
-        let anchor = 1000000 + rng.below(1000)
+        let anchor = if anywhen {
+            pick_anchor(mut rng)
+        } else {
+            1000000 + rng.below(1000)
+        }
         var rules = Rules {
             schedule: Schedule {
                 anchor: Instant::at(anchor),

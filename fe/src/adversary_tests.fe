@@ -4,6 +4,7 @@
 
 use ingot::adversary::{
     campaign,
+    campaign_anywhen,
     greedy_take,
     Engine,
     Kernel,
@@ -40,6 +41,11 @@ const CASES: u64 = 300
 #[cfg(target = "native")]
 const CASES: u64 = 20000
 
+#[cfg(target = "evm")]
+const ANYWHEN_CASES: u64 = 2000
+#[cfg(target = "native")]
+const ANYWHEN_CASES: u64 = 20000
+
 const STEPS: u64 = 40
 
 // --- the real kernel ------------------------------------------------------
@@ -50,6 +56,19 @@ fn the_kernel_survives_the_campaign() {
     assert!(report.violation == OK)
     assert!(report.requests == CASES * STEPS)
     // The games are not trivial: plenty of each outcome.
+    assert!(report.allowed * 8 > report.requests)
+    assert!(report.denied * 4 > report.requests)
+}
+
+/// The same games with schedules starting anywhere in time, most often
+/// between 2020 and 2040, so a kernel that only misbehaves between two
+/// dates around today (all the tests above run near second 1,000,000)
+/// is caught too.
+#[test]
+fn the_kernel_survives_the_campaign_at_any_date() {
+    let report = campaign_anywhen<Kernel>(seed: SEED, cases: ANYWHEN_CASES, steps: STEPS)
+    assert!(report.violation == OK)
+    assert!(report.requests == ANYWHEN_CASES * STEPS)
     assert!(report.allowed * 8 > report.requests)
     assert!(report.denied * 4 > report.requests)
 }

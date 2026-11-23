@@ -63,6 +63,7 @@ build_vault() {
 # edited: the first line containing $2 is replaced by $4 (deleted if $4 is
 # empty) when $3 is "replace", or gets $4 after or before it when $3 is
 # "after" or "before". Anything in $APPEND goes at the end of the file.
+# $SRC, if set, is edited instead of vault.fe, to combine two edits.
 edit_handler() {
   local handler=$1 target=$2 mode=$3 text=${4:-}
   awk -v head="$handler" -v target="$target" -v mode="$mode" -v text="$text" '
@@ -75,7 +76,7 @@ edit_handler() {
     }
     { print }
     END { if (!done) exit 3 }
-  ' "$ROOT/fe/src/vault.fe" || { echo "could not find '$target' in $handler" >&2; exit 2; }
+  ' "${SRC:-$ROOT/fe/src/vault.fe}" || { echo "could not find '$target' in $handler" >&2; exit 2; }
   printf '%s' "${APPEND:-}"
 }
 
@@ -372,6 +373,13 @@ pay_check_catches 'Pay paying the caller 1000x the amount' \
   "$PAY" "$TRANSFER" replace 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
 APPEND=$FORGED_CALL pay_check_catches 'Pay paying through a forged Call' \
   "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
+# Pay with `mut call` taken out of its uses, paying through the log instead.
+NO_CALL=$(mktemp)
+edit_handler "$PAY" 'mut call,' replace '' > "$NO_CALL"
+SRC=$NO_CALL pay_check_catches 'Pay without mut call, paying the caller 1000x through with (Call = mut log)' \
+  "$PAY" "$TRANSFER" replace \
+  'with (Call = mut log) { safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000) }'
+rm -f "$NO_CALL"
 pay_check_catches 'Pay doubling the amount before the transfer' \
   "$PAY" "$TRANSFER" before 'let amount = amount * 2'
 pay_check_catches 'Pay transferring twice' \
@@ -717,6 +725,69 @@ kernel_check_catches() {
 }
 kernel_check_catches 'decide ignoring the caps between two dates around today'   -e 's/^    if request.amount > policy.per_payment {$/    if request.amount > policy.per_payment \&\& !(now.secs > 1790000000 \&\& now.secs < 1800000000) {/'   -e 's/^    if request.amount > left {$/    if request.amount > left \&\& !(now.secs > 1790000000 \&\& now.secs < 1800000000) {/'
 kernel_check_catches 'a raise maturing after one second between two dates around today'   -e 's/^    let at = now + schedule.cooling_secs$/    let at = now + if now.secs > 1790000000 \&\& now.secs < 1800000000 { Seconds::of(1) } else { schedule.cooling_secs }/'
+
+# A pin only proves the file changed. The same edits must also make a test
+# fail: fe/src/$2 edited by the sed arguments after $3 must compile, and
+# fe test must fail with every test named in $3 among the failures.
+# Not here, because no test in Fe 26.6 can see them: `prove` accepting the
+# transaction's origin (fe test's origin is the zero address, which can never
+# be an owner), and the forged-Call helper appended after the contract (dead
+# code: the compiled contracts are byte-for-byte the same).
+test_catches() {
+  local name=$1 file=$2 tests=$3 dir t
+  shift 3
+  dir=$(mktemp -d)
+  cp -r "$ROOT/fe" "$dir/"
+  rm -rf "$dir/fe/out"
+  sed -i "$@" "$dir/fe/src/$file"
+  if cmp -s "$ROOT/fe/src/$file" "$dir/fe/src/$file"; then
+    echo "could not edit $file for: $name"
+    rm -rf "$dir"
+    exit 2
+  fi
+  if (cd "$dir/fe" && "$FE" test > "$dir/test.log" 2>&1); then
+    echo "FAIL fe test passed: $name"
+    rm -rf "$dir"
+    exit 1
+  fi
+  for t in $tests; do
+    if grep -q '^error' "$dir/test.log" || ! grep -qE "^FAIL .* $t([^A-Za-z0-9_]|\$)" "$dir/test.log"; then
+      echo "FAIL fe test failed for another reason: $name (expected $t to fail)"
+      cat "$dir/test.log"
+      rm -rf "$dir"
+      exit 1
+    fi
+  done
+  rm -rf "$dir"
+  echo "ok   test catches: $name ($tests)"
+}
+test_catches 'init also approving the agent, so it can pay itself' vault.fe \
+  only_the_recipients_named_at_creation_are_approved \
+  's/^\(            approved_from.set(key: payee_c, value: founded(ctx, who: payee_c))\)$/\1\n            approved_from.set(key: agent_, value: founded(ctx, who: agent_))/'
+test_catches 'seconds() reading the clock a day ahead through a wrapper type' vault.fe \
+  the_vault_reads_the_chain_clock_to_the_second \
+  -e 's/^fn seconds(_ at: Timestamp) -> Instant {$/fn seconds(_ at: Timestamp) -> Instant {\n    let at = Ahead { at }/' \
+  -e 's/^const MIN_COOLING_SECS: u64 = 60$/struct Ahead { at: Timestamp }\nimpl Ahead {\n    fn as_seconds(self) -> u256 { self.at.as_seconds() + 86399 }\n}\n\nconst MIN_COOLING_SECS: u64 = 60/'
+# The pinned edit above joins two calls with `;`, which Fe does not compile;
+# this is the same edit on two lines.
+test_catches 'Withdraw also sending the amount to its caller' vault.fe \
+  owner_withdraws_to_itself \
+  's/^            pay_owner(proof, token, owner, amount)$/            safe_transfer(token, receiver: ctx.caller(), amount)\n            pay_owner(proof, token, owner, amount)/'
+# Fe 26.6 compiles this: a Log stands in for the Call that Pay no longer lists.
+test_catches 'Pay without mut call, paying the caller 1000x through with (Call = mut log)' vault.fe \
+  allowed_payment_moves_exactly_the_amount \
+  -e '/^            mut call,$/d' \
+  -e 's/^                    safe_transfer(token, receiver: to, amount)$/                    with (Call = mut log) { safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000) }/'
+test_catches 'the launcher approving the agent when a recipient is left blank' launcher.fe \
+  only_the_named_recipient_is_approved \
+  's/^                        payee_b,$/                        if payee_b == Address::zero() { agent } else { payee_b },/'
+test_catches 'decide ignoring the caps between two dates around today' kernel.fe \
+  'the_caps_and_the_cooling_period_hold_on_every_day_from_2020_to_2040 the_kernel_survives_the_campaign_at_any_date' \
+  -e 's/^    if request.amount > policy.per_payment {$/    if request.amount > policy.per_payment \&\& !(now.secs > 1790000000 \&\& now.secs < 1800000000) {/' \
+  -e 's/^    if request.amount > left {$/    if request.amount > left \&\& !(now.secs > 1790000000 \&\& now.secs < 1800000000) {/'
+test_catches 'a raise maturing after one second between two dates around today' kernel.fe \
+  'the_caps_and_the_cooling_period_hold_on_every_day_from_2020_to_2040 the_kernel_survives_the_campaign_at_any_date' \
+  -e 's/^    let at = now + schedule.cooling_secs$/    let at = now + if now.secs > 1790000000 \&\& now.secs < 1800000000 { Seconds::of(1) } else { schedule.cooling_secs }/'
 
 # 7. Kernel edits the compiler must refuse: the one line matching $2 in
 #    kernel.fe becomes $3, and the build must fail with $5 in the log and no

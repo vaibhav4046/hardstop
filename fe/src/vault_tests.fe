@@ -627,14 +627,104 @@ fn exposure_view_matches_the_policy() uses (evm: mut Evm) {
 #[test]
 fn owner_withdraws_to_itself() uses (evm: mut Evm) {
     let w = world()
+    // Part first: a withdrawal that also paid the caller would show here as
+    // $60 out, where taking everything at once would just revert.
     evm.call(
         addr: w.vault,
         gas: GAS,
         value: Wei::zero(),
-        message: VaultMsg::Withdraw { amount: 100 * USD },
+        message: VaultMsg::Withdraw { amount: 30 * USD },
+    )
+    assert!(balance(w, of: w.vault) == 70 * USD)
+    assert!(balance(w, of: evm.address()) == 30 * USD)
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Withdraw { amount: 70 * USD },
     )
     assert!(balance(w, of: w.vault) == 0)
     assert!(balance(w, of: evm.address()) == 100 * USD)
+}
+
+/// A vault on `token` whose agent is `agent`, valid until `valid_until`,
+/// created with all three recipients named.
+fn vault_until(token: Address, agent: Address, valid_until: u64, salt: u256) -> Address
+uses (evm: mut Evm)
+{
+    evm.create2<Vault>(
+        value: Wei::zero(),
+        args: (
+            evm.address(),
+            agent,
+            token,
+            10 * USD,
+            20 * USD,
+            valid_until,
+            DAY,
+            DAY,
+            Address::new(0xa1),
+            Address::new(0xa2),
+            Address::new(0xa3),
+        ),
+        salt,
+    )
+}
+
+fn approved_from(_ vault: Address, who: Address) -> u64 uses (evm: mut Evm) {
+    evm.call(
+        addr: vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::ApprovedFrom { who },
+    )
+}
+
+#[test]
+fn only_the_recipients_named_at_creation_are_approved() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let agent = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 2)
+    let vault = vault_until(token, agent, valid_until: FAR_FUTURE, salt: 20)
+    assert!(approved_from(vault, who: Address::new(0xa1)) == now())
+    assert!(approved_from(vault, who: Address::new(0xa2)) == now())
+    assert!(approved_from(vault, who: Address::new(0xa3)) == now())
+    // Not the agent (it could pay itself), the owner or the token.
+    assert!(approved_from(vault, who: agent) == 0)
+    assert!(approved_from(vault, who: evm.address()) == 0)
+    assert!(approved_from(vault, who: token) == 0)
+    let w = World { token, vault, agent, stranger: agent, shop: Address::new(0xa1), thief: agent }
+    assert!(agent_pays(w, to: agent, amount: 1, nonce: 0) == 9)
+}
+
+/// The vault's clock is the chain's, to the second: a policy that ends
+/// this second still pays, one that ended a second ago does not, and the
+/// schedule starts now. A clock running even one second ahead or behind
+/// fails one of these.
+#[test]
+fn the_vault_reads_the_chain_clock_to_the_second() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let agent = evm.create2<Actor>(value: Wei::zero(), args: (), salt: 2)
+    let last = vault_until(token, agent, valid_until: now(), salt: 21)
+    let gone = vault_until(token, agent, valid_until: now() - 1, salt: 22)
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::Mint { to: last, amount: 10 * USD },
+    )
+    let (anchor, _, _): (u64, u64, u64) = evm
+        .call(
+            addr: last,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::ScheduleOf {},
+        )
+    assert!(anchor == now())
+    let shop = Address::new(0xa1)
+    let w = World { token, vault: last, agent, stranger: agent, shop, thief: agent }
+    assert!(agent_pays(w, to: shop, amount: 1, nonce: 0) == 0)
+    let ended = World { token, vault: gone, agent, stranger: agent, shop, thief: agent }
+    assert!(agent_pays(ended, to: shop, amount: 1, nonce: 0) == 5)
 }
 
 // --- what the agent and strangers cannot do ---------------------------------
