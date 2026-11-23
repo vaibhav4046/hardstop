@@ -120,19 +120,21 @@ each one (`scripts/pay-cannot-loosen.sh`).
 **Where the compiler stops.** Where `Pay` sends allowed money, what it tells
 the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
 values), and the bodies of `vault.fe`, the kernel, `sealed.fe` and the launcher are guarded
-by tests and by source checks that read the text (7 checks, catching 28
-attack edits; some of those only by a sha256 pin, which fails on any change
-to the pinned code), not by the compiler. One gap was a Fe bug: any type could
+by tests and by source checks that read the text (7 checks, catching 29
+attack edits), not by the compiler. Edits once caught only by a sha256 pin
+now also fail a test, except two no test can see in Fe 26.6: `prove`
+accepting the transaction origin (`fe test` always has origin zero) and an
+unused helper appended to the file (it compiles to identical bytecode). One gap was a Fe bug: any type could
 implement Fe 26.6's private `Call` trait, so a forged `Call` compiled. This
 project reported it (argotorg/fe#2036) and fixed it in the compiler
 (argotorg/fe#2042, merged 2026-11-21); on Fe master the forgery is refused
-and HARDSTOP's 101 tests pass. The same pure `decide` also runs as a native
+and HARDSTOP's tests pass. The same pure `decide` also runs as a native
 command-line program. Every error code and limit:
 [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 ## Evidence it works
 
-- `fe test`: 101 passed on the EVM; 52 passed natively.
+- `fe test`: 106 passed on the EVM (the native count is in CI's log).
 - Web: 108 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,

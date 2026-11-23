@@ -76,7 +76,7 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
 refuse each attack (30 refusals, plus 7 control edits that must still
-compile, 7 source checks and 28 edits they catch, in
+compile, 7 source checks and 29 edits they catch, and 7 edits a test must catch, in
 [`scripts/pay-cannot-loosen.sh`](../scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source

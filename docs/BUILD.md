@@ -13,7 +13,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 101 tests on the EVM
+fe test                           # 106 tests on the EVM
 fe test --backend native          # the 52 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop

@@ -12,7 +12,7 @@ With Fe 26.6.0 on your path, from the repository root:
 
 ```
 $ cd fe && fe test
-test result: ok. 101 passed; 0 failed
+test result: ok. 106 passed; 0 failed
 
 $ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
 ok   control: Pay may write its own ledger
@@ -20,8 +20,8 @@ ok   refused: Pay writing terms
 ok   refused: Pay approving a recipient
 ...
 ok   refused: amend applying a raise at once
-                                   (72 lines starting ok: 30 refused, 7 controls, 7 source checks,
-                                    28 edits the source checks catch)
+                                   (80 lines starting ok: 30 refused, 7 controls, 7 source checks,
+                                    29 edits they catch, 7 edits a test catches)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
                                    (CI runs both on every push, plus the patched compiler: job patched-fe;

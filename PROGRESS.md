@@ -8,10 +8,10 @@ the reference; this page only says where things stand.
 | Check | Result |
 |---|---|
 | `fe fmt --check` | clean |
-| `fe test` (EVM) | 101 passed, 0 failed |
+| `fe test` (EVM) | 106 passed, 0 failed |
 | `fe test --backend native` (WSL) | 52 passed, 0 failed |
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
-| `scripts/pay-cannot-loosen.sh` | 72 lines starting `ok`: 30 compiler refusals, 7 controls that must compile, 35 source-check lines (7 checks, 28 edits they must catch) |
+| `scripts/pay-cannot-loosen.sh` | 80 lines starting `ok`: 30 compiler refusals, 7 controls that must compile, 7 source checks, 29 edits they must catch, 7 edits a test must catch |
 | Committed web artifacts vs a fresh build | identical |
 | `npm test` (web) | 108 tests, passing locally and in CI |
 | `npx tsc --noEmit` | clean |

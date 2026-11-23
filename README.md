@@ -70,8 +70,8 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `101 passed; 0 failed` |
-| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 72 lines starting `ok` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
+| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 80 lines starting `ok` |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `108` pass |
@@ -129,7 +129,7 @@ and Node 24. Every command, with notes: [`docs/BUILD.md`](docs/BUILD.md).
 
 ```sh
 cd fe
-fe test                           # 101 tests on the EVM
+fe test                           # 106 tests on the EVM
 fe test --backend native          # the 52 kernel + adversary tests again, natively
 fe build --backend native         # writes out/hardstop
 ./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
@@ -155,7 +155,7 @@ npm test                          # 108 tests
   transfer; `Approval` is still `Copy`, so a source check and three tests
   catch an older approval put back.
 - **Pinned by CI:** 30 compiler refusals, 7 control edits that must compile,
-  7 source checks and 28 edits they catch, and sha256 pins on `kernel.fe`,
+  7 source checks and 29 edits they catch, 7 of them also by a failing test, and sha256 pins on `kernel.fe`,
   `kernel/sealed.fe` and `launcher.fe`
   ([`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)).
 
