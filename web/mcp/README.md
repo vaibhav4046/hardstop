@@ -80,6 +80,8 @@ claude mcp add \
 }
 ```
 
+**Listed in the official MCP Registry** as `io.github.vaibhav4046/hardstop` (published 2026-11-23 from [server.json](../../server.json); the package is the Claude Desktop extension on the [v0.1.0 release](https://github.com/vaibhav4046/hardstop/releases/tag/v0.1.0)). Directories and clients that read the registry can offer it from there.
+
 **Claude Desktop, one click.** Download [hardstop.mcpb](https://hardstop-omega.vercel.app/install/hardstop.mcpb) and open it: Claude Desktop shows an install page. Keep **Practice vault** on to try it with no keys, or turn it off and paste your agent key (kept in the system keychain) and vault address.
 
 **Antigravity** (`~/.gemini/antigravity/mcp_config.json`):

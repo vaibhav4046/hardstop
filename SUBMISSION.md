@@ -127,7 +127,8 @@ command-line program. Every error code and limit:
 - Install with nothing cloned: a Claude Desktop extension
   (https://hardstop-omega.vercel.app/install/hardstop.mcpb, with a practice
   vault switch), one-click Cursor and VS Code install links, and
-  `npx -y github:vaibhav4046/hardstop` for any other client.
+  `npx -y github:vaibhav4046/hardstop` for any other client. Listed in the
+  official MCP Registry as `io.github.vaibhav4046/hardstop` (2026-11-23).
 
 ## Honest limits
 
