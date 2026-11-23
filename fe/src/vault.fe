@@ -42,7 +42,6 @@
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}
-use std::evm::erc20::safe_transfer
 use ingot::kernel::{
     cooled,
     decide,
@@ -57,7 +56,20 @@ use ingot::kernel::{
     Schedule,
     Seconds,
 }
-use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}
+use ingot::kernel::sealed::{
+    founding,
+    moment,
+    open,
+    prove,
+    withdraw,
+    Approval,
+    Books,
+    Owner,
+    OwnerCall,
+    Seat,
+    Terms,
+    Verdict,
+}
 
 pub msg VaultMsg {
     // The agent's only door.
@@ -85,12 +97,20 @@ pub msg VaultMsg {
     SetRecipient { who: Address, approved: bool },
     #[selector = sol("withdraw(uint256)")]
     Withdraw { amount: u256 },
+    // Replace the agent's key: the old key stops at once, the new one starts
+    // after the cooling period. The zero address leaves no agent.
+    #[selector = sol("setAgent(address)")]
+    SetAgent { who: Address },
 
     // Views.
     #[selector = sol("owner()")]
     Owner -> Address,
+    // The key that may pay now (zero while a replacement waits).
     #[selector = sol("agent()")]
     Agent -> Address,
+    // The replacement key waiting, and when it takes over (zero: none).
+    #[selector = sol("nextAgent()")]
+    NextAgent -> (Address, u64),
     #[selector = sol("token()")]
     Token -> Address,
     // anchor, window_secs, cooling_secs
@@ -155,6 +175,14 @@ pub struct RecipientChanged {
 #[event]
 pub struct Withdrawn { amount: u256 }
 
+/// `from` is when `next` may start paying; the old key stopped at once.
+#[event]
+pub struct AgentChanged {
+    #[indexed]
+    next: Address,
+    from: u64,
+}
+
 #[error]
 pub struct NotOwner {}
 
@@ -178,14 +206,6 @@ fn only(_ owner: Owner, ctx: Evm) -> OwnerCall {
     }
 }
 
-/// Sends `amount` of `token` to the owner. Takes a proof so that `Withdraw`
-/// cannot move money without having checked its caller.
-fn pay_owner(_ proof: own OwnerCall, token: Address, owner: Owner, amount: u256)
-uses (ctx: Ctx, call: mut Call)
-{
-    safe_transfer(token, receiver: owner.address(), amount)
-}
-
 /// `who` approved from now, for a recipient the vault is created with.
 fn founded(_ ctx: Evm, who: Address) -> Approval {
     match founding(ctx, who) {
@@ -204,10 +224,10 @@ const MIN_COOLING_SECS: u64 = 60
 
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     owner: Owner,
-    agent: Address,
+    mut seat: Seat,
     token: Address,
     mut terms: Terms,
-    mut ledger: Ledger,
+    mut ledger: Books,
     mut approved_from: StorageMap<Address, Approval>,
 
     /// Recipients named here are approved from the first second. Everything
@@ -225,7 +245,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         payee_b: Address,
         payee_c: Address,
     )
-    uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from)
+    uses (ctx, mut owner, mut seat, mut token, mut terms, mut ledger, mut approved_from)
     {
         if owner_ == Address::zero() || agent_ == Address::zero() || token_ == Address::zero() {
             revert_error(ZeroAddress {})
@@ -236,9 +256,10 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             revert_error(InvalidPolicy {})
         }
         let now = seconds(ctx.timestamp())
-        let (owner_of, terms_of) = match open(
+        let (owner_of, seat_of, terms_of, books_of) = match open(
             ctx,
             owner: owner_,
+            agent: agent_,
             schedule: Schedule {
                 anchor: now,
                 window_secs: Seconds::of(window_secs),
@@ -255,10 +276,10 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             Option::None => revert_error(InvalidPolicy {}),
         }
         owner = owner_of
-        agent = agent_
+        seat = seat_of
         token = token_
         terms = terms_of
-        ledger = Ledger { window: 0, spent: 0, next_nonce: 0 }
+        ledger = books_of
         if payee_a != Address::zero() {
             approved_from.set(key: payee_a, value: founded(ctx, who: payee_a))
         }
@@ -273,7 +294,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     recv VaultMsg {
         Pay { to, amount, nonce } -> u8 uses (
             ctx,
-            agent,
+            seat,
             token,
             terms,
             approved_from,
@@ -281,32 +302,42 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             mut call,
             mut log,
         ) {
-            let now = seconds(ctx.timestamp())
-            let rules = terms.rules()
-            let request = Request {
-                amount,
-                nonce,
-                from_agent: ctx.caller() == agent,
-                to_approved: cooled(at: approved_from.get(key: to).of(to), now),
-            }
-            match decide(rules, ledger, request, now) {
-                Decision::Allow(next) => {
-                    // Ledger first, transfer second: a reentrant call sees the
-                    // payment already counted, and a failed transfer reverts
-                    // the whole transaction, ledger included.
-                    ledger = next
-                    safe_transfer(token, receiver: to, amount)
+            // The kernel judges the payment and counts it before anything
+            // moves; the payout it returns can pay only `to`, only `amount`.
+            let rules = terms.now()
+            let agent = seat.now(ctx)
+            let approval = approved_from.get(key: to)
+            let at = moment(ctx)
+            let pay_in = token
+            let verdict = ledger
+                .judge(
+                    at,
+                    terms: rules,
+                    seat: agent,
+                    approval,
+                    token: pay_in,
+                    to,
+                    amount,
+                    nonce,
+                )
+            match verdict {
+                Verdict::Pay(payout) => {
+                    payout.send()
+                    let now = seconds(ctx.timestamp())
                     log.emit(
                         Paid {
                             nonce,
                             to,
                             amount,
-                            left_in_window: left_in_window(rules.current(now), spent: next.spent),
+                            left_in_window: left_in_window(
+                                terms.rules().current(now),
+                                spent: ledger.ledger().spent,
+                            ),
                         },
                     )
                     0
                 },
-                Decision::Deny(reason) => {
+                Verdict::Refuse(reason) => {
                     match reason {
                         // Strangers get a revert, not a log entry.
                         Reason::NotAgent => revert_error(NotAgent {}),
@@ -321,24 +352,25 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         Preview { caller, to, amount, nonce } -> (u8, u256)
-        uses (ctx, agent, terms, ledger, approved_from)
+        uses (ctx, seat, terms, ledger, approved_from)
         {
             let now = seconds(ctx.timestamp())
             let rules = terms.rules()
+            let agent = seat.agent_at(now)
             let request = Request {
                 amount,
                 nonce,
-                from_agent: caller == agent,
+                from_agent: agent != Address::zero() && caller == agent,
                 to_approved: cooled(at: approved_from.get(key: to).of(to), now),
             }
-            let decision = decide(rules, ledger, request, now)
+            let decision = decide(rules, ledger: ledger.ledger(), request, now)
             (decision.code(), decision.detail(policy: rules.current(now)))
         }
 
         Exposure { until } -> u256 uses (ctx, terms, ledger) {
             exposure(
                 rules: terms.rules(),
-                ledger,
+                ledger: ledger.ledger(),
                 now: seconds(ctx.timestamp()),
                 until: Instant::at(until),
             )
@@ -399,15 +431,27 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
 
         Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
             let proof = only(owner, ctx)
-            pay_owner(proof, token, owner, amount)
+            withdraw(proof, owner, token, amount)
             log.emit(Withdrawn { amount })
+        }
+
+        SetAgent { who } uses (ctx, owner, terms, mut seat, mut log) {
+            let proof = only(owner, ctx)
+            seat.replace(proof, terms, owner, who)
+            let (next, from) = seat.waiting(now: seconds(ctx.timestamp()))
+            log.emit(AgentChanged { next, from: from.secs() })
         }
 
         Owner -> Address uses (owner) {
             owner.address()
         }
-        Agent -> Address uses (agent) {
-            agent
+        Agent -> Address uses (ctx, seat) {
+            seat.agent_at(now: seconds(ctx.timestamp()))
+        }
+
+        NextAgent -> (Address, u64) uses (ctx, seat) {
+            let (next, from) = seat.waiting(now: seconds(ctx.timestamp()))
+            (next, from.secs())
         }
         Token -> Address uses (token) {
             token
@@ -440,7 +484,8 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         }
 
         LedgerOf -> (u64, u256, u64) uses (ledger) {
-            (ledger.window, ledger.spent, ledger.next_nonce)
+            let books = ledger.ledger()
+            (books.window, books.spent, books.next_nonce)
         }
 
         ApprovedFrom { who } -> u64 uses (approved_from) {

@@ -68,9 +68,10 @@ compile time.
 - `fe/src/kernel.fe`: pure `decide`, `amend`, `cancel` and `exposure`, with
   no `uses` clause, compiled for both the EVM and native from one source.
 - `fe/src/vault.fe`: the contract. The agent's whole authority is the `Pay`
-  handler, which takes the rules and the approvals without `mut`, so a
-  `Pay` that wrote either would not compile. (`Pay` does write its own
-  spending ledger; a CI source check pins that write to the kernel's verdict.)
+  handler, which takes the rules, the approvals and its own key without
+  `mut`, so a `Pay` that wrote any of them would not compile. It holds no
+  transfer of its own: the kernel judges the payment, counts it, and returns
+  a sealed, use-once `Payout` that can pay only that recipient that amount.
 - `fe/src/kernel/sealed.fe`: what the vault stores (`Terms`, `Owner`,
   `Approval`) and the proof it needs (`OwnerCall`), with fields only the
   kernel can see.
@@ -90,12 +91,12 @@ compile time.
 The agent's whole authority is one handler signature, in `fe/src/vault.fe`:
 
 ```
-Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms,
+Pay { to, amount, nonce } -> u8 uses (ctx, seat, token, terms,
     approved_from, mut ledger, mut call, mut log)
 ```
 
-The rules (`terms`) and recipient approvals come without `mut`, so a `Pay`
-that writes them does not compile (adding `mut` to its `uses` compiles, but
+The rules (`terms`), recipient approvals and the agent's own key (`seat`)
+come without `mut`, so a `Pay` that writes them does not compile (adding `mut` to its `uses` compiles, but
 a CI check pins every handler's `uses` list). Around that, the compiler enforces:
 
 - **Rules only the kernel can make.** The vault stores them as `Terms`, a
@@ -123,6 +124,15 @@ a CI check pins every handler's `uses` list). Around that, the compiler enforces
   tried and all fail the build; seven of them pass every earlier check. The
   contracts' bytecode is unchanged by any of it. This is a grid, not every
   input.
+- **Paid only as judged (2026-11-24).** `vault.fe` holds no transfer. The
+  kernel judges a payment from sealed inputs (caller and time, stored rules,
+  the agent, the recipient's approval, the spending so far), counts it, and
+  returns a sealed, use-once `Payout` that pays only that recipient that
+  amount. A hand-made `Payout` or input does not compile; a payout sent
+  twice does not compile.
+- **A key that can be replaced, slowly.** The agent is a sealed `Seat`: the
+  owner's `setAgent` stops the old key at once and starts the new one after
+  the cooling period. `Pay` cannot touch it.
 
 What the compiler guards is the code: whoever edits the contract (its author,
 a maintainer, an AI coding assistant) cannot loosen the agent's authority
@@ -132,11 +142,11 @@ contract itself, its owner checks and cooling period.
 On every push CI makes 36 attack edits and requires the compiler to refuse
 each one (`scripts/pay-cannot-loosen.sh`).
 
-**Where the compiler stops.** Where `Pay` sends allowed money, what it tells
-the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
-values), and the bodies of `vault.fe`, the kernel, `sealed.fe` and the launcher are guarded
-by tests and by source checks that read the text (7 checks, catching 29
-attack edits), not by the compiler. Edits once caught only by a sha256 pin
+**Where the compiler stops.** `vault.fe` importing a transfer of its own and
+calling it beside the payout, copies of `Approval` (Fe 26.6's
+`StorageMap::get` needs `Copy` values), and the bodies of `vault.fe`, the
+kernel, `sealed.fe` and the launcher are guarded by tests and by source
+checks that read the text, not by the compiler. Edits once caught only by a sha256 pin
 now also fail a test, except one: an unused helper appended to the file,
 which compiles to identical bytecode, so nothing deployed changes. (`prove`
 accepting the transaction's origin, which `fe test` cannot see, is now

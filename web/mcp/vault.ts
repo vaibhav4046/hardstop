@@ -6,7 +6,7 @@
 // Only the agent's key is ever read. The owner's key is never asked for, and
 // the connection refuses to send anything as anyone but the agent.
 
-import { formatEther, type Hex } from 'viem'
+import { formatEther, zeroAddress, type Hex } from 'viem'
 import { generatePrivateKey } from 'viem/accounts'
 import { Sim, type Policy, type Schedule, type State } from '../src/lib/hardstop/sim.ts'
 import type { LiveChain } from '../src/lib/live/chain.ts'
@@ -188,7 +188,9 @@ export async function connect(config: Config, wallet: Wallet = rpcWallet(config.
   const attached = await attach(wallet, live)
   if (config.agentKey && attached.chain.agent !== agent) {
     throw new Error(
-      `HARDSTOP_AGENT_KEY belongs to ${attached.chain.agent}, but the agent of vault ${vault} is ${agent}. Use this vault's agent key.`,
+      agent === zeroAddress
+        ? `Vault ${vault} has no agent right now: its owner replaced the agent's key, and the new key may pay only once its cooling period ends. Ask the owner which key to use.`
+        : `HARDSTOP_AGENT_KEY belongs to ${attached.chain.agent}, but the agent of vault ${vault} is ${agent}. Use this vault's agent key.`,
     )
   }
   const sim = config.agentKey ? attached.sim : Sim.attach(attached.chain, token, vault, owner, agent)

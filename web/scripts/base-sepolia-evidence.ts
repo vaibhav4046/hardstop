@@ -1,7 +1,8 @@
 // Re-runs the on-chain evidence on Base Sepolia with the site's own code:
 // installs the launcher if it is missing, opens a vault, has the agent pay
 // twice, ask for $80 and try to raise its own limit, then has the owner
-// propose a raise, cancel it and pause. Prints every transaction.
+// propose a raise, cancel it and pause, and replace the agent's key (the
+// agent tries to replace its own first). Prints every transaction.
 //
 // The owner is a throwaway TEST key read from a file outside the repo; it
 // holds only faucet test ETH. Run from web/:
@@ -9,7 +10,7 @@
 
 import { readFileSync } from 'node:fs'
 import { createWalletClient, http, type Hex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
 import { rpcWallet } from '../mcp/vault.ts'
 import { LAUNCHER, attach, launchVault } from '../src/lib/live/launch.ts'
@@ -80,6 +81,14 @@ line('agent raises own limit', await sim.propose(raise, sim.agent))
 line('owner proposes $40/day', await sim.propose({ perPayment: 10n * USD, perWindow: 40n * USD, validUntil: now + 30n * DAY, paused: false }))
 line('owner cancels it', await sim.cancelQueued())
 line('owner pauses', await sim.pause())
+
+// Replacing the agent's key: the agent cannot do it; the owner can, and the old key stops at once.
+const replacement = privateKeyToAccount(generatePrivateKey()).address.toLowerCase() as Hex
+line('agent replaces own key', await sim.setAgent(replacement, sim.agent))
+line('owner replaces agent key', await sim.setAgent(replacement))
+const agents = await sim.agents()
+console.log(`agent now ${agents.now}; ${agents.next} may pay from ${agents.from} (${new Date(Number(agents.from) * 1000).toISOString()})`)
+line('old key pays after that', await sim.pay(PAYEE, 1n * USD, 2n))
 
 // The owner names the vault in their own list on the launcher (fe/src/launcher.fe, `setName`).
 const named = await owner.request({ method: 'eth_sendTransaction', params: [{ from: account.address, to: LAUNCHER, data: setNameData(live.vault, encodeName('Evidence vault') as bigint) }] }) as Hex

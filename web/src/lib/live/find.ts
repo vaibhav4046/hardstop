@@ -12,19 +12,24 @@ import type { Network, Wallet } from './wallet.ts'
 export class Refused extends Error {}
 
 /**
- * A vault's runtime code is the compiled contract followed by 128 bytes its
- * constructor fills in: owner, agent and token (32 bytes each) and the packed
- * schedule. Those differ from vault to vault, so what is compared is the
- * keccak256 of the code without them. Every vault build a HARDSTOP launcher
+ * A vault's runtime code is the compiled contract followed by the bytes its
+ * constructor fills in: owner and token (32 bytes each) since 2026-11-24,
+ * and before that also the agent and the packed schedule (128 bytes). Those
+ * differ from vault to vault, so what is compared is the keccak256 of the
+ * code without them. Every vault build a HARDSTOP launcher
  * has deployed is listed; all of them answer the same functions and emit the
  * same events (the builds differ in the kernel's internals). The first entry
  * is checked against `vaultBytecode` in src/lib/hardstop/artifacts.ts by
  * tests/vault-code.test.ts, so a rebuilt vault cannot be forgotten here.
  */
-export const VAULT_IMMUTABLE_BYTES = 128
+export const VAULT_IMMUTABLE_BYTES = 64
+/** The constructor-filled tail of the builds before 2026-11-24. */
+const EARLIER_IMMUTABLE_BYTES = 128
 export const KNOWN_VAULT_CODE: Readonly<Record<Hex, string>> = {
+  '0x5665837d83994d6ba0c14c2e7b26391c3ac560ace214fedc47e0a3a76f9837f5':
+    "the current build, where the vault pays only through the kernel's sealed payout and the owner can replace the agent's key (launcher 0x120b607e82bc365710439b283c13eec8d293f206)",
   '0x0d29aaa99568bef7f1b8a9e7f9f4caedaa0690673f163ed325e00699c1bd836b':
-    "the current build, where Terms is not Copy and changes in place (launchers 0xcca9a9e12a1f817299a8c0ac076049e1f901e398, which also lists and names each owner's vaults; 0xeac071c085b20c02f36ed1771cbf9826da6b8e02, which lists them; and 0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee, all on Base Sepolia since 2026-11-21)",
+    "an earlier build, where Terms is not Copy and changes in place (launchers 0xcca9a9e12a1f817299a8c0ac076049e1f901e398, which also lists and names each owner's vaults; 0xeac071c085b20c02f36ed1771cbf9826da6b8e02, which lists them; and 0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee, all on Base Sepolia since 2026-11-21)",
   '0xb5b582328f1d7df187779837f3b8a58c28328ca7bfac887928eb4e6a91c259ce':
     "an earlier build, where the owner's proof carries the chain's time (launcher 0x770bbe43a3669f066b8dc3274ff6dca9f22a8fd1, on Base Sepolia since 2026-11-20)",
   '0x4975c54738332e56f3f39e3d525cf2ea5432281b830a4165eeb5f59fe3c21b84':
@@ -41,10 +46,20 @@ export const KNOWN_VAULT_CODE: Readonly<Record<Hex, string>> = {
     'an earlier build (launchers 0x956fbbde5fcb981e5a8507b369c79105815d562d and 0x3b835612009343eea6d14f79302412bcfb09e9df)',
 }
 
-/** keccak256 of a vault's runtime code without its constructor-filled tail; undefined if the code is too short to be a vault. */
-export function vaultCodeHash(code: Hex): Hex | undefined {
-  const body = code.length - 2 - 2 * VAULT_IMMUTABLE_BYTES
+const hashWithout = (code: Hex, tail: number): Hex | undefined => {
+  const body = code.length - 2 - 2 * tail
   return body > 0 ? keccak256(`0x${code.slice(2, 2 + body)}`) : undefined
+}
+
+/**
+ * keccak256 of a vault's runtime code without its constructor-filled tail,
+ * for whichever tail length makes it a known build; undefined if the code is
+ * too short to be a vault.
+ */
+export function vaultCodeHash(code: Hex): Hex | undefined {
+  const earlier = hashWithout(code, EARLIER_IMMUTABLE_BYTES)
+  if (earlier && earlier in KNOWN_VAULT_CODE) return earlier
+  return hashWithout(code, VAULT_IMMUTABLE_BYTES)
 }
 
 /** The vault constructor refuses a cooling period shorter than this (fe/src/vault.fe, MIN_COOLING_SECS). */
@@ -96,10 +111,12 @@ export async function findVault(
     readAddress(wallet, vault, 'agent'),
   ])
   // The vault constructor refuses these (fe/src/vault.fe, `init`): only a
-  // hand-made deployment of the same code could hold them.
-  if ([owner, token, agent].includes(zeroAddress) || owner === agent) {
+  // hand-made deployment of the same code could hold them. A zero agent is
+  // the owner's choice: since 2026-11-24 the old key stops at once when the
+  // owner replaces it, and there is no agent until the new one's time comes.
+  if ([owner, token].includes(zeroAddress) || owner === agent) {
     throw new Refused(
-      `The vault at ${vault} has an owner, agent and token no HARDSTOP launcher could have set (one is the zero address, or the owner is the agent). ${check.address}`,
+      `The vault at ${vault} has an owner, agent and token no HARDSTOP launcher could have set (the owner or token is the zero address, or the owner is the agent). ${check.address}`,
     )
   }
   return { owner, token, agent, schedule }

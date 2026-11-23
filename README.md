@@ -26,12 +26,14 @@ signature in [`fe/src/vault.fe`](fe/src/vault.fe):
 
 ```fe
 Pay { to, amount, nonce } -> u8
-    uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log)
+    uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log)
 ```
 
-`terms` and `approved_from` come without `mut`, so a payment that writes
-the rules or approves a recipient does not compile (adding `mut` to the
-`uses` list compiles, but a CI check pins that list). The rules themselves are
+`terms`, `approved_from` and `seat` come without `mut`, so a payment that
+writes the rules, approves a recipient or swaps its own key does not compile
+(adding `mut` to the `uses` list compiles, but a CI check pins that list).
+And it can pay only through a sealed `Payout` the kernel returns: only
+that recipient, only that amount. The rules themselves are
 a sealed type that only the kernel can make or change, and never at once
 when they loosen. CI makes 36 attack edits and requires the compiler
 to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
@@ -157,9 +159,14 @@ npm test                          # 117 tests
 
 ## What the compiler does and does not guard
 
-- **Guarded:** `Pay` has no `mut` on `terms` or `approved_from`, so a payment
-  that writes the rules or approves a recipient does not compile; a CI
-  check pins the `uses` list itself.
+- **Guarded:** `Pay` has no `mut` on `terms`, `approved_from` or `seat`, so a
+  payment that writes the rules, approves a recipient or swaps its own key
+  does not compile; a CI check pins the `uses` list itself.
+- **Guarded (since 2026-11-24):** where `Pay` sends money. `vault.fe` holds no
+  transfer: the kernel judges the payment from sealed inputs (the caller and
+  time, the stored rules, the agent, the recipient's approval, the spending
+  so far), counts it, and returns a sealed, use-once `Payout` that pays only
+  that recipient that amount. A hand-made one does not compile.
 - **Guarded:** rules and approvals are sealed types (`Terms`, `Approval` in
   [`fe/src/kernel/sealed.fe`](fe/src/kernel/sealed.fe)) that only the kernel
   can make; `Terms` is not `Copy`, so saving the rules aside and putting them
@@ -173,10 +180,11 @@ npm test                          # 117 tests
   no signature raises the worst case before the cooling period ends, no
   payment beats it, and an agent that spends all it can reaches it exactly.
   A kernel broken so any of this fails does not build. A grid, not every input.
-- **Not guarded by the compiler:** where `Pay` sends the money a verdict
-  allowed. Tests and a source check (it reads the text) pin `Pay`'s only
-  transfer; `Approval` is still `Copy`, so a source check and three tests
-  catch an older approval put back.
+- **Not guarded by the compiler:** `vault.fe` importing a transfer of its own
+  and calling it beside the payout (Fe cannot forbid an import). Tests and a
+  source check (it reads the text) refuse any transfer in `vault.fe`;
+  `Approval` is still `Copy`, so a source check and three tests catch an
+  older approval put back.
 - **Pinned by CI:** 36 compiler refusals, 7 control edits that must compile,
   8 source checks and 29 edits they catch, 7 of them also by a failing test, and sha256 pins on `kernel.fe`,
   `kernel/sealed.fe` and `launcher.fe`

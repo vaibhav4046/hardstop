@@ -126,17 +126,19 @@ refused() {
 }
 
 PAY='Pay { to, amount, nonce }'
-NOW='let now = seconds(ctx.timestamp())'
+FIRST='let rules = terms.now()'
 ONLY_LINE='let proof = only(owner, ctx)'
 STORE='terms.amend(proof, proposed)'
 
-# 1. The agent's code path cannot write the rules or the recipients.
-control 'Pay may write its own ledger' "$PAY" "$NOW" after 'ledger = ledger'
+# 1. The agent's code path cannot write the rules, the recipients or its own
+#    key.
+control 'Pay may read its own spending' "$PAY" "$FIRST" before 'let seen = ledger.ledger()'
 # 8-0018 "left-hand side of assignment is immutable" for a field,
 # 8-0066 "does not provide mutable access" for a map.
-refused 'Pay writing terms' 'is immutable' 8-0018 "$PAY" "$NOW" after 'terms = terms'
+refused 'Pay writing terms' 'is immutable' 8-0018 "$PAY" "$FIRST" before 'terms = terms'
+refused 'Pay replacing its own agent key' 'is immutable' 8-0018 "$PAY" "$FIRST" before 'seat = seat'
 refused 'Pay approving a recipient' 'does not provide mutable access' 8-0066 \
-  "$PAY" "$NOW" after 'approved_from.set(key: to, value: approved_from.get(key: ctx.caller()))'
+  "$PAY" "$FIRST" before 'approved_from.set(key: to, value: approved_from.get(key: ctx.caller()))'
 
 # 2. Only the kernel makes new terms.
 HAND_RULES='ingot::kernel::Rules { schedule: terms.rules().schedule, active: proposed, queued: ingot::kernel::Queued::none() }'
@@ -149,7 +151,7 @@ refused 'Propose writing a field of terms' '`rules` is not visible' 2-0003 \
   'Propose {' "$STORE" replace 'terms.rules = terms.rules()'
 
 # 3. A proof comes only from `prove`, with the stored owner and the real caller.
-for handler in 'Propose {' 'CancelQueued uses' 'Pause uses' 'SetRecipient {' 'Withdraw {'; do
+for handler in 'Propose {' 'CancelQueued uses' 'Pause uses' 'SetRecipient {' 'Withdraw {' 'SetAgent {'; do
   # 8-0012 "undefined variable `proof`": the handler has no proof to pass on.
   refused "${handler%% *} without its owner check" 'undefined variable `proof`' 8-0012 \
     "$handler" "$ONLY_LINE" replace ''
@@ -230,7 +232,7 @@ else
 fi
 
 # 4. Proofs are spent on use and cannot be dropped.
-PAY_OWNER='pay_owner(proof, token, owner, amount)'
+PAY_OWNER='withdraw(proof, owner, token, amount)'
 # 16-0002 "cannot use a value after it was moved".
 refused 'Withdraw using one proof twice' 'cannot use a value after it was moved' 16-0002 \
   'Withdraw {' "$PAY_OWNER" after "$PAY_OWNER"
@@ -262,15 +264,17 @@ check_open() {
     ininit && code == "    }" { ininit = 0 }
     code ~ /(^|[^A-Za-z0-9_.])open\(/ {
       opens++
-      if (!ininit || code != "        let (owner_of, terms_of) = match open(") bad = "`open` called outside init, or differently: " $0
+      if (!ininit || code != "        let (owner_of, seat_of, terms_of, books_of) = match open(") bad = "`open` called outside init, or differently: " $0
       want = 1; next
     }
     want && code ~ /^ +ctx,$/ { next }
-    want { if (code != "            owner: owner_,") bad = "`open` not given `owner: owner_`: " $0; want = 0 }
+    want == 1 { if (code != "            owner: owner_,") bad = "`open` not given `owner: owner_`: " $0; want = 2; next }
+    want == 2 { if (code != "            agent: agent_,") bad = "`open` not given `agent: agent_`: " $0; want = 0 }
     code == "        owner = owner_of" { stores++ }
+    code == "        seat = seat_of" { seats++ }
     END {
       if (bad != "") { print bad; exit 1 }
-      if (opens != 1 || stores != 1) { print "expected one `open` and one `owner = owner_of`, found " opens + 0 " and " stores + 0; exit 1 }
+      if (opens != 1 || stores != 1 || seats != 1) { print "expected one `open`, one `owner = owner_of` and one `seat = seat_of`, found " opens + 0 ", " stores + 0 " and " seats + 0; exit 1 }
     }
   ' "$ROOT/fe/src/vault.fe"
 }
@@ -278,17 +282,43 @@ if ! why=$(check_open); then
   echo "FAIL vault.fe: $why"
   exit 1
 fi
-echo "ok   source check: init opens once, with owner_, and stores that Owner"
+echo "ok   source check: init opens once, with owner_ and agent_, and stores that Owner and Seat"
 
-# Not the compiler's: where `Pay` sends money. The kernel decides whether
-# `to` may receive `amount`; the transfer is ordinary code.
-TRANSFER='safe_transfer(token, receiver: to, amount)'
-control 'NOT covered by the compiler: Pay paying the caller 1000x the amount' \
-  "$PAY" "$TRANSFER" replace 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
+# Where `Pay` sends money is the compiler's now (2026-11-24): vault.fe holds
+# no transfer of its own. `Books::judge` counts an allowed payment and returns
+# a sealed `Payout` that can pay only that recipient that amount, from the
+# caller and time read by `moment` and the agent read by `seat.now`; `Payout`,
+# `Moment`, `TermsNow` and `AgentNow` have private fields, so none can be
+# made by hand. What the compiler still lets through: vault.fe importing a
+# transfer of its own and calling it. A source check refuses that (below).
+SEND='payout.send()'
+JUDGE='let verdict = ledger'
+SEALED='ingot::kernel::sealed'
+refused 'Pay sending to the caller, 1000x, through a hand-made Payout' '`to` is not visible' 2-0003 \
+  "$PAY" "$SEND" replace "$SEALED::Payout { token, to: ctx.caller(), amount: amount * 1000 }.send()"
+refused 'Pay sending the payout twice' 'cannot use a value after it was moved' 16-0002 \
+  "$PAY" "$SEND" after "$SEND"
+refused 'Pay judged as if the caller were the agent' '`agent` is not visible' 2-0003 \
+  "$PAY" 'let agent = seat.now(ctx)' replace "let agent = $SEALED::AgentNow { agent: ctx.caller() }"
+refused 'Pay judged against rules other than the stored ones' '`rules` is not visible' 2-0003 \
+  "$PAY" "$FIRST" replace "let rules = $SEALED::TermsNow { rules: terms.rules() }"
+refused 'Pay judged at a made-up time or as another caller' '`caller` is not visible' 2-0003 \
+  "$PAY" 'let at = moment(ctx)' replace "let at = $SEALED::Moment { caller: ctx.caller(), now: Instant::at(1) }"
+refused 'Pay judged with a hand-made approval' '`who` is not visible' 2-0003 \
+  "$PAY" 'let approval = approved_from.get(key: to)' replace 'let approval = Approval { who: to, from: Instant::at(1) }'
+refused 'Pay forgetting what was spent today' '`ledger` is not visible' 2-0003 \
+  "$PAY" "$FIRST" before "ledger = $SEALED::Books { ledger: Ledger { window: 0, spent: 0, next_nonce: nonce } }"
+
+TRANSFER_IMPORT='
+use std::evm::erc20::safe_transfer
+'
+APPEND=$TRANSFER_IMPORT control 'NOT covered by the compiler: Pay importing a transfer of its own and paying the caller 1000x' \
+  "$PAY" "$SEND" before 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
 # On Fe 26.6, taking `mut call` away from `Pay` would not close this: `Call`'s
 # methods have default bodies and its seal is reachable, so any type can be a
 # `Call`. A compiler with the private-trait fix refuses the forged `Call`.
 FORGED_CALL='
+use std::evm::erc20::safe_transfer
 pub struct Forged {}
 impl std::evm::effects::EvmCapabilitySeal for Forged {}
 impl Call for Forged {}
@@ -300,58 +330,57 @@ fn steal(_ token: Address, to: Address, amount: u256) uses (ctx: Ctx) {
 }
 '
 APPEND=$FORGED_CALL seal_control 'NOT covered by Fe 26.6: Pay paying through a function with no Call in its uses' \
-  "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
+  "$PAY" "$SEND" before 'steal(token, to: ctx.caller(), amount: amount * 1000)'
 
-# A source check closes what the compiler leaves open here (it reads text;
-# it is not a compiler guarantee): in vault.fe, comments stripped, Pay's
-# handler transfers exactly once, with exactly
-# safe_transfer(token, receiver: to, amount), right after ledger = next;
-# it rebinds none of token, to, amount and nonce and calls nothing else that
-# can move money; the only functions given mut Call are the contract and
-# pay_owner (which needs an OwnerCall, so the owner's proof); and what Pay
-# asks the kernel is exactly this, once each: the time from the chain, the
-# stored terms' rules, a Request with the caller compared to the agent and
-# the recipient's own approval, and decide(rules, ledger, request, now).
+# A source check closes what the compiler leaves open (it reads text; it is
+# not a compiler guarantee): in vault.fe, comments stripped, nothing names a
+# transfer, an ERC-20 function or a raw call; no function but the contract
+# is given mut Call; and Pay is exactly this, once each: read the stored
+# rules, the agent and the recipient's approval, read the caller and time,
+# have the books judge the payment, and send the payout it returns, right
+# after Verdict::Pay(payout), and nothing else that moves money.
 check_pay() {
   awk '
     { code = $0; sub(/\/\/.*/, "", code); sub(/[ \t]+$/, "", code) }
-    code ~ /mut Call/ && code !~ /^fn pay_owner\(|^uses \(ctx: Ctx, call: mut Call\)$|^pub contract Vault uses/ { bad = "another function given mut Call: " $0 }
-    code ~ /^uses \(ctx: Ctx, call: mut Call\)$/ && prev !~ /^fn pay_owner\(/ { bad = "mut Call outside pay_owner: " $0 }
+    code ~ /transfer|erc20|\.call\(|steal|Call =|with \(/ { bad = "vault.fe can move money outside the payout: " $0 }
+    code ~ /mut Call/ && code !~ /^pub contract Vault uses/ { bad = "a function given mut Call: " $0 }
     BEGIN {
-      need["            let now = seconds(ctx.timestamp())"] = 0
-      need["            let rules = terms.rules()"] = 0
-      need["            let request = Request {"] = 0
-      need["                amount,"] = 0
-      need["                nonce,"] = 0
-      need["                from_agent: ctx.caller() == agent,"] = 0
-      need["                to_approved: cooled(at: approved_from.get(key: to).of(to), now),"] = 0
-      need["            match decide(rules, ledger, request, now) {"] = 0
-      need["                Decision::Allow(next) => {"] = 0
-      need["                    ledger = next"] = 0
+      need["            let rules = terms.now()"] = 0
+      need["            let agent = seat.now(ctx)"] = 0
+      need["            let approval = approved_from.get(key: to)"] = 0
+      need["            let at = moment(ctx)"] = 0
+      need["            let pay_in = token"] = 0
+      need["            let verdict = ledger"] = 0
+      need["                .judge("] = 0
+      need["                    at,"] = 0
+      need["                    terms: rules,"] = 0
+      need["                    seat: agent,"] = 0
+      need["                    approval,"] = 0
+      need["                    token: pay_in,"] = 0
+      need["                    to,"] = 0
+      need["                    amount,"] = 0
+      need["                    nonce,"] = 0
+      need["            match verdict {"] = 0
+      need["                Verdict::Pay(payout) => {"] = 0
+      need["                    payout.send()"] = 0
     }
-    index(code, "        Pay {") == 1 { inpay = 1; prevcode = ""; prev = code; next }
+    index(code, "        Pay {") == 1 { inpay = 1; prevcode = ""; next }
     inpay && (code ~ /^        [A-Z][A-Za-z]* \{/ || code == "    }") { inpay = 0 }
     inpay {
-      if (code ~ /transfer|pay_owner|steal|\.call\(|Call =|with \(/) {
-        transfers++
-        if (code != "                    safe_transfer(token, receiver: to, amount)") bad = "Pay moves money differently: " $0
-        else if (prevcode != "                    ledger = next") bad = "Pay transfers somewhere other than right after ledger = next"
+      if (code ~ /send\(|withdraw|pay_owner/) {
+        sends++
+        if (code != "                    payout.send()") bad = "Pay moves money differently: " $0
+        else if (prevcode != "                Verdict::Pay(payout) => {") bad = "Pay sends somewhere other than right after Verdict::Pay(payout)"
       }
-      if (code == "                Decision::Allow(next) => {" && prevcode != "            match decide(rules, ledger, request, now) {") {
-        bad = "Decision::Allow is not right after match decide"
-      }
-      if (code == "                    ledger = next" && prevcode != "                Decision::Allow(next) => {") {
-        bad = "Pay writes ledger outside Decision::Allow"
-      }
-      if (code ~ /(let|var) +([^=]*[^A-Za-z0-9_])?(token|to|amount|nonce|next)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount|nonce|next) *[-+*\/]?= [^=>]/) bad = "Pay rebinds token, to, amount, nonce or next: " $0
+      if (code == "                Verdict::Pay(payout) => {" && prevcode != "            match verdict {") bad = "Verdict::Pay is not the first arm of match verdict"
       if (code in need) need[code]++
-      else if (code ~ /decide\(|Request *\{|from_agent|to_approved|(let|var) +(mut +)?(now|rules|request)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(now|rules|request) *= /) bad = "Pay asks the kernel something else: " $0
+      else if (code ~ /(let|var) +([^=]*[^A-Za-z0-9_])?(token|to|amount|nonce|payout|verdict|rules|agent|approval|at|pay_in)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])(token|to|amount|nonce|payout|verdict|rules|agent|approval|at|pay_in) *[-+*\/]?= [^=>]/) bad = "Pay rebinds what it asks the kernel: " $0
+      else if (code ~ /judge|moment\(|\.now\(|Moment|TermsNow|AgentNow|Payout|Books|Verdict::Pay/) bad = "Pay asks the kernel something else: " $0
       if (code !~ /^ *$/) prevcode = code
     }
-    { if (code !~ /^ *$/) prev = code }
     END {
       if (bad != "") { print bad; exit 1 }
-      if (transfers != 1) { print "expected one transfer in Pay, found " transfers + 0; exit 1 }
+      if (sends != 1) { print "expected one payout.send() in Pay, found " sends + 0; exit 1 }
       for (line in need) if (need[line] != 1) { print "expected once in Pay, found " need[line] " times:" line; exit 1 }
     }
   ' "$1"
@@ -360,7 +389,7 @@ if ! why=$(check_pay "$ROOT/fe/src/vault.fe"); then
   echo "FAIL vault.fe: $why"
   exit 1
 fi
-echo "ok   source check: Pay asks the kernel with the stored rules and the real caller, and its only transfer is safe_transfer(token, receiver: to, amount)"
+echo "ok   source check: vault.fe moves money only through the kernel's payout, and Pay asks the kernel with the stored rules, agent and approval and the real caller and time"
 # The check must catch the edits the compiler lets through.
 pay_check_catches() {
   local name=$1 edited
@@ -375,65 +404,54 @@ pay_check_catches() {
   rm -f "$edited"
   echo "ok   source check catches: $name"
 }
-pay_check_catches 'Pay paying the caller 1000x the amount' \
-  "$PAY" "$TRANSFER" replace 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
+APPEND=$TRANSFER_IMPORT pay_check_catches 'Pay importing a transfer of its own and paying the caller 1000x' \
+  "$PAY" "$SEND" before 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
 APPEND=$FORGED_CALL pay_check_catches 'Pay paying through a forged Call' \
-  "$PAY" "$TRANSFER" replace 'steal(token, to: ctx.caller(), amount: amount * 1000)'
+  "$PAY" "$SEND" before 'steal(token, to: ctx.caller(), amount: amount * 1000)'
 # Pay with `mut call` taken out of its uses, paying through the log instead.
 NO_CALL=$(mktemp)
 edit_handler "$PAY" 'mut call,' replace '' > "$NO_CALL"
-SRC=$NO_CALL pay_check_catches 'Pay without mut call, paying the caller 1000x through with (Call = mut log)' \
-  "$PAY" "$TRANSFER" replace \
+SRC=$NO_CALL APPEND=$TRANSFER_IMPORT pay_check_catches 'Pay without mut call, paying the caller 1000x through with (Call = mut log)' \
+  "$PAY" "$SEND" before \
   'with (Call = mut log) { safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000) }'
 rm -f "$NO_CALL"
-pay_check_catches 'Pay doubling the amount before the transfer' \
-  "$PAY" "$TRANSFER" before 'let amount = amount * 2'
-pay_check_catches 'Pay transferring twice' \
-  "$PAY" "$TRANSFER" after 'safe_transfer(token, receiver: to, amount)'
-# What Pay tells the kernel is ordinary code too: this compiles, and pays anyone.
-ANYONE='to_approved: true,'
-control 'NOT covered by the compiler: Pay telling the kernel every recipient is approved' \
-  "$PAY" 'to_approved: cooled(' replace "$ANYONE"
-pay_check_catches 'Pay telling the kernel every recipient is approved' \
-  "$PAY" 'to_approved: cooled(' replace "$ANYONE"
-pay_check_catches 'Pay telling the kernel every caller is the agent' \
-  "$PAY" 'from_agent: ctx.caller() == agent,' replace 'from_agent: true,'
-pay_check_catches 'Pay deciding against an empty ledger' \
-  "$PAY" 'match decide(rules, ledger, request, now) {' replace \
-  'match decide(rules, Ledger { window: 0, spent: 0, next_nonce: nonce }, request, now) {'
-pay_check_catches 'Pay deciding with rules other than the stored ones' \
-  "$PAY" 'let rules = terms.rules()' replace 'let rules = Rules { schedule: terms.rules().schedule, active: terms.rules().queued.policy, queued: terms.rules().queued }'
-pay_check_catches 'Pay bypassing Decision::Deny with a catch-all arm' \
-  "$PAY" 'Decision::Allow(next) => {' replace $'    _ => {\n                    let next = ledger'
+pay_check_catches 'Pay bypassing Verdict::Refuse with a catch-all arm' \
+  "$PAY" 'Verdict::Pay(payout) => {' replace '_ => {'
 pay_check_catches 'Pay rebinding to and amount with a tuple destructuring' \
-  "$PAY" 'match decide(' before 'let (to, amount) = (ctx.caller(), amount * 1000)'
+  "$PAY" "$JUDGE" before 'let (to, amount) = (ctx.caller(), amount * 1000)'
 
-# What the compiler does not stop either: a vault that keeps a second copy
-# of its rules or approvals in storage and puts it back later (Terms and
-# Approval are Copy), or a Pay that writes its own ledger. A source check of
-# vault.fe (comments stripped; it reads the text, it is not a compiler
-# guarantee): the name Terms appears only in the import and the one storage
-# field, Approval only in the import, founded and the one map; ledger is
-# assigned only in init and as ledger = next in Pay, and only init builds a
-# Ledger.
+# What the compiler does not stop either: a vault that keeps a second
+# stored Terms, Seat or Books, or a second approval map, to put old ones back
+# later (Approval is Copy). A source check of vault.fe (comments stripped; it
+# reads the text, it is not a compiler guarantee): Terms, Seat and Books are
+# named only in the import and their one storage field, Approval only in the
+# import, founded and the one map; ledger and seat are assigned only in init,
+# from what `open` made; and vault.fe builds no Ledger.
 check_state() {
   awk '
     { code = " " $0 " "; sub(/\/\/.*/, " ", code) }
     { terms += gsub(/[^A-Za-z0-9_]Terms[^A-Za-z0-9_]/, "&", code) }
     { approvals += gsub(/[^A-Za-z0-9_]Approval[^A-Za-z0-9_]/, "&", code) }
+    { seats += gsub(/[^A-Za-z0-9_]Seat[^A-Za-z0-9_]/, "&", code) }
+    { books += gsub(/[^A-Za-z0-9_]Books[^A-Za-z0-9_]/, "&", code) }
     { built += gsub(/[^A-Za-z0-9_]Ledger *\{/, "&", code) }
-    code ~ /[^A-Za-z0-9_.]ledger\.[A-Za-z0-9_]+ *[-+*\/]?= [^=>]/ {
-      bad = "ledger field written another way: " $0
+    code ~ /[^A-Za-z0-9_.](ledger|seat)\.[A-Za-z0-9_]+ *[-+*\/]?= [^=>]/ {
+      bad = "ledger or seat field written another way: " $0
     }
     code ~ /[^A-Za-z0-9_.]ledger *= [^=]/ {
       writes++
-      if (code !~ /^ +ledger = next *$/ && code !~ /^ +ledger = Ledger \{ window: 0, spent: 0, next_nonce: 0 \} *$/) bad = "ledger written another way: " $0
+      if (code !~ /^ +ledger = books_of *$/) bad = "ledger written another way: " $0
+    }
+    code ~ /[^A-Za-z0-9_.]seat *= [^=]/ {
+      seated++
+      if (code !~ /^ +seat = seat_of *$/) bad = "seat written another way: " $0
     }
     END {
       if (bad != "") { print bad; exit 1 }
       if (terms != 2) { print "Terms named " terms + 0 " times, expected 2 (the import and the one field)"; exit 1 }
+      if (seats != 2 || books != 2) { print "Seat named " seats + 0 " and Books " books + 0 " times, expected 2 each (the import and the one field)"; exit 1 }
       if (approvals != 3) { print "Approval named " approvals + 0 " times, expected 3 (the import, founded, the one map)"; exit 1 }
-      if (built != 1 || writes != 2) { print "Ledger built " built + 0 " times and ledger written " writes + 0 " times, expected 1 and 2"; exit 1 }
+      if (built != 0 || writes != 1 || seated != 1) { print "Ledger built " built + 0 " times, ledger written " writes + 0 " and seat " seated + 0 " times, expected 0, 1 and 1"; exit 1 }
     }
   ' "$1"
 }
@@ -441,7 +459,7 @@ if ! why=$(check_state "$ROOT/fe/src/vault.fe"); then
   echo "FAIL vault.fe: $why"
   exit 1
 fi
-echo "ok   source check: one stored Terms, one Approval map, and Pay writes its ledger only from the kernel"
+echo "ok   source check: one stored Terms, Seat and Books, one Approval map, each written only in init"
 state_check_catches() {
   local name=$1 edited
   shift
@@ -458,10 +476,8 @@ state_check_catches() {
 with_field() { sed "s/^    mut terms: Terms,\$/    mut terms: Terms,\n    $1/" "$ROOT/fe/src/vault.fe"; }
 state_check_catches 'a second stored Terms, to put old rules back later' with_field 'mut backup: Terms,'
 state_check_catches 'a second Approval map, to put old approvals back later' with_field 'mut kept: StorageMap<Address, Approval>,'
-state_check_catches 'Pay resetting what was spent today' \
-  edit_handler "$PAY" "$TRANSFER" after 'ledger = Ledger { window: next.window, spent: 0, next_nonce: next.next_nonce }'
-state_check_catches 'Pay zeroing ledger.spent directly' \
-  edit_handler "$PAY" "$TRANSFER" after 'ledger.spent = 0'
+state_check_catches 'a second stored Seat, to put an old agent key back later' with_field 'mut spare: Seat,'
+state_check_catches 'a second stored Books, to put old spending back later' with_field 'mut spare: Books,'
 
 # Putting older rules back is also the compiler's for Terms: Terms is not
 # Copy and changes in place (amend, cancel and pause take `mut self`), so a
@@ -488,7 +504,7 @@ refused_file() {
 BACKUP_FIELD='s/^    mut terms: Terms,$/    mut terms: Terms,\n    mut backup: Terms,/'
 refused_file 'init keeping a second copy of the founding rules' 'cannot use a value after it was moved' 16-0002 \
   -e "$BACKUP_FIELD" \
-  -e 's/uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from)/uses (ctx, mut owner, mut agent, mut token, mut terms, mut backup, mut ledger, mut approved_from)/' \
+  -e 's/uses (ctx, mut owner, mut seat, mut token, mut terms, mut ledger, mut approved_from)/uses (ctx, mut owner, mut seat, mut token, mut terms, mut backup, mut ledger, mut approved_from)/' \
   -e 's/^        terms = terms_of$/        terms = terms_of\n        backup = terms_of/'
 refused_file 'Pause saving the rules aside before pausing' 'cannot move out of storage' 16-0002 \
   -e "$BACKUP_FIELD" \
@@ -496,6 +512,10 @@ refused_file 'Pause saving the rules aside before pausing' 'cannot move out of s
 refused_file 'CancelQueued putting saved rules back' 'cannot move out of storage' 16-0002 \
   -e "$BACKUP_FIELD" \
   -e 's/^        CancelQueued uses (ctx, owner, mut terms, mut log) {$/        CancelQueued uses (ctx, owner, mut terms, backup, mut log) {\n            terms = backup/'
+# The agent's key too: Seat is not Copy and changes in place.
+refused_file 'SetAgent saving the old key aside to put it back later' 'cannot move out of storage' 16-0002 \
+  -e 's/^    mut seat: Seat,$/    mut seat: Seat,\n    mut spare: Seat,/' \
+  -e 's/^        SetAgent { who } uses (ctx, owner, terms, mut seat, mut log) {$/        SetAgent { who } uses (ctx, owner, terms, mut seat, mut spare, mut log) {\n            spare = seat/'
 
 # The vault's whole shape, pinned (comments stripped; CI's fe fmt --check
 # fixes the layout this reads). A source check, not a compiler guarantee:
@@ -506,17 +526,19 @@ refused_file 'CancelQueued putting saved rules back' 'cannot move out of storage
 # too: the time comes with the owner's proof). A new handler, a new capability on an old one, a
 # Terms kept under another name, an allowance granted to the caller, or a
 # made-up time all fail here.
-SHAPE_HEADS='init(owner_: Address, agent_: Address, token_: Address, per_payment: u256, per_window: u256, valid_until: u64, window_secs: u64, cooling_secs: u64, payee_a: Address, payee_b: Address, payee_c: Address) uses (ctx, mut owner, mut agent, mut token, mut terms, mut ledger, mut approved_from) {
-Pay { to, amount, nonce } -> u8 uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log) {
-Preview { caller, to, amount, nonce } -> (u8, u256) uses (ctx, agent, terms, ledger, approved_from) {
+SHAPE_HEADS='init(owner_: Address, agent_: Address, token_: Address, per_payment: u256, per_window: u256, valid_until: u64, window_secs: u64, cooling_secs: u64, payee_a: Address, payee_b: Address, payee_c: Address) uses (ctx, mut owner, mut seat, mut token, mut terms, mut ledger, mut approved_from) {
+Pay { to, amount, nonce } -> u8 uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log) {
+Preview { caller, to, amount, nonce } -> (u8, u256) uses (ctx, seat, terms, ledger, approved_from) {
 Exposure { until } -> u256 uses (ctx, terms, ledger) {
 Propose { per_payment, per_window, valid_until, paused } uses (ctx, owner, mut terms, mut log) {
 CancelQueued uses (ctx, owner, mut terms, mut log) {
 Pause uses (ctx, owner, mut terms, mut log) {
 SetRecipient { who, approved } uses (ctx, owner, terms, mut approved_from, mut log) {
 Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
+SetAgent { who } uses (ctx, owner, terms, mut seat, mut log) {
 Owner -> Address uses (owner) {
-Agent -> Address uses (agent) {
+Agent -> Address uses (ctx, seat) {
+NextAgent -> (Address, u64) uses (ctx, seat) {
 Token -> Address uses (token) {
 ScheduleOf -> (u64, u64, u64) uses (terms) {
 PolicyOf -> (u256, u256, u64, bool) uses (ctx, terms) {
@@ -524,14 +546,13 @@ QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, terms) {
 LedgerOf -> (u64, u256, u64) uses (ledger) {
 ApprovedFrom { who } -> u64 uses (approved_from) {'
 SHAPE_USES='use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}
-use std::evm::erc20::safe_transfer
 use ingot::kernel::{cooled, decide, exposure, left_in_window, Decision, Instant, Ledger, Policy, Reason, Request, Schedule, Seconds}
-use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}'
+use ingot::kernel::sealed::{founding, moment, open, prove, withdraw, Approval, Books, Owner, OwnerCall, Seat, Terms, Verdict}'
 SHAPE_FIELDS='owner: Owner,
-agent: Address,
+mut seat: Seat,
 token: Address,
 mut terms: Terms,
-mut ledger: Ledger,
+mut ledger: Books,
 mut approved_from: StorageMap<Address, Approval>,'
 check_shape() {
   local got
@@ -599,12 +620,12 @@ refused 'Propose giving the kernel a made-up time (a raise would mature at once)
 shape_check_catches 'Propose giving the kernel a made-up time' \
   edit_handler 'Propose {' 'terms.amend(proof, proposed)' replace "$MADE_UP_TIME"
 shape_check_catches 'a glob import, to name Terms another way' \
-  vault_sed 's/^use ingot::kernel::sealed::{founding, open, prove, Approval, Owner, OwnerCall, Terms}$/use ingot::kernel::sealed::*/'
+  vault_sed 's/^use ingot::kernel::sealed::{$/use ingot::kernel::sealed::*\nuse ingot::kernel::sealed::{/'
 shape_check_catches 'a type alias for Terms' vault_sed 's/^pub contract Vault uses/type Kept = Terms\n\npub contract Vault uses/'
 shape_check_catches 'Withdraw given the rules to write' \
   vault_sed 's/^        Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {$/        Withdraw { amount } uses (ctx, owner, token, mut terms, mut call, mut log) {/'
 shape_check_catches 'Pay granting the caller an allowance on the token' \
-  edit_handler "$PAY" "$TRANSFER" after 'let _ = try_approve(token, spender: ctx.caller(), amount: 1)'
+  edit_handler "$PAY" "$SEND" after 'let _ = try_approve(token, spender: ctx.caller(), amount: 1)'
 shape_check_catches 'a new handler that moves money with no owner check' \
   vault_sed 's/^        Owner -> Address uses (owner) {$/        Sweep { amount } uses (ctx, token, mut call) {\n            safe_transfer(token, receiver: ctx.caller(), amount)\n        }\n\n        Owner -> Address uses (owner) {/'
 
@@ -619,10 +640,10 @@ shape_check_catches 'a new handler that moves money with no owner check' \
 # `seconds`, `founded`), `init`'s body, and all of kernel/sealed.fe. A
 # source check, not a compiler guarantee: any change to that code fails here
 # until the pin below is updated, so it cannot go in unnoticed.
-PIN_PRELUDE=7513342fc0297187e30321445439eb69a8cc4673ac61796dc1d07a34a20e172c
-PIN_INIT=6b1f4723e2552bfceaaf731967477b1a688a486afcdf598c4321fdbeb6cf8234
-PIN_VAULT=fa5222f870c06313a504b8e77b2f07caa3a6f19f3223a348b8de66271c8cadf7
-PIN_SEALED=c940bbd6a00468876c1ae2e21377f714a16849ea941b84edd518f8aa4a1f42da
+PIN_PRELUDE=7983df44994504d1458498cd90b5825d29b37dcfc00900d40997e7a82aad3b4b
+PIN_INIT=11073bb26adda48b39bbf09e1495ab384095291048e2544288d8d303311a102a
+PIN_VAULT=d2de25f6badd7ce3a5246e6ac83f54109cb1997dd3510f4a9ea54b2ab728bdac
+PIN_SEALED=0902b50a5ac4f81c651b7c236078846fc50a22c3c5fca5b0cc312714ba47c2f5
 code_sha() { sed 's#//.*##; s/[ \t]*$//' | grep -v '^$' | sha256sum | cut -d' ' -f1; }
 prelude_of() { awk '/^pub contract Vault/ { exit } { print }' "$1"; }
 init_of() { awk '/^    init\(/ { on = 1 } on { print } on && /^    }$/ { exit }' "$1"; }
@@ -666,7 +687,7 @@ edited_sealed=$(mktemp)
 sed 's/ctx.caller() == owner.address {$/(ctx.caller() == owner.address || ctx.origin() == owner.address) {/' "$SEALED" > "$edited_sealed"
 pin_check_catches "prove accepting the transaction's origin as the owner" "$(copy_of "$ROOT/fe/src/vault.fe")" "$edited_sealed"
 pin_check_catches 'Withdraw sending tokens to caller before owner proof' \
-  "$(edited_vault 's/pay_owner(proof, token, owner, amount)/safe_transfer(token, receiver: ctx.caller(), amount); pay_owner(proof, token, owner, amount)/')" \
+  "$(edited_vault 's/withdraw(proof, owner, token, amount)/safe_transfer(token, receiver: ctx.caller(), amount); withdraw(proof, owner, token, amount)/')" \
   "$(copy_of "$SEALED")"
 with_postlude=$(mktemp)
 cat "$ROOT/fe/src/vault.fe" > "$with_postlude"
@@ -799,12 +820,14 @@ test_catches 'seconds() reading the clock a day ahead through a wrapper type' va
 # this is the same edit on two lines.
 test_catches 'Withdraw also sending the amount to its caller' vault.fe \
   owner_withdraws_to_itself \
-  's/^            pay_owner(proof, token, owner, amount)$/            safe_transfer(token, receiver: ctx.caller(), amount)\n            pay_owner(proof, token, owner, amount)/'
+  -e 's/^use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}$/&\nuse std::evm::erc20::safe_transfer/' \
+  -e 's/^            withdraw(proof, owner, token, amount)$/            safe_transfer(token, receiver: ctx.caller(), amount)\n            withdraw(proof, owner, token, amount)/'
 # Fe 26.6 compiles this: a Log stands in for the Call that Pay no longer lists.
 test_catches 'Pay without mut call, paying the caller 1000x through with (Call = mut log)' vault.fe \
   allowed_payment_moves_exactly_the_amount \
   -e '/^            mut call,$/d' \
-  -e 's/^                    safe_transfer(token, receiver: to, amount)$/                    with (Call = mut log) { safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000) }/'
+  -e 's/^use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}$/&\nuse std::evm::erc20::safe_transfer/' \
+  -e 's/^                    payout.send()$/                    with (Call = mut log) { safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000) }/'
 test_catches 'the launcher approving the agent when a recipient is left blank' launcher.fe \
   only_the_named_recipient_is_approved \
   's/^                        payee_b,$/                        if payee_b == Address::zero() { agent } else { payee_b },/'

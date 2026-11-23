@@ -253,3 +253,39 @@ test('a contract the owner calls cannot act as the owner: the vault checks the c
   assert.equal((await chain.sendVia(OWNER, OWNER, sim.vault, calls[2])).ok, true)
   assert.equal((await sim.state()).policy.paused, true)
 })
+
+test('replacing the agent key: the old key stops at once, the new one pays only after the cooling period', async () => {
+  const sim = await vault()
+  const NEW_AGENT: Hex = '0x00000000000000000000000000000000000ae2e7'
+  assert.equal((await sim.pay(SHOP, 4n * USD, 0n)).code, 0)
+
+  const replaced = await sim.setAgent(NEW_AGENT)
+  assert.equal(replaced.ok, true)
+  assert.deepEqual(replaced.events, [{ name: 'AgentChanged', next: NEW_AGENT, from: T0 + DAY }])
+  assert.deepEqual(await sim.agents(), { now: '0x0000000000000000000000000000000000000000', next: NEW_AGENT, from: T0 + DAY })
+
+  const old = await sim.pay(SHOP, 1n * USD, 1n)
+  assert.equal(old.ok, false)
+  assert.equal(old.revert, 'NotAgent')
+
+  sim.chain.advance(DAY - 1n)
+  const early = await sim.pay(SHOP, 1n * USD, 1n, NEW_AGENT)
+  assert.equal(early.revert, 'NotAgent', 'one second before the cooling period ends')
+
+  sim.chain.advance(1n)
+  assert.deepEqual(await sim.agents(), { now: NEW_AGENT, next: null, from: 0n })
+  assert.equal((await sim.pay(SHOP, 3n * USD, 1n, NEW_AGENT)).code, 0, 'the new key, within the same limits')
+  assert.equal((await sim.pay(SHOP, 50n * USD, 2n, NEW_AGENT)).code, 10)
+  assert.equal((await sim.pay(SHOP, 1n * USD, 2n)).revert, 'NotAgent', 'the old key never comes back')
+  assert.equal(await sim.balanceOf(SHOP), 7n * USD)
+})
+
+test('only the owner can replace the agent key, and not with its own address', async () => {
+  const sim = await vault()
+  const outcome = await sim.setAgent(THIEF, AGENT)
+  assert.equal(outcome.ok, false)
+  assert.equal(outcome.revert, 'NotOwner')
+  await sim.setAgent(OWNER)
+  assert.deepEqual(await sim.agents(), { now: AGENT, next: null, from: 0n })
+  assert.equal((await sim.pay(SHOP, 4n * USD, 0n)).code, 0)
+})

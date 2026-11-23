@@ -44,6 +44,7 @@ export type VaultEvent =
   | { name: 'QueueCancelled' }
   | { name: 'RecipientChanged'; who: Hex; approvedFrom: bigint }
   | { name: 'Withdrawn'; amount: bigint }
+  | { name: 'AgentChanged'; next: Hex; from: bigint }
 
 /** What the contract did with one message. */
 export type Outcome = {
@@ -127,6 +128,9 @@ export function decodeEvents(receipt: Receipt, vault: Hex): VaultEvent[] {
         break
       case 'Withdrawn':
         events.push({ name: 'Withdrawn', amount: args.amount })
+        break
+      case 'AgentChanged':
+        events.push({ name: 'AgentChanged', next: lower(args.next), from: args.from })
         break
     }
   }
@@ -249,6 +253,11 @@ export class Sim {
     return this.act(from, 'withdraw', [amount])
   }
 
+  /** Replace the agent's key: the old key stops at once, `who` may pay after the cooling period. */
+  setAgent(who: Hex, from: Hex = this.owner): Promise<Outcome> {
+    return this.act(from, 'setAgent', [who])
+  }
+
   // --- reading ------------------------------------------------------------
 
   async state(): Promise<State> {
@@ -272,6 +281,13 @@ export class Sim {
   /** The most the agent can move from now until `until`, by the contract's own arithmetic. */
   exposure(until: bigint): Promise<bigint> {
     return this.view('exposure', [until])
+  }
+
+  /** The key that may pay now (the zero address while a replacement waits), and the replacement waiting, with when it takes over. */
+  async agents(): Promise<{ now: Hex; next: Hex | null; from: bigint }> {
+    const now = lower(await this.view('agent', []))
+    const [next, from] = await this.view('nextAgent', [])
+    return { now, next: from === 0n ? null : lower(next), from }
   }
 
   /** The second from which `who` may be paid; 0 when not approved. */
@@ -316,8 +332,8 @@ export class Sim {
   }
 }
 
-type OwnerFunction = 'propose' | 'cancelQueued' | 'pause' | 'setRecipient' | 'withdraw'
-type ViewFunction = 'preview' | 'exposure' | 'schedule' | 'policy' | 'queued' | 'ledger' | 'approvedFrom'
+type OwnerFunction = 'propose' | 'cancelQueued' | 'pause' | 'setRecipient' | 'withdraw' | 'setAgent'
+type ViewFunction = 'preview' | 'exposure' | 'schedule' | 'policy' | 'queued' | 'ledger' | 'approvedFrom' | 'agent' | 'nextAgent'
 type ViewResult<F extends ViewFunction> = F extends 'preview'
   ? readonly [number, bigint]
   : F extends 'exposure'
@@ -330,7 +346,11 @@ type ViewResult<F extends ViewFunction> = F extends 'preview'
           ? readonly [bigint, bigint, bigint, boolean, bigint]
           : F extends 'ledger'
             ? readonly [bigint, bigint, bigint]
-            : bigint
+            : F extends 'agent'
+              ? Hex
+              : F extends 'nextAgent'
+                ? readonly [Hex, bigint]
+                : bigint
 
 async function deploy(chain: ChainLike, from: Hex, initCode: Hex): Promise<Hex> {
   const receipt = await chain.send(from, null, initCode)

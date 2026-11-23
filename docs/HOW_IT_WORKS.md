@@ -63,11 +63,13 @@ The agent's entire authority is one handler signature, `Pay` in
 
 ```fe
 Pay { to, amount, nonce } -> u8
-    uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log)
+    uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log)
 ```
 
-`terms` and `approved_from` have no `mut`, so a `Pay` that changed the rules
-or approved a recipient would not compile. The rules and recipient approvals
+`terms`, `approved_from` and `seat` have no `mut`, so a `Pay` that changed
+the rules, approved a recipient or swapped its own key would not compile.
+`Pay` moves money only through a sealed `Payout` the kernel returns after
+judging and counting the payment. The rules and recipient approvals
 are stored as sealed types (`Terms`, `Approval` in
 [`fe/src/kernel/sealed.fe`](../fe/src/kernel/sealed.fe)) that only the kernel can
 make, so no owner handler can build new rules or approvals that skip the cooling period. `Terms` is not `Copy` and changes in place, so saving the stored rules aside and putting them back later fails to compile (16-0002); `Approval` is still `Copy`, and a CI source check and three tests catch an older approval kept and put back; owner handlers
@@ -178,12 +180,15 @@ they launched; a failed launch adds nothing), `web/tests/mine.test.ts`,
 and two browser tests in `web/e2e/live.spec.ts` (the owner sees both of
 their vaults; another wallet sees none).
 
-**If the agent's key leaks.** The vault fixes its agent at creation, so the
-owner retires the vault: **pause** it (instant: the key can pay nothing
-more), **withdraw** what is left, and **launch** a new vault with a new key
-and the same rules. Nothing waits: a pause and a withdrawal are tightenings,
-and a new vault starts with its rules in force. Tested on the compiled
-contracts in `web/tests/rotation.test.ts`.
+**If the agent's key leaks.** The owner replaces it (`setAgent`): the
+leaked key stops paying at once, and the new key may pay after the cooling
+period, because a new spender is a loosening too. The agent is stored as a
+sealed `Seat` that only the owner's proof changes, so neither the agent nor
+an edit to `Pay` can swap it (tests: `fe/src/vault_tests.fe`, the
+`agent key` tests in `web/tests/vault.test.ts`). For a working agent at
+once, the owner can instead **pause**, **withdraw** and **launch** a new
+vault (`web/tests/rotation.test.ts`); that is also the only way for vaults
+made before 2026-11-24.
 
 ## Connect your AI
 

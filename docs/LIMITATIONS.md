@@ -36,13 +36,14 @@ The full list, moved here from the [README](../README.md).
   owner who looks.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
-- **The agent's key cannot be swapped inside a vault.** A vault fixes its
-  agent when it is created. If the key leaks, the owner retires the vault
-  in three steps: pause (instant, so the key can pay nothing more),
-  withdraw, and launch a new vault, which gets a new key and works at once.
-  `web/tests/rotation.test.ts` runs exactly that on the compiled contracts:
-  the old key is refused `NotAgent` by the new vault. The new vault has a
-  new address, so whatever pays through it needs the new address too.
+- **Replacing the agent's key takes a cooling period.** In vaults made since
+  2026-11-24 the owner can replace the key (`setAgent`): the old key stops at
+  once, and the new one may pay only after the cooling period, like any
+  loosening, so a tricked owner cannot hand the vault to an attacker's key
+  at once. Until then nobody can pay. An owner who needs a working agent
+  sooner can instead pause, withdraw and launch a new vault, which works at
+  once but has a new address (`web/tests/rotation.test.ts`). Vaults made
+  before 2026-11-24 have only that second way.
 - **A stolen owner key is out of scope**, as is a malicious token.
 - **Not professionally audited**, and built on a young compiler. An AI
   reviewer attacked it once ([`security/AUDIT.md`](../security/AUDIT.md));

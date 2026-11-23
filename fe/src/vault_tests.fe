@@ -31,6 +31,8 @@ msg ActorMsg {
     Cancel { vault: Address },
     #[selector = sol("pause(address)")]
     Pause { vault: Address },
+    #[selector = sol("setAgent(address,address)")]
+    SetAgent { vault: Address, who: Address },
 }
 
 /// Forwards whatever it is told to the vault, so the vault sees this
@@ -90,6 +92,14 @@ contract Actor uses (call: mut Call) {
                 gas: 1500000,
                 value: Wei::zero(),
                 message: VaultMsg::Pause {},
+            )
+        }
+        SetAgent { vault, who } uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1500000,
+                value: Wei::zero(),
+                message: VaultMsg::SetAgent { who },
             )
         }
     }
@@ -995,9 +1005,10 @@ contract Reopener uses (ctx: Ctx) {
             Option::Some(approval) => approvals.set(key: ctx.caller(), value: approval),
             Option::None => revert_error(OpenRefused {}),
         }
-        let (owner_of, terms_of) = match open(
+        let (owner_of, _seat, terms_of, _books) = match open(
             ctx,
             owner: ctx.caller(),
+            agent: ctx.address(),
             schedule: Schedule {
                 anchor: Instant::at(0),
                 window_secs: Seconds::of(DAY),
@@ -1022,6 +1033,7 @@ contract Reopener uses (ctx: Ctx) {
             open(
                 ctx,
                 owner: ctx.caller(),
+                agent: ctx.address(),
                 schedule: Schedule {
                     anchor: Instant::at(0),
                     window_secs: Seconds::of(DAY),
@@ -1122,4 +1134,95 @@ fn a_copied_approval_approves_no_one() uses (evm: mut Evm) {
         )
     assert!(mine != 0)
     assert!(copied == 0)
+}
+
+// --- replacing the agent's key ------------------------------------------------
+
+fn replace_agent(_ w: World, who: Address) uses (evm: mut Evm) {
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetAgent { who },
+    )
+}
+
+fn agent_of(_ w: World) -> Address uses (evm: mut Evm) {
+    evm.call(
+        addr: w.vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Agent {},
+    )
+}
+
+#[test(should_revert, selector = 0x0d9ab13f)]
+fn a_replaced_agent_key_stops_at_once() uses (evm: mut Evm) {
+    let w = world()
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    replace_agent(w, who: w.stranger)
+    let _ = agent_pays(w, to: w.shop, amount: 1, nonce: 1)
+}
+
+#[test]
+fn a_new_agent_key_waits_out_the_cooling_period() uses (evm: mut Evm) {
+    let w = world()
+    replace_agent(w, who: w.stranger)
+    assert!(agent_of(w) == Address::zero())
+    let (next, from): (Address, u64) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::NextAgent {},
+        )
+    assert!(next == w.stranger)
+    assert!(from == now() + DAY)
+}
+
+#[test(should_revert, selector = 0x0d9ab13f)]
+fn a_new_agent_key_cannot_pay_before_its_time() uses (evm: mut Evm) {
+    let w = world()
+    replace_agent(w, who: w.stranger)
+    let _: u8 = evm
+        .call(
+            addr: w.stranger,
+            gas: GAS,
+            value: Wei::zero(),
+            message: ActorMsg::Pay { vault: w.vault, to: w.shop, amount: 1, nonce: 0 },
+        )
+}
+
+#[test(should_revert, selector = 0x30cd7471)]
+fn agent_cannot_replace_its_own_key() uses (evm: mut Evm) {
+    let w = world()
+    evm.call(
+        addr: w.agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: ActorMsg::SetAgent { vault: w.vault, who: w.stranger },
+    )
+}
+
+#[test]
+fn the_owner_cannot_name_itself_the_agent() uses (evm: mut Evm) {
+    let w = world()
+    replace_agent(w, who: evm.address())
+    assert!(agent_of(w) == w.agent)
+    assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+}
+
+#[test]
+fn naming_no_agent_leaves_no_one_able_to_pay() uses (evm: mut Evm) {
+    let w = world()
+    replace_agent(w, who: Address::zero())
+    assert!(agent_of(w) == Address::zero())
+    let (next, _from): (Address, u64) = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::NextAgent {},
+        )
+    assert!(next == Address::zero())
 }

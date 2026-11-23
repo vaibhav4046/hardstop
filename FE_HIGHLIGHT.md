@@ -44,70 +44,71 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | The worst case is a promise: no signature raises it before the cooling period ends, no payment beats it, and an agent reaches it exactly | 137 `static_assert`s in `kernel/laws.fe` run `amend`, `cancel`, `decide` and `exposure` over a grid of 128 policies (16,384 pairs) | six kernel edits no earlier check catches (`decide` ignoring a cap, the end date or a pause; `exposure` forgetting later windows or a waiting raise): 8-0081 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
-| Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide`, and refusing a catch-all arm that pays past `Decision::Deny` or tuple rebinding of arguments | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires those contiguous lines in `Pay`, and catches six edits that subvert them |
+| `Pay` pays only what the kernel allowed, to whom it allowed (2026-11-24) | `Books::judge` reads the caller and time from a sealed `Moment`, the rules from a sealed `TermsNow`, the agent from a sealed `AgentNow` and the recipient's sealed `Approval`; it counts the payment and returns a sealed, use-once `Payout`, the only thing in `vault.fe` that can send money | a hand-made `Payout`, `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books`: 2-0003; a payout sent twice: 16-0002 |
+| The owner can replace the agent's key; the old key stops at once, the new one waits out the cooling period (2026-11-24) | the agent is a sealed `Seat`, not `Copy`, changed in place only by `Seat::replace`, which takes an `OwnerCall` | `Pay` writing its own seat: 8-0018; `SetAgent` without its owner check: 8-0012; the old seat saved aside to put back: 16-0002 |
 | Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
 | Not covered by the compiler | the bodies of `vault.fe` (including `init`, `Withdraw`, owner controls and post-contract helpers), of `prove` and the rest of `kernel/sealed.fe`, of the helpers around the contract (`seconds`, `founded`), and all of `launcher.fe` and `kernel.fe` | edits compile (and `init` / `seconds` / `prove` / `Withdraw` / post-contract edits can pass `fe test` if time-gated or left unexercised; an AI review panel found `init`, `tx.origin`, `seconds`, launcher blank-recipient, `kernel.fe` date-gated caps/maturities, and `Withdraw`/post-contract gaps); a source check pins full `vault.fe` plus `prelude`/`init`, `sealed.fe`, `launcher.fe` and `kernel.fe` by sha256 (comments and blank lines ignored), and catches nine such edits; `launcher.test.ts` also reads every rule of a launched vault back |
 | Runtime vs native & view consistency | view handler outputs (`policy()`, `queued()`, ...) matching the native specification | `differential.test.ts` checks 2,400 payment requests + 480 exposure queries against the native kernel, and `vault-code.test.ts` pins the vault runtime bytecode hash |
-| Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
+| Not covered on Fe 26.6 | `vault.fe` importing a transfer of its own and calling it beside the payout (a source check refuses any transfer, ERC-20 function or raw call in `vault.fe`, and requires `Pay` to send only the payout, right after `Verdict::Pay`); a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and the source check catches it too. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
-The first eight rows are edits that
+The first ten rows are edits that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires to fail,
 and the last row's are controls it requires to compile, run by CI job `verify`
 on the pinned Fe 26.6 release on every push.
 
 The agent's entire authority is one handler signature. This is `Pay` in
-[`fe/src/vault.fe`](fe/src/vault.fe):
+[`fe/src/vault.fe`](fe/src/vault.fe), since 2026-11-24:
 
 ```fe
 Pay { to, amount, nonce } -> u8
-    uses (ctx, agent, token, terms, approved_from, mut ledger, mut call, mut log)
+    uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log)
 {
-    let now = seconds(ctx.timestamp())
-    let rules = terms.rules()
-    let request = Request {
-        amount,
-        nonce,
-        from_agent: ctx.caller() == agent,
-        to_approved: cooled(at: approved_from.get(key: to).of(to), now),
-    }
-    match decide(rules, ledger, request, now) {
-        Decision::Allow(next) => {
-            ledger = next
-            safe_transfer(token, receiver: to, amount)
+    let rules = terms.now()
+    let agent = seat.now(ctx)
+    let approval = approved_from.get(key: to)
+    let at = moment(ctx)
+    let pay_in = token
+    let verdict = ledger.judge(at, terms: rules, seat: agent, approval, token: pay_in, to, amount, nonce)
+    match verdict {
+        Verdict::Pay(payout) => {
+            payout.send()
             ...
 ```
 
-`terms` and `approved_from` appear without `mut`. "The agent cannot raise
-its own limit or approve its own recipient" is therefore not only a tested
-behaviour: a `Pay` that assigned to either would not compile. CI proves it
-on every push: [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)
-edits a copy of `Pay` to write `terms` or `approved_from` and requires the
-compiler to refuse each (errors 8-0018 and 8-0066), while a control edit to
-the `mut` ledger still compiles. And `decide` has no `uses` clause at all,
-so the function that makes the decision cannot read storage, call out, or
-log. One exception on Fe 26.6: code with no `uses` clause can still set up
-a forged `Call` with a `with` block and call out (Fe bug
-[argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe
-master by this project's [#2042](https://github.com/argotorg/fe/pull/2042)).
+`terms`, `seat` and `approved_from` appear without `mut`. "The agent cannot
+raise its own limit, approve its own recipient or swap its own key" is
+therefore not only a tested behaviour: a `Pay` that assigned to any of them
+would not compile. CI proves it on every push:
+[`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) edits a copy
+of `Pay` to write each and requires the compiler to refuse (errors 8-0018
+and 8-0066). And `decide` has no `uses` clause at all, so the function that
+makes the decision cannot read storage, call out, or log.
 
-What the compiler does not check here is the transfer. `decide` says
-whether `to` may receive `amount`; the `safe_transfer` after it is ordinary
-code, and an edit that sends the caller a thousand times `amount` compiles.
-The tests catch it, and so does the script's source check. Taking `mut call` away from `Pay` would not change
-that in Fe 26.6: `Call`'s methods have default bodies and its seal trait,
-`std::evm::effects::EvmCapabilitySeal`, is private but can be implemented
-from any ingot (Fe does not check a private trait's visibility in an `impl`;
-reported as [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)),
-so any type can implement `Call`, and a function whose `uses` lists no `Call` can still
-transfer tokens (such an edit, in a `Pay` without `mut call`, moved money
-in a local `fe test`). There is a second reason that is not a bug: inside a
-handler every host effect is the concrete `Evm`, and std has `impl Call for
-Evm`, so any mutable effect `Pay` holds (it needs `mut log` to record a
-payment) can be rebound as `Call` (`with (Call = mut log) { ... }`; checked
-on 26.6 on 2026-11-23: it compiles, and 10 tests fail). A sealed payout value
-would bind only the path that uses it, not every path, so the vault does not
-have one. The source check flags any `Call =` or `with (` inside `Pay`. The script keeps
-both edits as controls that must compile on Fe 26.6.
+**Where `Pay` sends money is the compiler's too.** `vault.fe` holds no
+transfer. Everything `Pay` hands the kernel is a sealed value with private
+fields: the caller and the time (`Moment`, read by `moment` from the
+concrete `Evm`), the stored rules (`TermsNow`), the key that may pay now
+(`AgentNow`), the recipient's `Approval`, and the spending so far (`Books`,
+which `judge` changes in place). `Books::judge` runs `decide`, counts an
+allowed payment, and returns a `Payout`: a sealed, use-once value that can
+pay only that recipient that amount, from that token. A hand-made `Payout`,
+`Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books` fails with 2-0003; a
+payout sent twice fails with 16-0002. Each of these is an edit in the script.
+
+**What the compiler still does not stop** is `vault.fe` importing a
+transfer of its own (`std::evm::erc20::safe_transfer`) and calling it beside
+the payout. Fe 26.6 has no way to forbid an import, and inside a handler
+every host effect is the concrete `Evm`, which implements `Call`, so any
+mutable effect `Pay` holds (it needs `mut log` to record a payment) can be
+rebound as `Call` (`with (Call = mut log) { ... }`). Before 2026-11-24 a
+second reason was a Fe bug: any type could implement the private `Call`
+trait (reported as [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036),
+fixed on Fe master by this project's
+[#2042](https://github.com/argotorg/fe/pull/2042)). A source check closes
+this: it refuses any transfer, ERC-20 function, raw call, `Call =` or
+`with (` anywhere in `vault.fe`, and requires `Pay` to send only the payout,
+right after `Verdict::Pay`. The script keeps both edits as controls that
+must compile on Fe 26.6, and checks that the source check catches each.
 
 The forged `Call` is a compiler bug, and it is fixed by this project's pull
 request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), merged
@@ -161,8 +162,8 @@ the copy approves no one. `fe test` checks both
 and each test fails if its check is removed.
 
 **The owner proof is bound to the real caller by the compiler.**
-`Terms::amend`, `cancel`, `pause` and `approve_from`, and the vault's
-`pay_owner`, each take an `OwnerCall`. Its field is private to `sealed.fe`,
+`Terms::amend`, `cancel`, `pause` and `approve_from`, `Seat::replace` and
+`withdraw`, each take an `OwnerCall`. Its field is private to `sealed.fe`,
 and only `prove(owner, ctx)` makes one, when `ctx.caller()` is the address
 in `owner` (what `prove` does is pinned by the sha256 of `sealed.fe`, a
 source check: the compiler pins who may call it, not its body). `owner` must be an `Owner`, another sealed type that only `open`

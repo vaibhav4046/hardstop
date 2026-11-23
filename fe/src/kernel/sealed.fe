@@ -32,11 +32,19 @@
 //! approves no one.
 #![cfg(target = "evm")]
 
-use std::evm::{Address, Evm}
+use std::evm::{Address, Call, Ctx, Evm}
+use std::evm::erc20::safe_transfer
 use super::{
     amend,
     approve_from,
     cancel,
+    cooled,
+    decide,
+    Decision,
+    Ledger,
+    matures_at,
+    Reason,
+    Request,
     Instant,
     NOT_SET,
     OwnerProof,
@@ -65,7 +73,49 @@ pub struct OwnerCall { granted: bool, now: Instant }
 /// what storage nobody wrote holds, means not approved.
 pub struct Approval { who: Address, from: Instant }
 
+/// The agent's key, and a replacement the owner named that takes over at
+/// `from`. Not `Copy`, and changed only in place by `Seat::replace`, so an
+/// old seat cannot be kept aside and put back.
+pub struct Seat { agent: Address, next: Address, from: Instant }
+
+/// What the agent has spent, as only a payment the kernel allowed changes it.
+pub struct Books { ledger: Ledger }
+
+/// The vault's rules as they are stored, read out so a payment can be judged
+/// against them. Only `Terms::now` makes one; nothing else can build it.
+pub struct TermsNow { rules: Rules }
+
+/// The key that may pay at the moment it was read. Only `Seat::now` makes one.
+pub struct AgentNow { agent: Address }
+
+/// Who is calling, and the chain's time, read from the concrete `Evm`. Only
+/// `moment` makes one, so a payment cannot be judged as another caller or at
+/// another time.
+pub struct Moment { caller: Address, now: Instant }
+
+/// A payment the kernel allowed: this token, to this recipient, this much.
+/// Only `Books::judge` makes one, and only `send` spends it.
+#[must_use]
+pub struct Payout { token: Address, to: Address, amount: u256 }
+
+/// What `Books::judge` answers.
+pub enum Verdict {
+    Pay(Payout),
+    Refuse(Reason),
+}
+
 impl Copy for Owner {}
+impl Copy for TermsNow {}
+impl Copy for AgentNow {}
+impl Copy for Moment {}
+
+/// The caller and the time of the current call.
+pub fn moment(_ ctx: Evm) -> Moment {
+    Moment {
+        caller: ctx.caller(),
+        now: Instant::at(ctx.timestamp().as_seconds().downcast_saturate()),
+    }
+}
 impl Copy for Approval {}
 
 impl Approval {
@@ -86,16 +136,29 @@ impl Owner {
 /// `policy` in force from the start, nothing queued. `None` once the
 /// contract has code (that is, after its constructor), or when `owner` is
 /// the zero address or the window is zero long.
-pub fn open(_ ctx: Evm, owner: Address, schedule: Schedule, policy: Policy) -> Option<
-    (Owner, Terms),
-> {
+pub fn open(
+    _ ctx: Evm,
+    owner: Address,
+    agent: Address,
+    schedule: Schedule,
+    policy: Policy,
+) -> Option<(Owner, Seat, Terms, Books)> {
     if ctx.extcodesize(ctx.address()) != 0
         || owner == Address::zero()
+        || agent == Address::zero()
+        || agent == owner
         || schedule.window_secs == Seconds::of(0) {
         return Option::None
     }
     let rules = Rules { schedule, active: policy, queued: Queued::none() }
-    Option::Some((Owner { address: owner }, Terms { rules }))
+    Option::Some(
+        (
+            Owner { address: owner },
+            Seat { agent, next: Address::zero(), from: NOT_SET },
+            Terms { rules },
+            Books { ledger: Ledger { window: 0, spent: 0, next_nonce: 0 } },
+        ),
+    )
 }
 
 /// `who` approved from now, for a recipient the vault is created with.
@@ -128,6 +191,11 @@ fn kernel_proof(_ call: own OwnerCall) -> OwnerProof {
 impl Terms {
     pub fn rules(self) -> Rules {
         self.rules
+    }
+
+    /// The rules as stored, sealed, for `Books::judge`.
+    pub fn now(self) -> TermsNow {
+        TermsNow { rules: self.rules }
     }
 
     /// Zeroed storage, not something `open` made.
@@ -184,4 +252,112 @@ impl Terms {
         )
         Approval { who, from }
     }
+}
+
+impl Seat {
+    /// The key that may pay now, read at the chain's time.
+    pub fn now(self, _ ctx: Evm) -> AgentNow {
+        AgentNow {
+            agent: self.agent_at(
+                now: Instant::at(ctx.timestamp().as_seconds().downcast_saturate()),
+            ),
+        }
+    }
+
+    /// The key that may pay at `now`: the replacement once its moment has
+    /// come, the zero address (no one) while it waits.
+    pub fn agent_at(self, now: Instant) -> Address {
+        if self.next != Address::zero() && cooled(at: self.from, now) {
+            self.next
+        } else {
+            self.agent
+        }
+    }
+
+    /// The replacement waiting, and from when; the zero address if none.
+    pub fn waiting(self, now: Instant) -> (Address, Instant) {
+        if self.next != Address::zero() && !cooled(at: self.from, now) {
+            (self.next, self.from)
+        } else {
+            (Address::zero(), NOT_SET)
+        }
+    }
+
+    /// The owner replaces the agent's key. The key in use stops at once (a
+    /// tightening); the new one waits out the cooling period (a loosening),
+    /// and naming the zero address leaves the vault with no agent.
+    pub fn replace(mut self, _ proof: own OwnerCall, terms: Terms, owner: Owner, who: Address) {
+        let now = proof.now
+        let _ = kernel_proof(proof)
+        if terms.blank() || who == owner.address {
+            return
+        }
+        self.agent = Address::zero()
+        self.next = who
+        self.from = if who == Address::zero() {
+            NOT_SET
+        } else {
+            matures_at(terms.rules.schedule, now)
+        }
+    }
+}
+
+impl Books {
+    pub fn ledger(self) -> Ledger {
+        self.ledger
+    }
+
+    /// The agent's payment of `amount` to `to`, judged by the kernel at the
+    /// chain's time with the caller read from `ctx`. If it is allowed, the
+    /// spending is counted here first and the payout to make is returned.
+    pub fn judge(
+        mut self,
+        _ at: Moment,
+        terms: TermsNow,
+        seat: AgentNow,
+        approval: Approval,
+        token: Address,
+        to: Address,
+        amount: u256,
+        nonce: u64,
+    ) -> Verdict {
+        let now = at.now
+        let agent = seat.agent
+        let request = Request {
+            amount,
+            nonce,
+            from_agent: agent != Address::zero() && at.caller == agent,
+            to_approved: cooled(at: approval.of(to), now),
+        }
+        match decide(rules: terms.rules, ledger: self.ledger, request, now) {
+            Decision::Allow(next) => {
+                self.ledger = next
+                Verdict::Pay(Payout { token, to, amount })
+            },
+            Decision::Deny(reason) => Verdict::Refuse(reason),
+        }
+    }
+}
+
+impl Payout {
+    pub fn to(self) -> Address {
+        self.to
+    }
+
+    pub fn amount(self) -> u256 {
+        self.amount
+    }
+
+    /// Makes the payment the kernel allowed, and nothing else.
+    pub fn send(own self) uses (ctx: Ctx, call: mut Call) {
+        safe_transfer(token: self.token, receiver: self.to, amount: self.amount)
+    }
+}
+
+/// Sends `amount` of `token` to the owner, and to no one else.
+pub fn withdraw(_ proof: own OwnerCall, owner: Owner, token: Address, amount: u256)
+uses (ctx: Ctx, call: mut Call)
+{
+    let _ = kernel_proof(proof)
+    safe_transfer(token, receiver: owner.address, amount)
 }
