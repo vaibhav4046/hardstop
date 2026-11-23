@@ -572,6 +572,11 @@ Each change to the contracts gives the launcher a new address (CREATE2 from
 its code). Earlier launchers stay on Base Sepolia with the vaults opened
 through them:
 
+- `0xcca9a9e12a1f817299a8c0ac076049e1f901e398` (2026-11-21, lists and names
+  each owner's vaults; the vault pays through its own transfer and fixes
+  its agent at creation; its transactions were the gas table until
+  2026-11-24, and the three AI-assistant runs of 2026-11-22 used a vault
+  made through it)
 - `0xeac071c085b20c02f36ed1771cbf9826da6b8e02` (2026-11-21, lists each owner's vaults, without names)
 - `0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee` (2026-11-21, the same vault code
   as the current launcher, without the per-owner list of vaults)

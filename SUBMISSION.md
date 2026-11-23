@@ -83,7 +83,7 @@ compile time.
   password, email or server) and shows only the vaults that wallet launched,
   on any device. It is installed through the deterministic deployment proxy,
   so it has the same address on every network. It is installed on Base
-  Sepolia (2026-11-21); on Sepolia the site installs it on first use (one
+  Sepolia (2026-11-24); on Sepolia the site installs it on first use (one
   extra wallet approval).
 
 ## Fe highlight
@@ -167,20 +167,25 @@ command-line program. Every error code and limit:
   the unit tests and the browser suite on every push
   ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
 - On Base Sepolia (public test network), with the current contracts
-  (2026-11-21): the launcher installed, a vault created, two payments, $80
-  refused with code 10, a self-raise refused before sending (the dry run
-  reverted `NotOwner`), a raise proposed, cancelled
-  and paused, and the gas of every call, each with its transaction link, in
-  the README. Earlier builds ran there too, including a vault opened by
+  (2026-11-24): the launcher installed, a vault created, two payments, $80
+  refused with code 10, a self-raise and a self-swap of the agent's key
+  refused before sending (the dry runs reverted `NotOwner`), a raise
+  proposed, cancelled and paused, the agent's key replaced by the owner (the
+  old key's next payment reverted `NotAgent`), and the gas of every call,
+  each with its transaction link, in `docs/EVIDENCE.md`. Earlier builds ran there too, including a vault opened by
   clicking through MetaMask on the live site.
-- Real AI agents through real MCP clients (2026-11-22): Claude Code, Cursor
-  (its agent CLI) and Antigravity, each through its own MCP client, ran the same six steps
-  against a Base Sepolia vault. Each paid an allowed amount ($3, or $1 when
+- Real AI agents through real MCP clients (2026-11-22, on the previous
+  contracts): Claude Code, Cursor (its agent CLI) and Antigravity, each
+  through its own MCP client, ran the same six steps against a Base Sepolia
+  vault. Each paid an allowed amount ($3, or $1 when
   only $1 was left that day), had an unapproved recipient and a $15 payment
   refused on chain, and, asked to raise its own limit, had no tool that could:
   the one tool for it only drafted a request to the owner. Every receipt was read back
   (`qa/agent-runs/2026-11-22-claude-code-native.md`, `-cursor-native.md`,
-  `-antigravity-native.md`).
+  `-antigravity-native.md`). On the current contracts (2026-11-24) the same
+  six steps ran through the official MCP client, not an assistant, with the
+  same results and receipts read back
+  (`qa/agent-runs/2026-11-24-mcp-client-current-build.md`).
 - Install with nothing cloned: a Claude Desktop extension
   (https://hardstop-omega.vercel.app/install/hardstop.mcpb, with a practice
   vault switch), one-click Cursor and VS Code install links, and

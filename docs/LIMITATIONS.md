@@ -3,11 +3,11 @@
 The full list, moved here from the [README](../README.md).
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0xcca9a9e12a1f817299a8c0ac076049e1f901e398`, is installed on Base
-  Sepolia (2026-11-21, transactions in the results table); on Sepolia the
+  The current launcher, `0x120b607e82bc365710439b283c13eec8d293f206`, is installed on Base
+  Sepolia (2026-11-24, transactions in the results table); on Sepolia the
   site installs it on first use, which takes one extra wallet approval.
   Earlier launchers stay on Base Sepolia with the vaults opened through them
-  (nine, listed in
+  (ten, listed in
   [`EVIDENCE_LOG.md`](../EVIDENCE_LOG.md#launchers-on-base-sepolia)). A
   launcher's address follows from its code, so every change to the
   contracts gives a new one. The agent is a trial key kept in the browser;
