@@ -18,8 +18,8 @@
 //! kernel's cooling period. Hand-built terms, a hand-built `Rules` and a
 //! written field do not compile.
 //!
-//! Those three methods, `Terms::approve_from` and `pay_owner` take an
-//! `OwnerCall`. Only `prove` makes one: it compares the stored `Owner`
+//! Those three methods, `Terms::approve_from`, `Seat::replace` and
+//! `withdraw` take an `OwnerCall`. Only `prove` makes one: it compares the stored `Owner`
 //! (which only `open` makes) with the caller read from `ctx`, passed as the
 //! concrete `Evm`, so a stand-in context does not compile. Drop a handler's
 //! `only` line and it has no proof to pass, so it does not compile either.
@@ -31,14 +31,18 @@
 //! cooling period. A hand-written date does not compile, and an approval
 //! copied under another address approves no one.
 //!
+//! `Pay` holds no transfer of its own. `Books::judge` (`kernel::sealed`)
+//! judges the payment from sealed inputs, counts it, and returns a sealed,
+//! use-once `Payout` for that recipient and that amount; a hand-made one
+//! does not compile.
+//!
 //! Not the compiler's: which address `init` gives `open` (the source check
-//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_`), and where `Pay`
-//! sends money. The kernel decides whether `to` may receive `amount`; the
-//! transfer below is ordinary code, and an edit that pays someone else, or
-//! pays more, compiles. `Pay` needs `mut call` to transfer at all, and
-//! without it a `Call` can still be made: the standard library's capability
-//! seal can be implemented outside it. Tests catch such an edit; the
-//! compiler does not.
+//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_` and `agent_`), the
+//! token `Pay` hands `judge` (a plain address; the source check pins it to
+//! the stored `token`), and a transfer imported into this file beside the
+//! payout, which compiles: Fe cannot forbid an import, and any mutable
+//! effect here can be rebound as `Call`. The source check refuses any
+//! transfer in this file; tests catch one too.
 #![cfg(target = "evm")]
 
 use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}

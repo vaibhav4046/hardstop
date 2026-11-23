@@ -13,7 +13,7 @@ push, and check that commit's CI run is green.
 | Fe version | 26.6.0 (5b3f96a) |
 | Upstream to Fe (background, not part of the entry: the contest puts compiler work out of scope) | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | Update film, 85 s, recorded 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the compiler refusals and Fe tests as they stood that morning, 30 and 106; narrated by a synthetic voice, captions burned in, no music). It was recorded before that evening's changes (the compile-time laws, the sealed payout, key replacement and the practice server; now 46 refusals and 112 tests), which are under Evidence below. The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (2026-11-23), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | Update film, 85 s, recorded 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the compiler refusals and Fe tests as they stood that morning, 30 and 106; narrated by a synthetic voice, captions burned in, no music). It was recorded before that evening's changes (the compile-time laws, the sealed payout, key replacement and the practice server; now 47 refusals and 112 tests), which are under Evidence below. The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (2026-11-23), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -56,7 +56,7 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    and the contract does not build.
 3. **The agent's authority is a type.** `Pay` gets the rules read-only, as
    sealed types only the kernel can build, so a payment that writes them
-   does not compile (CI makes 46 attack edits and requires the compiler to refuse each). Giving `Pay` write access
+   does not compile (CI makes 47 attack edits and requires the compiler to refuse each). Giving `Pay` write access
    means editing its `uses` list, which compiles but fails a CI check on that
    list, and a rule change would still need the owner's use-once proof.
 
@@ -122,12 +122,12 @@ a CI check pins every handler's `uses` list). Around that, the compiler enforces
   statement each fails to compile.
 - **The ratchet's laws, checked at compile time over a grid.** `amend`,
   `cancel`, `meet`, `loosens`, `decide`, `exposure` and the time operators
-  are `const fn`. 137 `static_assert`s in `fe/src/kernel/laws.fe` run them
+  are `const fn`. 271 `static_assert`s in `fe/src/kernel/laws.fe` run them
   on 128 policies and every pair of them: a tighter limit applies at once,
   a looser one waits to the second, a cancelled raise never happens, no
   signature raises the worst case before the cooling period ends, no payment
-  beats it, and a greedy agent reaches it exactly. Nine broken kernels were
-  tried and all fail the build; seven of them pass every earlier check. The
+  beats it, and a greedy agent reaches it exactly. Ten broken kernels were
+  tried and all fail the build; eight of them pass every earlier check. The
   contracts' bytecode is unchanged by any of it. This is a grid, not every
   input.
 - **Paid only as judged (2026-11-23).** `vault.fe` holds no transfer. The
@@ -145,14 +145,15 @@ a maintainer, an AI coding assistant) cannot loosen the agent's authority
 without the build failing. The running agent is stopped by the deployed
 contract itself, its owner checks and cooling period.
 
-On every push CI makes 46 attack edits and requires the compiler to refuse
+On every push CI makes 47 attack edits and requires the compiler to refuse
 each one (`scripts/pay-cannot-loosen.sh`). It also keeps 6 control edits
 that must compile; two of them are attacks the compiler does not stop (a
 transfer imported into `vault.fe`, and one through a forged `Call` on Fe
 26.6), and the source checks must catch both.
 
 **Where the compiler stops.** `vault.fe` importing a transfer of its own and
-calling it beside the payout, copies of `Approval` (Fe 26.6's
+calling it beside the payout, the token `Pay` hands the kernel (a plain
+address), copies of `Approval` (Fe 26.6's
 `StorageMap::get` needs `Copy` values), and the bodies of `vault.fe`, the
 kernel, `sealed.fe` and the launcher are guarded by tests and by source
 checks that read the text, not by the compiler. Edits once caught only by a sha256 pin

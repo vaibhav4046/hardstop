@@ -35,7 +35,7 @@ writes the rules, approves a recipient or swaps its own key does not compile
 And it can pay only through a sealed `Payout` the kernel returns: only
 that recipient, only that amount. The rules themselves are
 a sealed type that only the kernel can make or change, and never at once
-when they loosen. CI makes 46 attack edits and requires the compiler
+when they loosen. CI makes 47 attack edits and requires the compiler
 to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
 contest's scope: building this found a hole in Fe itself, private traits
 that anyone could implement; the fix,
@@ -88,8 +88,8 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop` (version
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `112 passed; 0 failed` |
-| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 90 lines starting `ok` |
-| The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 26 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel and it fails with 8-0081 |
+| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 91 lines starting `ok` |
+| The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 35 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel and the build fails (8-0081, or 3-0026 if the broken kernel runs past Fe's compile-time step limit) |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `120` pass |
@@ -176,18 +176,19 @@ npm test                          # 120 tests
 - **Guarded:** owner handlers need an unforgeable, use-once proof
   (`OwnerCall`) bound to the real caller, and `static_assert`s check the
   verdict codes and the ratchet's laws at compile time.
-- **Guarded, on a grid:** the promise to the owner. 137 `static_assert`s in
+- **Guarded, on a grid:** the promise to the owner. 271 `static_assert`s in
   [`fe/src/kernel/laws.fe`](fe/src/kernel/laws.fe) make the compiler run
   `amend`, `decide` and `exposure` over 128 policies and all 16,384 pairs:
   no signature raises the worst case before the cooling period ends, no
   payment beats it, and an agent that spends all it can reaches it exactly.
   A kernel broken so any of this fails does not build. A grid, not every input.
 - **Not guarded by the compiler:** `vault.fe` importing a transfer of its own
-  and calling it beside the payout (Fe cannot forbid an import). Tests and a
+  and calling it beside the payout (Fe cannot forbid an import), and the
+  token `Pay` hands the kernel (a plain address). Tests and a
   source check (it reads the text) refuse any transfer in `vault.fe`;
   `Approval` is still `Copy`, so a source check and three tests catch an
   older approval put back.
-- **Pinned by CI:** 46 compiler refusals, 6 control edits that must compile,
+- **Pinned by CI:** 47 compiler refusals, 6 control edits that must compile,
   8 source checks and 23 edits they catch, 7 edits also caught by a failing test, and sha256 pins on `kernel.fe`,
   `kernel/sealed.fe` and `launcher.fe`
   ([`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)).

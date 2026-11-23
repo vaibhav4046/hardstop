@@ -7,8 +7,8 @@ The full results, on-chain transactions and gas figures, moved here from the [RE
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `112 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 90 lines starting `ok` |
-| The compiler checks the worst-case promise over a grid of 128 policies (16,384 pairs): no signature raises it before the cooling period ends, no payment beats it, an agent reaches it exactly | `cd fe && fe check` | no output (about 26 s); a kernel broken so a law fails stops with 8-0081 |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 91 lines starting `ok` |
+| The compiler checks the worst-case promise over a grid of 128 policies (16,384 pairs): no signature raises it before the cooling period ends, no payment beats it, an agent reaches it exactly | `cd fe && fe check` | no output (about 35 s); a kernel broken so a law fails stops the build (8-0081, or 3-0026) |
 | A contract the owner calls cannot act as the owner (the vault checks the caller, not the transaction's origin) | `web/tests/vault.test.ts`, "the vault checks the caller, not the origin"; on a vault built with `prove` also accepting `ctx.origin()` that test fails (run 2026-11-23, below) | passes on the real vault |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
@@ -136,10 +136,10 @@ substitute for the second.
 
 ## The kernel's laws, checked by the compiler (2026-11-23)
 
-`fe/src/kernel/laws.fe` holds 137 `static_assert`s (seven laws, listed in
+`fe/src/kernel/laws.fe` holds 271 `static_assert`s (seven laws, listed in
 [`FE_HIGHLIGHT.md`](../FE_HIGHLIGHT.md)). Measured on the Windows machine
-this was built on, Fe 26.6.0: `fe check` takes 26 s with them and about 5 s
-without. Every compiled contract (20 `.bin` files) is byte-identical with
+this was built on, Fe 26.6.0: `fe check` takes about 35 s with them and
+about 5 s without. Every compiled contract (20 `.bin` files) is byte-identical with
 and without them, compared by sha256 against the build of `64b5501`.
 
 Each kernel below was broken by one edit and compiled with the laws in
@@ -148,17 +148,23 @@ that existed before; "law asserts" are the ones in `laws.fe`.
 
 | Broken kernel | Earlier asserts failed | Law asserts failed |
 |---|---|---|
-| `decide` checks the window cap instead of what is left in it | 0 | 14 |
-| `decide` ignores the payment cap | 0 | 1 |
-| `decide` ignores the end date | 0 | 6 |
-| `decide` ignores a pause | 0 | 5 |
-| `exposure` forgets the windows after this one | 0 | 11 |
-| `exposure` ignores a raise that takes effect in the span | 0 | 9 |
-| `exposure` forgets what was already spent this window | 0 | 1 |
-| `cancel` keeps the queue | 2 | 16 |
-| `amend` queues a raise one second early | 3 | 112 |
+| `decide` checks the window cap instead of what is left in it | 0 | 24 |
+| `decide` ignores the payment cap | 0 | 2 |
+| `decide` ignores the end date | 0 | 8 |
+| `decide` ignores a pause | 0 | 10 |
+| `decide` refuses on the last second the policy is valid | 0 | 2 |
+| `exposure` forgets the windows after this one | 0 | 20 |
+| `exposure` ignores a raise that takes effect in the span | 0 | 18 |
+| `exposure` forgets what was already spent this window | 0 | 2 |
+| `cancel` keeps the queue | 2 | 32 |
+| `amend` queues a raise one second early | 3 | 224 |
 
-The first six are also in CI (section 8 of `scripts/pay-cannot-loosen.sh`).
+Counts are from the 271-assert layout (each check at half of Fe's per-check
+step limit). Seven of the first eight are also in CI (section 8 of
+`scripts/pay-cannot-loosen.sh`); the eighth edits a line that appears twice
+in the kernel, which that script's one-line edits cannot target. The
+end-date grid point is second 1800, a moment the greedy agent of law 6
+pays at, so a refusal on the last valid second is seen.
 
 **The origin check, caught by a test.** `fe test` cannot set a
 transaction's origin, so a `prove` that also accepted `ctx.origin()` used

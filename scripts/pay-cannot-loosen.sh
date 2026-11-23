@@ -28,11 +28,12 @@
 #    under another address still compiles; it approves no one, a runtime
 #    check tested in fe/src/vault_tests.fe.
 # 6. What the compiler does not check, kept visible so the README cannot
-#    drift: which address `init` gives `open` (a source check below), and
-#    where `Pay` sends money: an edit that pays the caller a thousand times
-#    the amount compiles, and so does one made through a function whose
+#    drift: which address `init` gives `open` (a source check below), the
+#    token `Pay` hands the kernel, and a transfer imported into vault.fe
+#    beside the sealed payout: an edit that pays the caller a thousand times
+#    that way compiles, and so does one made through a function whose
 #    `uses` lists no `Call`, because any type can implement `Call` (both
-#    shown to compile). `open` and `founding` after deployment and zeroed
+#    shown to compile). A hand-made payout does not compile. `open` and `founding` after deployment and zeroed
 #    `Terms` are runtime checks, tested in fe/src/vault_tests.fe.
 # 7. The kernel's compile-time checks bite: a duplicate verdict code, a
 #    verdict answering with another verdict's code, `meet` keeping the larger
@@ -747,8 +748,8 @@ if grep -qE '(^|[^A-Za-z0-9_])pub([^A-Za-z0-9_]|$)' <(sed 's#//.*##' "$LAWS"); t
   exit 1
 fi
 LAW_ASSERTS=$(grep -c '^static_assert(' "$LAWS")
-if [ "$LAW_ASSERTS" -lt 137 ]; then
-  echo "FAIL kernel/laws.fe has $LAW_ASSERTS grid checks, expected at least 137"
+if [ "$LAW_ASSERTS" -lt 271 ]; then
+  echo "FAIL kernel/laws.fe has $LAW_ASSERTS grid checks, expected at least 271"
   exit 1
 fi
 echo "ok   source check: kernel/laws.fe has no pub item and all $LAW_ASSERTS grid checks"
@@ -917,3 +918,5 @@ kernel_refused 'exposure forgetting the windows after this one' \
   '^    let later_windows: u256 = (last - first) as u256$' '    let later_windows: u256 = 0'
 kernel_refused 'exposure ignoring a raise that takes effect in the span' \
   '^    if !cooled(at: queued.effective_at, now: until) {$' '    if true {'
+kernel_refused 'decide refusing on the last second the policy is valid' \
+  '^    if now > policy.valid_until {$' '    if now >= policy.valid_until {'
