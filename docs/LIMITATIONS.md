@@ -43,7 +43,9 @@ The full list, moved here from the [README](../README.md).
   at once. Until then nobody can pay. An owner who needs a working agent
   sooner can instead pause, withdraw and launch a new vault, which works at
   once but has a new address (`web/tests/rotation.test.ts`). Vaults made
-  before 2026-11-24 have only that second way.
+  before 2026-11-24 have only that second way. Naming the owner's own
+  address as the new agent does nothing, without an error (security/AUDIT.md
+  item 22): to revoke a key, name the zero address or a new key.
 - **A stolen owner key is out of scope**, as is a malicious token.
 - **Not professionally audited**, and built on a young compiler. An AI
   reviewer attacked it once ([`security/AUDIT.md`](../security/AUDIT.md));

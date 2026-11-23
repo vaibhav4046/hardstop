@@ -97,6 +97,22 @@ reduce the worst case by its own amount when the worst case was the largest
 number there is, because `exposure` saturates there and means "unbounded".
 That is the documented behaviour, not a bug; the law now states it.
 
+## Fifth review, 2026-11-24: the sealed payout and the agent's seat
+
+An AI reviewer attacked the new payment path and key replacement on a copy
+of the branch, wrote five probe tests of `Seat` at exact seconds, and ran
+the full `fe test` (112 passed). It found no way to pay past the policy,
+pay an unapproved recipient, reuse a payout (the compiler refuses it,
+16-0002), double-spend by re-entering `pay` from the token (the books are
+saved before the send; the existing hostile-token test passes), get an old
+key back, or make a waiting key start early. `agent_at` and `waiting` test
+the same condition, one negated, so they agree at every second.
+
+| # | Severity | Finding | What was done |
+|---|---|---|---|
+| 22 | Low | **`setAgent` with the owner's own address does nothing, silently.** An owner who means "take the key back" by naming themselves leaves the leaked key working, and the transaction succeeds. With nothing waiting, its `AgentChanged(0, 0)` event is the same as a real `setAgent(0)`'s, so a log reader could believe the key was revoked. | Documented here and in `docs/LIMITATIONS.md`. Revoking is `setAgent` with the zero address (or a new key). Making it revert would change the vault's bytecode and launcher; not done for this submission. |
+| 23 | Info | **While no agent is seated, the worst case overstates.** After a replacement, nobody can pay until the new key's time, yet `exposure` still counts the full caps. It never understates. | Documented. |
+
 ## What it tried and could not break
 
 - Making `Pay` write the policy: the compiler refuses
