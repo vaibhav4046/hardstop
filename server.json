@@ -3,7 +3,7 @@
   "name": "io.github.vaibhav4046/hardstop",
   "title": "HARDSTOP",
   "description": "Spending firewall for AI agents: pay from a test-network vault inside limits the agent cannot raise.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "websiteUrl": "https://hardstop-omega.vercel.app",
   "repository": {
     "url": "https://github.com/vaibhav4046/hardstop",
@@ -12,10 +12,28 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/vaibhav4046/hardstop/releases/download/v0.1.0/hardstop.mcpb",
-      "version": "0.1.0",
-      "fileSha256": "21f1e15a601fe59da2a9d1351d92d9526f7e95b27f742e161ea83914334079dd",
-      "transport": { "type": "stdio" }
+      "identifier": "https://github.com/vaibhav4046/hardstop/releases/download/v0.1.1/hardstop.mcpb",
+      "version": "0.1.1",
+      "fileSha256": "e178727974467029f7f4c5c5ed4d43cf433a3b051b947fa55a93df99ea8607b8",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "icons": [
+    {
+      "src": "https://hardstop-omega.vercel.app/icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+        "any"
+      ]
+    },
+    {
+      "src": "https://hardstop-omega.vercel.app/apple-icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "180x180"
+      ]
     }
   ]
 }
