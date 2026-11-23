@@ -128,6 +128,16 @@ export default function Developers() {
           From <a href={source('fe/src/kernel.fe')}>fe/src/kernel.fe</a>. A test in this site&rsquo;s suite fails if
           the excerpt stops matching the file.
         </p>
+        <div className="prose soft mt-6">
+          <p>
+            The compiler checks the promise these functions make.{' '}
+            <a href={source('fe/src/kernel/laws.fe')}>kernel/laws.fe</a> has Fe run <code className="mono">amend</code>,{' '}
+            <code className="mono">decide</code> and <code className="mono">exposure</code> over a grid of 128 policies
+            and all 16,384 pairs while it builds: whatever the owner signs, the worst case cannot go up before the
+            cooling period ends; no payment beats it; and an agent that spends all it can reaches it exactly. A kernel
+            broken so any of this fails does not build. It is a grid, not every input.
+          </p>
+        </div>
       </section>
 
       <section className="mt-[var(--gap-section)]" aria-labelledby="run-title">

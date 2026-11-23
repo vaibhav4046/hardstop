@@ -4,7 +4,9 @@
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import type { Hex } from 'viem'
+import { decodeErrorResult, encodeFunctionData, type Hex } from 'viem'
+import { vaultAbi } from '../src/lib/hardstop/artifacts.ts'
+import type { Chain } from '../src/lib/hardstop/chain.ts'
 import { Sim } from '../src/lib/hardstop/sim.ts'
 
 const OWNER: Hex = '0x00000000000000000000000000000000000a11ce'
@@ -221,4 +223,33 @@ test('a greedy agent takes exactly the exposure bound, and no more', async () =>
     sim.chain.advance(DAY / 4n)
   }
   assert.equal(await sim.balanceOf(SHOP), bound)
+})
+
+test('a contract the owner calls cannot act as the owner: the vault checks the caller, not the origin', async () => {
+  // The owner's wallet signs a transaction to some other contract, which then
+  // calls the vault. The vault must see that contract, not the owner.
+  const sim = await vault()
+  const chain = sim.chain as Chain
+  const calls = [
+    encodeFunctionData({ abi: vaultAbi, functionName: 'propose', args: [1000n * USD, 1000n * USD, END, false] }),
+    encodeFunctionData({ abi: vaultAbi, functionName: 'cancelQueued' }),
+    encodeFunctionData({ abi: vaultAbi, functionName: 'pause' }),
+    encodeFunctionData({ abi: vaultAbi, functionName: 'setRecipient', args: [THIEF, true] }),
+    encodeFunctionData({ abi: vaultAbi, functionName: 'withdraw', args: [100n * USD] }),
+  ]
+  for (const data of calls) {
+    const receipt = await chain.sendVia(OWNER, THIEF, sim.vault, data)
+    assert.equal(receipt.ok, false)
+    assert.equal(decodeErrorResult({ abi: vaultAbi, data: receipt.data }).errorName, 'NotOwner')
+  }
+  const state = await sim.state()
+  assert.equal(state.policy.perPayment, 10n * USD)
+  assert.equal(state.policy.paused, false)
+  assert.equal(state.queued, null)
+  assert.equal(state.vaultBalance, 100n * USD)
+  assert.equal(await sim.balanceOf(THIEF), 0n)
+  assert.equal(await sim.balanceOf(OWNER), 0n)
+  // The same call straight from the owner works, so the test is not vacuous.
+  assert.equal((await chain.sendVia(OWNER, OWNER, sim.vault, calls[2])).ok, true)
+  assert.equal((await sim.state()).policy.paused, true)
 })

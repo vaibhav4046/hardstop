@@ -81223,11 +81223,20 @@ var init_chain2 = __esm({
         this.blockNumber += 1n;
         return this.run(from, to, data, false, value);
       }
+      /**
+       * Run a state-changing call whose transaction was signed by `origin` but
+       * reaches the contract from `from`, as when the owner's wallet calls some
+       * other contract that then calls the vault. For tests.
+       */
+      sendVia(origin, from, to, data) {
+        this.blockNumber += 1n;
+        return this.run(from, to, data, false, 0n, origin);
+      }
       /** Run a call that may not change state. */
       read(from, to, data) {
         return this.run(from, to, data, true);
       }
-      async run(from, to, data, isStatic, value = 0n) {
+      async run(from, to, data, isStatic, value = 0n, origin = from) {
         const caller = createAddressFromString(from);
         const block = createBlock(
           { header: { timestamp: this.now, number: this.blockNumber } },
@@ -81235,7 +81244,7 @@ var init_chain2 = __esm({
         );
         const result = await this.evm.runCall({
           caller,
-          origin: caller,
+          origin: createAddressFromString(origin),
           to: to === null ? void 0 : createAddressFromString(to),
           data: hexToBytes6(data),
           value,

@@ -40,6 +40,9 @@
 #    `current` ignoring the queue, or `amend` applying a raise at once, must
 #    fail with "static assertion failed"; `+` wrapping instead of saturating
 #    must fail with "arithmetic overflow in const context".
+# 8. The grid laws in kernel/laws.fe bite too: `decide` ignoring a cap, the
+#    end date or a pause, and `exposure` forgetting later windows or a
+#    waiting raise, edits no earlier check catches, must fail to compile.
 set -euo pipefail
 
 FE=${FE:-fe}
@@ -51,6 +54,9 @@ build_vault() {
   dir=$(mktemp -d)
   cp -r "$ROOT/fe" "$dir/"
   rm -rf "$dir/fe/out"
+  # The kernel's grid laws (kernel/laws.fe) add about 20 s to every build
+  # and say nothing about vault.fe; section 8 runs them on kernel edits.
+  rm -f "$dir/fe/src/kernel/laws.fe"
   cp "$src" "$dir/fe/src/vault.fe"
   (cd "$dir/fe" && "$FE" build > "$dir/build.log" 2>&1)
   local status=$?
@@ -699,7 +705,7 @@ echo "ok   source check catches: the launcher approving the agent when a recipie
 # one second. Both compiled and passed fe test, the static asserts, the
 # differential test (it builds both sides from this same file) and every
 # check above. kernel.fe is pinned the same way.
-PIN_KERNEL=4b9dd73a5253def66e564144886bc9676232258bdfe22869f9ebe0522b562f8e
+PIN_KERNEL=ae596cdcc855e36374857f36948fb596d0d64b4831b9e94b3a7de1469e5d72ee
 check_kernel() {
   local got
   got=$(code_sha < "$1")
@@ -710,6 +716,21 @@ if ! why=$(check_kernel "$ROOT/fe/src/kernel.fe"); then
   exit 1
 fi
 echo "ok   source check: kernel.fe matches its pinned sha256"
+
+# kernel/laws.fe makes owner proofs by hand to run `amend` and `cancel` at
+# compile time. It must stay a closed room: no `pub` item, so nothing outside
+# the kernel can call into it, and all of its grid checks still there.
+LAWS=$ROOT/fe/src/kernel/laws.fe
+if grep -qE '(^|[^A-Za-z0-9_])pub([^A-Za-z0-9_]|$)' <(sed 's#//.*##' "$LAWS"); then
+  echo "FAIL kernel/laws.fe has a pub item"
+  exit 1
+fi
+LAW_ASSERTS=$(grep -c '^static_assert(' "$LAWS")
+if [ "$LAW_ASSERTS" -lt 137 ]; then
+  echo "FAIL kernel/laws.fe has $LAW_ASSERTS grid checks, expected at least 137"
+  exit 1
+fi
+echo "ok   source check: kernel/laws.fe has no pub item and all $LAW_ASSERTS grid checks"
 kernel_check_catches() {
   local name=$1 edited
   shift
@@ -729,16 +750,22 @@ kernel_check_catches 'a raise maturing after one second between two dates around
 # A pin only proves the file changed. The same edits must also make a test
 # fail: fe/src/$2 edited by the sed arguments after $3 must compile, and
 # fe test must fail with every test named in $3 among the failures.
-# Not here, because no test in Fe 26.6 can see them: `prove` accepting the
-# transaction's origin (fe test's origin is the zero address, which can never
-# be an owner), and the forged-Call helper appended after the contract (dead
-# code: the compiled contracts are byte-for-byte the same).
+# Not here: `prove` accepting the transaction's origin, because fe test's
+# origin is always the zero address, which can never be an owner. A web test
+# on the compiled vault catches it instead (web/tests/vault.test.ts, "the
+# vault checks the caller, not the origin"; shown failing on a vault built
+# with that edit in docs/EVIDENCE.md). And the forged-Call helper appended
+# after the contract: dead code, so the compiled contracts are byte-for-byte
+# the same, and CI checks the committed bytecode is what the source compiles to.
 test_catches() {
   local name=$1 file=$2 tests=$3 dir t
   shift 3
   dir=$(mktemp -d)
   cp -r "$ROOT/fe" "$dir/"
   rm -rf "$dir/fe/out"
+  # Without the grid laws, as in build_vault: these edits act at dates the
+  # laws never run at, so the laws pass them either way.
+  rm -f "$dir/fe/src/kernel/laws.fe"
   sed -i "$@" "$dir/fe/src/$file"
   if cmp -s "$ROOT/fe/src/$file" "$dir/fe/src/$file"; then
     echo "could not edit $file for: $name"
@@ -810,8 +837,11 @@ kernel_refused() {
     rm -rf "$dir"
     exit 1
   fi
+  # A broken kernel can also make some grid laws (kernel/laws.fe) run past
+  # the compiler's step limit (3-0026). No typo in an edit causes that, so
+  # it may appear beside the expected error, never instead of it.
   if ! grep -qF -- "$message" "$dir/build.log" \
-    || grep -E '^error\[' "$dir/build.log" | grep -qvF "error[$code]"; then
+    || grep -E '^error\[' "$dir/build.log" | grep -vF "error[3-0026]" | grep -qvF "error[$code]"; then
     echo "FAIL refused for another reason: $name"
     cat "$dir/build.log"
     rm -rf "$dir"
@@ -848,3 +878,19 @@ kernel_refused '+ wrapping instead of saturating' \
 # period. Only the asserts that run `amend` catch this.
 kernel_refused 'amend applying a raise at once' \
   '^    let active = meet(in_force, proposed)$' '    let active = proposed'
+
+# 8. The grid laws (kernel/laws.fe), added 2026-11-24. The compiler runs
+#    `decide` and `exposure` on every policy of a grid, so these edits, which
+#    pass every check above, fail the build too ("static assertion failed").
+kernel_refused 'decide checking the window cap instead of what is left in it' \
+  '^    if request.amount > left {$' '    if request.amount > policy.per_window {'
+kernel_refused 'decide ignoring the payment cap' \
+  '^    if request.amount > policy.per_payment {$' '    if false {'
+kernel_refused 'decide ignoring the end date' \
+  '^    if now > policy.valid_until {$' '    if false {'
+kernel_refused 'decide ignoring a pause' \
+  '^    if policy.paused {$' '    if false {'
+kernel_refused 'exposure forgetting the windows after this one' \
+  '^    let later_windows: u256 = (last - first) as u256$' '    let later_windows: u256 = 0'
+kernel_refused 'exposure ignoring a raise that takes effect in the span' \
+  '^    if !cooled(at: queued.effective_at, now: until) {$' '    if true {'

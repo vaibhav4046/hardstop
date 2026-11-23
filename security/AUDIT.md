@@ -63,6 +63,40 @@ without it; the attackers' own proofs of concept now fail.
 | 17 | Low | **Recipient names could hide text-direction and invisible characters**, so a receipt could show a name reversed, and two names that look identical ("Café" composed and decomposed) were both accepted. | Such characters are refused; names are compared after Unicode normalisation. Since 20 Nov a name mixing Latin with Cyrillic or Greek letters ("Clоud" with a Cyrillic о) is refused too. A name wholly in another alphabet is accepted: names are labels, and the address is what is paid. | `a recipient name with invisible or text-direction characters is refused`, `a name mixing Latin with Cyrillic or Greek letters is refused`, `names that read the same count as the same name` (web/src/lib/session-names.test.ts) |
 | 18 | Low | **A pause dropped a waiting raise without saying so.** | The receipt for a pause, or for any tightening, says when it dropped a looser change that was waiting. | (wording) |
 
+## Fourth review, 2026-11-23
+
+Two AI reviewers worked in parallel on commit `64b5501`, one on the Fe
+contracts (`kernel.fe`, `kernel/sealed.fe`, `vault.fe`, `launcher.fe`) and one
+on the MCP server (`web/mcp/*`). Each was told to find real bugs and then to
+try to refute each of its own findings. Neither found a way to move money
+past the vault's limits, skip a cooling period, pay an unapproved address,
+lock the owner out, make `exposure` report too little, or leak the agent's
+key. This is still an AI review, not a professional audit.
+
+| # | Severity | Finding | What was done |
+|---|---|---|---|
+| 15 | Info | **THREAT_MODEL.md named the wrong mechanism.** It said the window length and cooling period are immutable fields that no handler lists `mut`. They live inside `Terms`, which owner handlers list `mut`; they stay fixed because only the kernel's `amend` and `cancel` change `Terms`, and both copy the schedule. | Wording corrected. |
+| 16 | Info | **The `PolicyProposed` event under-describes a mixed proposal.** A proposal that tightens one field and loosens another applies the tighter fields at once, but the event carries the proposed numbers and a non-zero `effective_at`. Its comment says so, and no money is at risk. | Kept. The app shows `policy()` and `queued()`; the watcher reads the events for history but also compares the vault's state each check, so the tighter fields show there. |
+| 17 | Low, by design | **One tricked signature can freeze the agent for a cooling period.** A pause, a zero cap or a past end date applies at once; undoing it waits. `withdraw` still works. | Added to THREAT_MODEL.md as a denial-of-service path. It is the trade-off the ratchet makes. |
+| 18 | Info | **The HTTP token can travel in the URL** (`/mcp/<token>`, for clients that cannot send headers), where tunnel and proxy logs keep it. | Accepted and documented: the path form exists for clients that cannot send headers, and the ChatGPT example in `web/mcp/README.md` uses it; clients that can should send `Authorization: Bearer` instead. |
+| 19 | Low | **The HTTP token is checked for length only.** A guessable 32-character token passes, and there is no rate limit on refusals. | Accepted: the docs give `openssl rand -hex 32`; only an owner who picks a weak token is exposed. |
+| 20 | Low | **An injected agent can put a phishing line in a request to the owner.** | Mostly mitigated already: the reason is one line, stripped of hidden and bidirectional characters, quoted, labelled "not checked by anyone", and followed by the real owner link. |
+| 21 | Info | **The RPC is trusted for fees and error text.** `HARDSTOP_RPC` may be plain `http://`, gas is priced from the RPC with no ceiling, and RPC error text reaches the model. | Accepted: the operator chooses the RPC, the gas is test ETH, and the contract still enforces every limit. |
+
+The reviewers also refuted these suspicions: re-proposing, cancelling or
+pausing to skip a cooling period; re-approving a recipient to shorten its
+wait; `exposure` under-reporting across a queued switch; overflow; re-entering
+`pay`; a copied or zeroed `Approval`; re-entering the launcher's vault list;
+a launch address taken in advance (the caller is part of the create2 salt);
+key leaks through errors, tool output or logs; DNS rebinding on the loopback
+server; and demo mode reaching a real network.
+
+The same day, the kernel's laws were run by the compiler over a grid of
+policies (`fe/src/kernel/laws.fe`). One law first failed: a payment did not
+reduce the worst case by its own amount when the worst case was the largest
+number there is, because `exposure` saturates there and means "unbounded".
+That is the documented behaviour, not a bug; the law now states it.
+
 ## What it tried and could not break
 
 - Making `Pay` write the policy: the compiler refuses

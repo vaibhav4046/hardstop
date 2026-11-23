@@ -43,13 +43,19 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    waiting raise. A tricked approval becomes a visible pending change, not a
    loss (`npx -y github:vaibhav4046/hardstop --tricked` shows it: the owner has
    approved $1,000 a day, and the agent's $500 is still refused).
-2. **The danger is a number before it happens.** The contract's `exposure`
-   computes the most the agent can move over any span, counting the waiting
-   raise: $40 over the next 24 hours before the tricked approval, $1,020
-   after, shown a day before the raise could be used.
+2. **The danger is a number before it happens, and the compiler checks the
+   number.** The contract's `exposure` computes the most the agent can move
+   over any span, counting the waiting raise: $40 over the next 24 hours
+   before the tricked approval, $1,020 after, shown a day before the raise
+   could be used. `fe/src/kernel/laws.fe` makes the Fe compiler itself run
+   `amend`, `decide` and `exposure` over a grid of 128 policies (16,384
+   pairs) on every build: whatever the owner signs, that number cannot go up
+   before the cooling period ends; no payment beats it; and an agent that
+   spends all it can gets exactly it. Break the kernel so any of these fails
+   and the contract does not build.
 3. **The agent's authority is a type.** `Pay` gets the rules read-only, as
    sealed types only the kernel can build, so a payment that writes them
-   does not compile (30 such edits refused in CI). Giving `Pay` write access
+   does not compile (CI makes 36 attack edits and requires the compiler to refuse each). Giving `Pay` write access
    means editing its `uses` list, which compiles but fails a CI check on that
    list, and a rule change would still need the owner's use-once proof.
 
@@ -107,17 +113,23 @@ a CI check pins every handler's `uses` list). Around that, the compiler enforces
   `prove(owner, ctx)` makes from the concrete `Evm`. A hand-made proof, a
   stand-in context, a proof used twice or one thrown away as a bare
   statement each fails to compile.
-- **The ratchet's laws, checked at compile time on sample policies.** `amend`, `cancel`, `meet`,
-  `loosens` and the time operators are `const fn`, and `static_assert`s run
-  them on fixed policies: no policy loosens itself, a raise waits out the
-  cooling period, a tightening applies at once. Breaking one fails the build.
+- **The ratchet's laws, checked at compile time over a grid.** `amend`,
+  `cancel`, `meet`, `loosens`, `decide`, `exposure` and the time operators
+  are `const fn`. 137 `static_assert`s in `fe/src/kernel/laws.fe` run them
+  on 128 policies and every pair of them: a tighter limit applies at once,
+  a looser one waits to the second, a cancelled raise never happens, no
+  signature raises the worst case before the cooling period ends, no payment
+  beats it, and a greedy agent reaches it exactly. Nine broken kernels were
+  tried and all fail the build; seven of them pass every earlier check. The
+  contracts' bytecode is unchanged by any of it. This is a grid, not every
+  input.
 
 What the compiler guards is the code: whoever edits the contract (its author,
 a maintainer, an AI coding assistant) cannot loosen the agent's authority
 without the build failing. The running agent is stopped by the deployed
 contract itself, its owner checks and cooling period.
 
-On every push CI makes 30 attack edits and requires the compiler to refuse
+On every push CI makes 36 attack edits and requires the compiler to refuse
 each one (`scripts/pay-cannot-loosen.sh`).
 
 **Where the compiler stops.** Where `Pay` sends allowed money, what it tells
@@ -125,9 +137,10 @@ the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
 values), and the bodies of `vault.fe`, the kernel, `sealed.fe` and the launcher are guarded
 by tests and by source checks that read the text (7 checks, catching 29
 attack edits), not by the compiler. Edits once caught only by a sha256 pin
-now also fail a test, except two no test can see in Fe 26.6: `prove`
-accepting the transaction origin (`fe test` always has origin zero) and an
-unused helper appended to the file (it compiles to identical bytecode). One gap was a Fe bug: any type could
+now also fail a test, except one: an unused helper appended to the file,
+which compiles to identical bytecode, so nothing deployed changes. (`prove`
+accepting the transaction's origin, which `fe test` cannot see, is now
+caught by a web test on the compiled vault.) One gap was a Fe bug: any type could
 implement Fe 26.6's private `Call` trait, so a forged `Call` compiled. This
 project reported it (argotorg/fe#2036) and fixed it in the compiler
 (argotorg/fe#2042, merged 2026-11-21); on Fe master the forgery is refused
@@ -138,7 +151,7 @@ command-line program. Every error code and limit:
 ## Evidence it works
 
 - `fe test`: 106 passed on the EVM; 54 passed natively.
-- Web: 108 unit tests (including the MCP server and watcher) and 64 browser
+- Web: 110 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

@@ -68,12 +68,29 @@ export class Chain {
     return this.run(from, to, data, false, value)
   }
 
+  /**
+   * Run a state-changing call whose transaction was signed by `origin` but
+   * reaches the contract from `from`, as when the owner's wallet calls some
+   * other contract that then calls the vault. For tests.
+   */
+  sendVia(origin: Hex, from: Hex, to: Hex, data: Hex): Promise<Receipt> {
+    this.blockNumber += 1n
+    return this.run(from, to, data, false, 0n, origin)
+  }
+
   /** Run a call that may not change state. */
   read(from: Hex, to: Hex, data: Hex): Promise<Receipt> {
     return this.run(from, to, data, true)
   }
 
-  private async run(from: Hex, to: Hex | null, data: Hex, isStatic: boolean, value = 0n): Promise<Receipt> {
+  private async run(
+    from: Hex,
+    to: Hex | null,
+    data: Hex,
+    isStatic: boolean,
+    value = 0n,
+    origin: Hex = from,
+  ): Promise<Receipt> {
     const caller = createAddressFromString(from)
     const block = createBlock(
       { header: { timestamp: this.now, number: this.blockNumber } },
@@ -81,7 +98,7 @@ export class Chain {
     )
     const result = await this.evm.runCall({
       caller,
-      origin: caller,
+      origin: createAddressFromString(origin),
       to: to === null ? undefined : createAddressFromString(to),
       data: hexToBytes(data),
       value,

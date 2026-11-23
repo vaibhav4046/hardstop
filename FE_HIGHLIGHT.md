@@ -19,8 +19,8 @@ ok   control: Pay may write its own ledger
 ok   refused: Pay writing terms
 ok   refused: Pay approving a recipient
 ...
-ok   refused: amend applying a raise at once
-                                   (80 lines starting ok: 30 refused, 7 controls, 7 source checks,
+ok   refused: exposure ignoring a raise that takes effect in the span
+                                   (87 lines starting ok: 36 refused, 7 controls, 8 source checks,
                                     29 edits they catch, 7 edits a test catches)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
@@ -41,6 +41,7 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | Owner changes happen at the chain's own time | `OwnerCall` carries the block time in a private field, read by `prove` from the concrete `Evm`; `Terms`'s functions take no time argument | a made-up time passed to `amend`: 8-0023; a hand-made proof with a made-up time: 2-0003 |
 | Owner actions need the real owner, once | sealed `OwnerCall`, `own`, not `Copy`, `#[must_use]`, `prove` takes the concrete `Evm` | hand-made proof or `Owner`: 2-0003; `authorize`'s proof or a stand-in `Ctx` passed to `prove`: 8-0000; no proof: 8-0012; reuse: 16-0002; drop: 8-0082 |
 | Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
+| The worst case is a promise: no signature raises it before the cooling period ends, no payment beats it, and an agent reaches it exactly | 137 `static_assert`s in `kernel/laws.fe` run `amend`, `cancel`, `decide` and `exposure` over a grid of 128 policies (16,384 pairs) | six kernel edits no earlier check catches (`decide` ignoring a cap, the end date or a pause; `exposure` forgetting later windows or a waiting raise): 8-0081 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
 | Not covered by the compiler | what `Pay` tells the kernel: the caller, whether the recipient is approved, the ledger, the rules and the time it passes to `decide`, and refusing a catch-all arm that pays past `Decision::Deny` or tuple rebinding of arguments | edits compile (CI shows one: "every recipient is approved"); a source check (text, not the compiler) requires those contiguous lines in `Pay`, and catches six edits that subvert them |
@@ -49,7 +50,7 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | Runtime vs native & view consistency | view handler outputs (`policy()`, `queued()`, ...) matching the native specification | `differential.test.ts` checks 2,400 payment requests + 480 exposure queries against the native kernel, and `vault-code.test.ts` pins the vault runtime bytecode hash |
 | Not covered on Fe 26.6 | where `Pay` sends allowed money; a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and a source check (text, not the compiler) requires `Pay`'s only transfer to be `safe_transfer(token, receiver: to, amount)`. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
-The first seven rows are edits that
+The first eight rows are edits that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires to fail,
 and the last row's are controls it requires to compile, run by CI job `verify`
 on the pinned Fe 26.6 release on every push.
@@ -235,6 +236,53 @@ raise at once, which only the asserts that call `amend` catch (with them
 removed, that edit compiles). What this does not cover: the asserts check
 those cases, not every input (breadth comes from `fe test` and the seeded
 adversary).
+
+**The promise to the owner, checked by the compiler on a grid
+(2026-11-24).** The asserts above run the kernel on a few fixed policies.
+[`fe/src/kernel/laws.fe`](fe/src/kernel/laws.fe) goes further: Fe 26.6's
+`const fn` runs `while` loops, so the compiler itself walks a grid of 128
+policies (each cap 0, 1, 100 or the largest number; an end date before,
+inside, at the end of, or after the cooling period; paused or not) and runs
+`amend`, `cancel`, `decide` and `exposure` on them. `decide`, `exposure` and
+two helpers were marked `const fn` for this; every compiled contract is
+byte-identical to before, so the deployed vaults are unchanged. 137
+`static_assert`s state seven laws:
+
+1. No policy loosens itself, and `meet` of any two is looser than neither
+   (all 16,384 pairs).
+2. Whatever the owner signs, a tighter limit applies at once and anything
+   looser waits out the cooling period, to the second: in force at the last
+   second before it ends, not before; at its first second, yes (16,384
+   pairs).
+3. A raise cancelled before it matures never happens (16,384 pairs).
+4. **Whatever the owner signs, the most the agent can move before the
+   cooling period ends does not go up** (16,384 pairs, each with nothing,
+   1, 100 or everything already spent). This is the product's promise: a
+   tricked approval changes nothing the agent can reach in time.
+5. `decide` never allows more than the worst case `exposure` reports, and a
+   payment uses up at least its own amount of it (1,536 requests; the
+   second half is skipped where `exposure` is the largest number, which
+   means "unbounded").
+6. The worst case is exact: an agent run by the compiler, paying as much as
+   it can at every window, gets paid exactly what `exposure` reports (a
+   smaller grid of 72 policies with bounded caps, so it can spend all of it).
+7. A raise signed now is counted in the worst case of a span in which it
+   takes effect (72 × 9 pairs).
+
+They add about 21 seconds to a build (26 s against 5 s for `fe check` on
+this machine). Nine broken kernels were tried; all nine fail the build.
+Seven of them pass every earlier check, because no earlier compile-time
+check ran `decide` or `exposure`: `decide` checking the window cap instead
+of what is left in it, or ignoring the payment cap, the end date or a
+pause; `exposure` forgetting the windows after this one, a raise that takes
+effect in the span, or what was already spent this window. CI runs six of
+them on every push (section 8 of
+[`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)), and a
+source check keeps `laws.fe` free of any `pub` item, since it makes owner
+proofs by hand. What this is not: a proof for every input. The grid is
+chosen to include zero, one, the largest amount and every edge of the
+cooling period; breadth still comes from `fe test`, the seeded adversary
+and the differential test.
 
 The asserts add no bytecode: all 24 compiled outputs are byte-identical
 with or without them. The `const` markings on `amend`, `cancel`,

@@ -75,8 +75,8 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 `own`, `#[must_use]`) bound to the real caller; and `static_assert`s run the
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
-refuse each attack (30 refusals, plus 7 control edits that must still
-compile, 7 source checks and 29 edits they catch, and 7 edits a test must catch, in
+refuse each attack (36 refusals, plus 7 control edits that must still
+compile, 8 source checks and 29 edits they catch, and 7 edits a test must catch, in
 [`scripts/pay-cannot-loosen.sh`](../scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source
@@ -177,6 +177,13 @@ vault. Tests: `fe/src/launcher_tests.fe` (each owner lists only the vaults
 they launched; a failed launch adds nothing), `web/tests/mine.test.ts`,
 and two browser tests in `web/e2e/live.spec.ts` (the owner sees both of
 their vaults; another wallet sees none).
+
+**If the agent's key leaks.** The vault fixes its agent at creation, so the
+owner retires the vault: **pause** it (instant: the key can pay nothing
+more), **withdraw** what is left, and **launch** a new vault with a new key
+and the same rules. Nothing waits: a pause and a withdrawal are tightenings,
+and a new vault starts with its rules in force. Tested on the compiled
+contracts in `web/tests/rotation.test.ts`.
 
 ## Connect your AI
 

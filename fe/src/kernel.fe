@@ -385,7 +385,7 @@ impl Rules {
 
 /// Cap minus spent, floored at zero. A cap lowered below what was already
 /// spent leaves nothing rather than underflowing.
-pub fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
+pub const fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
     if spent >= policy.per_window {
         0
     } else {
@@ -395,13 +395,13 @@ pub fn left_in_window(_ policy: Policy, spent: u256) -> u256 {
 
 /// Index of the fixed window that contains `at`. Requires a non-zero window
 /// length and `at >= schedule.anchor`; callers check both first.
-fn window_at(_ schedule: Schedule, at: Instant) -> u64 {
+const fn window_at(_ schedule: Schedule, at: Instant) -> u64 {
     (at - schedule.anchor) / schedule.window_secs
 }
 
 /// Decide one request. Checks run in a fixed order, so the same inputs always
 /// give the same reason.
-pub fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
+pub const fn decide(rules: Rules, ledger: Ledger, request: Request, now: Instant) -> Decision {
     let schedule = rules.schedule
     let policy = rules.current(now)
 
@@ -556,7 +556,7 @@ pub const fn matures_at(_ schedule: Schedule, now: Instant) -> Instant {
 /// promise about the owner assumes the queue was produced by `amend`, which
 /// only ever queues something looser than the active policy. Hand-built
 /// rules with a tighter queue would make `cancel` a loosening.
-pub fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
+pub const fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u256 {
     if rules.schedule.window_secs == Seconds::of(0) || until < now {
         return 0
     }
@@ -594,7 +594,7 @@ pub fn exposure(rules: Rules, ledger: Ledger, now: Instant, until: Instant) -> u
 }
 
 /// The most one policy lets through between `from` and `to`, inclusive.
-fn span(
+const fn span(
     _ schedule: Schedule,
     _ policy: Policy,
     _ ledger: Ledger,

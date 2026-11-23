@@ -7,10 +7,12 @@ The full results, on-chain transactions and gas figures, moved here from the [RE
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
-| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 80 lines starting `ok` |
+| The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 87 lines starting `ok` |
+| The compiler checks the worst-case promise over a grid of 128 policies (16,384 pairs): no signature raises it before the cooling period ends, no payment beats it, an agent reaches it exactly | `cd fe && fe check` | no output (about 26 s); a kernel broken so a law fails stops with 8-0081 |
+| A contract the owner calls cannot act as the owner (the vault checks the caller, not the transaction's origin) | `web/tests/vault.test.ts`, "the vault checks the caller, not the origin"; on a vault built with `prove` also accepting `ctx.origin()` that test fails (run 2026-11-24, below) | passes on the real vault |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `108` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `110` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 64 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](../qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
@@ -122,6 +124,49 @@ Method, steps, screenshots and every issue found are in [`qa/`](../qa/).
 `fe test` has no fuzzer and cannot move the block timestamp. The seeded
 campaign is the substitute for the first; the JS-EVM tests are the
 substitute for the second.
+
+## The kernel's laws, checked by the compiler (2026-11-24)
+
+`fe/src/kernel/laws.fe` holds 137 `static_assert`s (seven laws, listed in
+[`FE_HIGHLIGHT.md`](../FE_HIGHLIGHT.md)). Measured on the Windows machine
+this was built on, Fe 26.6.0: `fe check` takes 26 s with them and about 5 s
+without. Every compiled contract (20 `.bin` files) is byte-identical with
+and without them, compared by sha256 against the build of `64b5501`.
+
+Each kernel below was broken by one edit and compiled with the laws in
+place. "Earlier asserts" are the `static_assert`s at the end of `kernel.fe`
+that existed before; "law asserts" are the ones in `laws.fe`.
+
+| Broken kernel | Earlier asserts failed | Law asserts failed |
+|---|---|---|
+| `decide` checks the window cap instead of what is left in it | 0 | 14 |
+| `decide` ignores the payment cap | 0 | 1 |
+| `decide` ignores the end date | 0 | 6 |
+| `decide` ignores a pause | 0 | 5 |
+| `exposure` forgets the windows after this one | 0 | 11 |
+| `exposure` ignores a raise that takes effect in the span | 0 | 9 |
+| `exposure` forgets what was already spent this window | 0 | 1 |
+| `cancel` keeps the queue | 2 | 16 |
+| `amend` queues a raise one second early | 3 | 112 |
+
+The first six are also in CI (section 8 of `scripts/pay-cannot-loosen.sh`).
+
+**The origin check, caught by a test.** `fe test` cannot set a
+transaction's origin, so a `prove` that also accepted `ctx.origin()` used
+to be caught only by a sha256 pin. The in-memory chain the web tests use
+can (`Chain.sendVia`). Built with that edit, the vault failed the new test
+and passed the old ones:
+
+```
+✔ the agent cannot use any owner control
+✖ a contract the owner calls cannot act as the owner: the vault checks the caller, not the origin
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+```
+
+On the real vault the test passes. The one edit no test can see is now a
+helper appended after the contract that nothing calls: it compiles to the
+same bytecode, and CI checks the committed bytecode is what the source
+compiles to.
 
 ## AI agents against a real vault (Base Sepolia, 2026-11-18)
 
