@@ -52,6 +52,17 @@ Then ask it to pay Cloud hosting $4, then $15. What it reads back:
 [████░░░░░░░░░░░░░░░░] $4.00 of $20.00 used today.
 ```
 
+**The case caps miss: the owner is fooled.** Replace `--demo` with `--tricked`
+and the practice vault starts with a $1,000-a-day raise its owner was talked
+into. The agent is still refused, and the contract's worst case shows the danger
+before any money moves (a run on 2026-11-23):
+
+```
+⏳ A change is waiting: up to $1,000.00 per payment and $1,000.00 per day, until 23 Dec 2026, 09:45. It takes effect 24 Nov 2026, 09:45 unless the owner cancels it.
+Worst case over the next 24 hours, by the contract's own arithmetic: $1,020.00.
+⛔ Refused: $500.00 to Cloud hosting. One payment may be at most $10.00.
+```
+
 Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](web/mcp/README.md).
 Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 
@@ -63,7 +74,7 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 | The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 72 lines starting `ok` |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `107` pass |
+| Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `108` pass |
 | The whole site in a browser | `cd web && npm run e2e` | 64 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions and gas: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
@@ -125,7 +136,7 @@ fe build --backend native         # writes out/hardstop
                                   # prints "10 10 0 0 0": code 10, over the per-payment limit of 10
 cd ../web
 npm ci
-npm test                          # 107 tests
+npm test                          # 108 tests
 ```
 
 ## What the compiler does and does not guard

@@ -475,3 +475,22 @@ test('cancelled queued payment does not preview a repeat or spend RPC calls', as
   assert.equal(rpcDuringCancelled, 0, 'cancelled queued payment must not make RPC calls to preview a repeat')
   await client.close()
 })
+
+test('the tricked-owner demo: an approved $1,000 raise waits, the agent is still refused, and the owner can see it coming', async () => {
+  const { demo } = await import('../mcp/demo.ts')
+  const options = await demo({ trickedRaise: true })
+  const server = createServer(options)
+  const client = new Client({ name: 'test', version: '0.0.0' })
+  const [a, b] = InMemoryTransport.createLinkedPair()
+  await Promise.all([server.connect(a), client.connect(b)])
+  const call = async (name: string, args: Record<string, unknown> = {}) => (await client.callTool({ name, arguments: args })) as CallToolResult
+
+  const status = await call('hardstop_status')
+  assert.match(text(status), /A change is waiting: up to \$1,000\.00 per payment and \$1,000\.00 per day/)
+  assert.match(text(status), /takes effect .* unless the owner cancels it/)
+  assert.equal((data(status).rules as { per_payment_usd: string }).per_payment_usd, '10.00', 'the approved raise is not in force yet')
+
+  const big = await call('hardstop_pay', { to: 'Cloud hosting', amount_usd: 500 })
+  assert.equal(data(big).result, 'refused')
+  assert.equal(data(big).reason, 'OverPaymentLimit')
+})

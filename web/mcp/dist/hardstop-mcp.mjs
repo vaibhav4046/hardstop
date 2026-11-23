@@ -81996,7 +81996,7 @@ async function status(vault) {
     `Rules in force: ${describePolicy(policy, windowSecs)}.`,
     `${words.current}: ${formatUsd(spent)} spent, ${formatUsd(leftToday2)} left. The ${words.period} resets ${formatTime(resetsAt)}.`,
     `The vault holds ${formatUsd(state.vaultBalance)}. The agent has ${formatEther2(gas)} ETH left for network fees.`,
-    queued ? `A change is waiting: ${describePolicy(queued, windowSecs)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.` : "No change to the rules is waiting.",
+    queued ? `\u23F3 A change is waiting: ${describePolicy(queued, windowSecs)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.` : "No change to the rules is waiting.",
     `Worst case over the next ${words.span}, by the contract's own arithmetic: ${formatUsd(worstCase)}. This span can cross the ${words.period}'s reset, so it can include part of the next ${words.period}'s allowance.`,
     `Next request number: ${state.ledger.nextNonce}.`
   ];
@@ -82684,7 +82684,7 @@ __export(demo_exports, {
   DEMO_PAYEE: () => DEMO_PAYEE,
   demo: () => demo
 });
-async function demo() {
+async function demo({ trickedRaise = false } = {}) {
   const now = BigInt(Math.floor(Date.now() / 1e3));
   const network = await FakeNetwork.create(OWNER, now);
   const live = await launchVault(
@@ -82707,6 +82707,10 @@ async function demo() {
     },
     1
   );
+  if (trickedRaise) {
+    const owner2 = await attach(network, live, 1);
+    await owner2.sim.propose({ perPayment: 1000n * USD, perWindow: 1000n * USD, validUntil: now + 30n * DAY, paused: false });
+  }
   return {
     wallet: network,
     env: {
@@ -85220,7 +85224,7 @@ No transaction was sent.`,
       {
         name: "hardstop",
         title: "HARDSTOP",
-        version: "0.1.1",
+        version: "0.1.2",
         websiteUrl: SITE2,
         // The site's own mark, for clients that show a server's icon.
         icons: [
@@ -85446,6 +85450,7 @@ async function main2() {
     options: {
       http: { type: "boolean" },
       demo: { type: "boolean" },
+      tricked: { type: "boolean" },
       watch: { type: "boolean" },
       port: { type: "string", default: "8787" },
       host: { type: "string", default: "127.0.0.1" }
@@ -85453,9 +85458,9 @@ async function main2() {
   });
   if (values.watch) return (await Promise.resolve().then(() => (init_watch(), watch_exports))).main();
   let options = {};
-  if (process.env.HARDSTOP_FAKE === "1" || process.env.HARDSTOP_FAKE === "true" || values.demo) {
+  if (process.env.HARDSTOP_FAKE === "1" || process.env.HARDSTOP_FAKE === "true" || values.demo || values.tricked) {
     const { demo: demo2, DEMO_NAME: DEMO_NAME2 } = await Promise.resolve().then(() => (init_demo(), demo_exports));
-    options = { ...await demo2(), networkName: DEMO_NAME2 };
+    options = { ...await demo2({ trickedRaise: values.tricked === true }), networkName: DEMO_NAME2 };
     process.stderr.write("hardstop: demo mode, an in-memory network with a freshly launched vault. Nothing is real.\n");
   } else {
     try {

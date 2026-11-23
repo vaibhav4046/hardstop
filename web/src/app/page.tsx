@@ -65,6 +65,47 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="wrap band" aria-labelledby="tricked-title">
+        <p className="eyebrow">Even if you are fooled</p>
+        <h2 id="tricked-title" className="section-title mt-4 max-w-[40rem]">
+          A tricked approval still cannot spend for a day
+        </h2>
+        <p className="section-lede">
+          Spending caps fail through the path that changes them: in the study, agents got their own cap raised.
+          HARDSTOP makes that path slow. A run of the practice vault after its owner was talked into $1,000 a day:
+        </p>
+        <ol className="tricked-steps mt-8" aria-label="What happens after a tricked approval">
+          <li className="card">
+            <span className="tricked-when mono">Minute 0</span>
+            <p>The owner approves $1,000 a payment and a day. Nothing changes yet: the raise is queued for 24 hours.</p>
+          </li>
+          <li className="card">
+            <span className="tricked-when mono">Minute 1</span>
+            <p>
+              The agent asks to pay $500. <strong className="text-stop">Refused</strong>: one payment may be at most $10.
+            </p>
+          </li>
+          <li className="card">
+            <span className="tricked-when mono">Any time</span>
+            <p>
+              The vault&rsquo;s worst case jumps from $40 to <strong>$1,020</strong>, computed by the contract, so the
+              danger has a number before any money moves.
+            </p>
+          </li>
+          <li className="card">
+            <span className="tricked-when mono">Before hour 24</span>
+            <p>
+              The owner cancels, or sets any tighter limit, and the raise is gone. <strong className="text-paid">$0</strong>{' '}
+              extra left the vault.
+            </p>
+          </li>
+        </ol>
+        <p className="small soft mt-5">
+          Run it yourself: <code className="mono">npx -y github:vaibhav4046/hardstop --tricked</code>, as any AI
+          assistant&rsquo;s MCP server.
+        </p>
+      </section>
+
       <section className="wrap band" aria-labelledby="checks-title">
         <p className="eyebrow">Inside the vault</p>
         <h2 id="checks-title" className="section-title mt-4 max-w-[40rem]">

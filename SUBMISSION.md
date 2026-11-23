@@ -33,6 +33,28 @@ rules into a contract where loosening any rule waits out a cooling period,
 so a tricked approval becomes a visible pending change instead of an
 instant loss. (Sources and their limits: `README.md`, `research/EVIDENCE_DATA.md`.)
 
+## What is new
+
+Spending caps and transaction delays already exist. In the study above the
+cap was not broken; the path that changes it was. HARDSTOP attacks that path:
+
+1. **Loosening is slow, tightening is instant.** A raise waits out a cooling
+   period and can be cancelled; any tighter limit applies at once and drops a
+   waiting raise. A tricked approval becomes a visible pending change, not a
+   loss (`npx -y github:vaibhav4046/hardstop --tricked` shows it: the owner has
+   approved $1,000 a day, and the agent's $500 is still refused).
+2. **The danger is a number before it happens.** The contract's `exposure`
+   computes the most the agent can move over any span, counting the waiting
+   raise: $40 over the next 24 hours before the tricked approval, $1,020
+   after, shown a day before the raise could be used.
+3. **The agent's authority is a type.** `Pay` gets the rules read-only, as
+   sealed types only the kernel can build, so an edit that lets a payment
+   change them does not compile (30 such edits refused in CI).
+
+`research/COMPETITOR_MATRIX.md` compares this with Safe, Zodiac's Delay
+Modifier, Argent and the closest Fe entry, Leash, whose policy is fixed at
+compile time.
+
 ## What is built in Fe
 
 - `fe/src/kernel.fe`: pure `decide`, `amend`, `cancel` and `exposure`, with
@@ -111,7 +133,7 @@ command-line program. Every error code and limit:
 ## Evidence it works
 
 - `fe test`: 101 passed on the EVM; 52 passed natively.
-- Web: 107 unit tests (including the MCP server and watcher) and 64 browser
+- Web: 108 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push

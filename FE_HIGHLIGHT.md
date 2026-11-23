@@ -99,8 +99,13 @@ from any ingot (Fe does not check a private trait's visibility in an `impl`;
 reported as [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036)),
 so any type can implement `Call`, and a function whose `uses` lists no `Call` can still
 transfer tokens (such an edit, in a `Pay` without `mut call`, moved money
-in a local `fe test`). A sealed payout value would bind only the path that
-uses it, not every path, so the vault does not have one. The script keeps
+in a local `fe test`). There is a second reason that is not a bug: inside a
+handler every host effect is the concrete `Evm`, and std has `impl Call for
+Evm`, so any mutable effect `Pay` holds (it needs `mut log` to record a
+payment) can be rebound as `Call` (`with (Call = mut log) { ... }`; checked
+on 26.6 on 2026-11-23: it compiles, and 10 tests fail). A sealed payout value
+would bind only the path that uses it, not every path, so the vault does not
+have one. The source check flags any `Call =` or `with (` inside `Pay`. The script keeps
 both edits as controls that must compile on Fe 26.6.
 
 The forged `Call` is a compiler bug, and it is fixed by this project's pull

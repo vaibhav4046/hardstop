@@ -5,7 +5,7 @@
 // or leaves this process.
 
 import type { Hex } from 'viem'
-import { launchVault } from '../src/lib/live/launch.ts'
+import { attach, launchVault } from '../src/lib/live/launch.ts'
 import { NETWORKS, type Wallet } from '../src/lib/live/wallet.ts'
 import { USD } from '../src/lib/money.ts'
 import { FAKE_CHAIN_ID, FakeNetwork } from '../tests/fake-network.ts'
@@ -15,8 +15,17 @@ const OWNER: Hex = '0x00000000000000000000000000000000000a11ce'
 export const DEMO_PAYEE: Hex = '0x0000000000000000000000000000000000005109'
 export const DEMO_NAME = 'in-memory demo network (HARDSTOP_FAKE=1, nothing is real)'
 
+export type DemoOptions = {
+  /**
+   * Start as if the owner had already been talked into approving $1,000 a payment and a day: the failure in the
+   * October 2026 study, where agents got their cap raised. The raise waits out the cooling period like any
+   * loosening, so the agent still cannot spend it, and hardstop_status shows it waiting for the owner to cancel.
+   */
+  trickedRaise?: boolean
+}
+
 /** $10 per payment, $20 a day, 30 days, one approved recipient, $100 in the vault. */
-export async function demo(): Promise<{ env: Env; wallet: Wallet }> {
+export async function demo({ trickedRaise = false }: DemoOptions = {}): Promise<{ env: Env; wallet: Wallet }> {
   const now = BigInt(Math.floor(Date.now() / 1000))
   const network = await FakeNetwork.create(OWNER, now)
   const live = await launchVault(
@@ -37,6 +46,11 @@ export async function demo(): Promise<{ env: Env; wallet: Wallet }> {
     () => {},
     1,
   )
+  if (trickedRaise) {
+    // The owner's own key signs this, as a tricked owner would; the agent never could.
+    const owner = await attach(network, live, 1)
+    await owner.sim.propose({ perPayment: 1000n * USD, perWindow: 1000n * USD, validUntil: now + 30n * DAY, paused: false })
+  }
   return {
     wallet: network,
     env: {

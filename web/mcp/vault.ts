@@ -270,7 +270,7 @@ export async function status(vault: Vault): Promise<Status> {
     `${words.current}: ${formatUsd(spent)} spent, ${formatUsd(leftToday)} left. The ${words.period} resets ${formatTime(resetsAt)}.`,
     `The vault holds ${formatUsd(state.vaultBalance)}. The agent has ${formatEther(gas)} ETH left for network fees.`,
     queued
-      ? `A change is waiting: ${describePolicy(queued, windowSecs)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.`
+      ? `⏳ A change is waiting: ${describePolicy(queued, windowSecs)}. It takes effect ${formatTime(queued.effectiveAt)} unless the owner cancels it.`
       : 'No change to the rules is waiting.',
     `Worst case over the next ${words.span}, by the contract's own arithmetic: ${formatUsd(worstCase)}. This span can cross the ${words.period}'s reset, so it can include part of the next ${words.period}'s allowance.`,
     `Next request number: ${state.ledger.nextNonce}.`,

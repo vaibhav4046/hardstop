@@ -5,6 +5,7 @@
 //   node mcp/server.ts                       stdio, for clients that start it themselves
 //   node mcp/server.ts --http --port 8787    Streamable HTTP at http://127.0.0.1:8787/mcp
 //   HARDSTOP_FAKE=1 node mcp/server.ts       a demo on an in-memory network (or: --demo)
+//   node mcp/server.ts --tricked             the demo, with a $1,000 raise the owner was tricked into, waiting
 //   node mcp/server.ts --watch               the watcher (mcp/watch.ts), for the one-file install
 //
 // There are deliberately no owner tools. Proposing, cancelling, pausing,
@@ -168,7 +169,7 @@ No transaction was sent.`,
       {
         name: 'hardstop',
         title: 'HARDSTOP',
-        version: '0.1.1',
+        version: '0.1.2',
         websiteUrl: SITE,
         // The site's own mark, for clients that show a server's icon.
         icons: [
@@ -425,6 +426,7 @@ async function main(): Promise<void> {
     options: {
       http: { type: 'boolean' },
       demo: { type: 'boolean' },
+      tricked: { type: 'boolean' },
       watch: { type: 'boolean' },
       port: { type: 'string', default: '8787' },
       host: { type: 'string', default: '127.0.0.1' },
@@ -435,9 +437,10 @@ async function main(): Promise<void> {
   let options: Options = {}
   // --demo is the same as HARDSTOP_FAKE=1, for one-line installs (npx) where setting a variable is awkward.
   // "true" is what the Claude Desktop extension's Practice vault switch (mcp/mcpb) passes.
-  if (process.env.HARDSTOP_FAKE === '1' || process.env.HARDSTOP_FAKE === 'true' || values.demo) {
+  // --tricked starts the demo with a $1,000 raise the owner was talked into: it waits, and the agent is still refused.
+  if (process.env.HARDSTOP_FAKE === '1' || process.env.HARDSTOP_FAKE === 'true' || values.demo || values.tricked) {
     const { demo, DEMO_NAME } = await import('./demo.ts')
-    options = { ...(await demo()), networkName: DEMO_NAME }
+    options = { ...(await demo({ trickedRaise: values.tricked === true })), networkName: DEMO_NAME }
     process.stderr.write('hardstop: demo mode, an in-memory network with a freshly launched vault. Nothing is real.\n')
   } else {
     try {

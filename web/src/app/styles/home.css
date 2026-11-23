@@ -314,6 +314,32 @@
     flex: none;
   }
 
+  /* The tricked-approval timeline: four short cards, two across from tablet up. */
+  .tricked-steps {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 56rem;
+    list-style: none;
+    padding: 0;
+  }
+
+  @media (min-width: 48rem) {
+    .tricked-steps {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .tricked-steps .card {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .tricked-when {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--color-gold);
+    font-size: var(--text-sm);
+  }
+
   .connect-oneclick {
     display: flex;
     flex-wrap: wrap;
