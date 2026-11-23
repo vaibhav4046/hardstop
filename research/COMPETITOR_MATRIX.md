@@ -1,5 +1,21 @@
 # HARDSTOP — Competitor Matrix
 
+## Outcome (2026-11-23): what was built against this field
+
+The research below is from 2026-11-17, before HARDSTOP was built, and its verdict ("thin") was the brief for what to build. What was built, checked against the closest entry and the prior art:
+
+- **Spending caps and delays are not new.** Safe's allowance module caps spending; the Zodiac Delay Modifier queues transactions behind a cooldown; Argent's wallet used a security period for sensitive changes. HARDSTOP does not claim the cap or the delay.
+- **`devprashant19/Leash`**, the closest Fe entry (README read again 2026-11-23, last push 2026-11-21): one Fe policy for chain and CLI, typed refusal codes, a parity suite, an agent tool mode. Its module "holds one policy fixed at compile time", so changing a limit means building and deploying a new module.
+- **What HARDSTOP adds, each in this repository:**
+  1. **Limits that change at run time, under a ratchet.** The owner loosens or tightens a live vault: tightening applies at once, loosening waits out the cooling period and can be cancelled until then, and a tightening also cuts a waiting raise (`amend`, `cancel` in `fe/src/kernel.fe`).
+  2. **A worst case the contract computes.** `exposure` returns the most the agent can move between two moments under the rules in force and any waiting change; the site and the MCP status show it.
+  3. **Agent authority bounded by the compiler.** `Pay` takes the rules and approvals without `mut`; they are sealed types only the kernel can build, and owner actions need a use-once `OwnerCall`. CI makes 30 attack edits that the compiler must refuse (`scripts/pay-cannot-loosen.sh`).
+  4. **A fix to Fe itself.** Building this found that any type could implement Fe's private `Call` trait; the fix was merged into the compiler (argotorg/fe#2042).
+
+The rest of this file is the 2026-11-17 research, unchanged.
+
+---
+
 Research date: 2026-11-17. Every cell below comes from a page or repository fetched in this session unless it is marked **UNVERIFIED**. "Not stated" means the fetched page did not say; it does not mean the feature is absent. No adoption, pricing or market-share figures are given because none were verified.
 
 **Headline finding.** The exact HARDSTOP pitch — one pure Fe decision function compiled into an EVM contract and a native executable, typed deny codes, a parity suite proving the two agree — is already public in the same contest: `devprashant19/Leash` (Apache-2.0, 97 commits, CI green on 2026-11-17). Two more Fe agent-spending entries exist (`mubudot/leash`, `Abdul99090/fe-spendguard`). Against the non-Fe industry the gap is real but narrow; against the contest field it is thin.

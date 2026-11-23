@@ -33,6 +33,26 @@ when they loosen. CI makes 30 attack edits and requires the compiler
 to refuse each one ([details](FE_HIGHLIGHT.md)). Building this found a hole
 in Fe itself, private traits that anyone could implement; the fix,
 [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), is merged.
+The compiler guards the rules; where `Pay` sends allowed money is guarded
+by tests and source checks instead, as [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md) lists.
+
+**Try it in 15 seconds, nothing to clone.** An AI agent on a practice vault
+($10 a payment, $20 a day), in Claude Code:
+
+```bash
+claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo
+```
+
+Then ask it to pay Cloud hosting $4, then $15. What it reads back:
+
+```
+✅ Paid: $4.00 to Cloud hosting. Inside every limit. $16.00 left today.
+⛔ Refused: $15.00 to Cloud hosting. One payment may be at most $10.00.
+[████░░░░░░░░░░░░░░░░] $4.00 of $20.00 used today.
+```
+
+Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](web/mcp/README.md).
+Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 
 ## For judges: one screen
 
@@ -43,7 +63,7 @@ in Fe itself, private traits that anyone could implement; the fix,
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `107` pass |
-| The whole site works in a browser | `cd web && npm run e2e` | 61 tests |
+| The whole site works in a browser | `cd web && npm run e2e` | 64 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
 | Building it found bugs in Fe itself, reported upstream with three fixes proposed | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040), pull requests [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042) and [#2048](https://github.com/argotorg/fe/pull/2048) on argotorg/fe; CI job `patched-fe` | #2048 merged into Fe on 2026-11-20 and #2042 on 2026-11-21 (both by sbillig; #2042 approved by micahscopes); #2041 open; the job is green, and so is the nightly job on unpatched Fe master |
@@ -161,7 +181,7 @@ need an unforgeable, use-once proof (`OwnerCall`: private field, not `Copy`,
 kernel's `const fn`s at compile time to check the verdict codes and the
 ratchet's laws. CI edits copies of the code and requires the compiler to
 refuse each attack (30 refusals, plus 7 control edits that must still
-compile and 30 source-check lines, in
+compile, 7 source checks and 28 edits they catch, in
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)). The same
 pure `decide` also builds as a native program. Not covered by the compiler:
 where `Pay` sends the money a verdict allowed. Tests cover it, and a source
@@ -174,7 +194,7 @@ approvals, and the chain's own time for every `now` given to the kernel)
 and catches six more edits that compile and pass every test. `init`, the
 helpers around the contract, and all of `kernel.fe`, `kernel/sealed.fe` and
 `launcher.fe` are pinned by their sha256, so a change to them fails CI until
-the pin is updated; that catches six more edits Fe judges found on
+the pin is updated; that catches six more edits an AI review panel found on
 2026-11-21.
 
 The full account, with every error code and limit:
@@ -192,7 +212,7 @@ capabilities. Three have fixes from this project:
 the block time and number, was merged into Fe on 2026-11-20;
 [#2042](https://github.com/argotorg/fe/pull/2042), approved by micahscopes,
 was merged on 2026-11-21 with a test commit sbillig added;
-[#2041](https://github.com/argotorg/fe/pull/2041) is open. The nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its 101 tests there with the forged `Call` and stand-in `Ctx` refused. The
+[#2041](https://github.com/argotorg/fe/pull/2041) is open. The nightly CI job `fe-master` builds unpatched Fe master (which includes the #2042 merge) every night, and HARDSTOP passes its 101 tests there with the forged `Call` and stand-in `Ctx` refused. The
 first two compiler patches are also in [`research/fe-patches/`](research/fe-patches/):
 `2-private-trait-visibility.patch` makes a private trait named outside its
 module "not visible" (2-0003) in an `impl` header, a bound, a `where`
@@ -207,7 +227,7 @@ forged `Call` and `Ctx` to be refused instead of compiling. CI job
 `master` at `6cd57cc`, runs their UI tests, then HARDSTOP's 101 tests and the
 refusal script on that compiler. The contracts are built and deployed with
 the unpatched 26.6 release. (The nightly job `fe-master` builds unpatched
-Fe master, whose head on 2026-11-21 is the #2042 merge, and passes HARDSTOP's
+Fe master and passes HARDSTOP's
 101 tests with the forged `Call` and stand-in `Ctx` refused.)
 
 ## Architecture
@@ -277,7 +297,7 @@ npm ci
 npm test                          # 107 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
-npm run e2e                       # 61 browser tests against the production build
+npm run e2e                       # 64 browser tests against the production build
 ```
 
 Every command above except the `decide` example, the browser suite included, runs in
@@ -303,7 +323,7 @@ Measured from 2026-11-17 to 2026-11-22; raw output in [`EVIDENCE_LOG.md`](EVIDEN
 | A vault opened by clicking through MetaMask on the live site (2026-11-18, previous contracts) | vault `0x3143b2b3479535cbdf63be8b0db52c1a2d95c0e2` created ([tx](https://sepolia.basescan.org/tx/0xfea508732560a856eb2a78c10eefb5b5937af3677e756ded9b30b43e78e9c5b8)), its `owner()` is the MetaMask account; from the Activity page the agent paid $4 ([tx](https://sepolia.basescan.org/tx/0xa9d98697b4c79184721e9ff7525a19128963f6a6b701bdef61fda68e63cac562)), was refused $80 ([tx](https://sepolia.basescan.org/tx/0xeb1947f5143adcdcd3aace21c3bca8a519e7e6faa09f58b172be442a73cf2744)) and was refused a self-raise before sending; vault left with $96 |
 | Cost of the first launch on Base Sepolia | 0.000024 ETH in fees + 0.00003 ETH handed to the agent; an agent payment cost 0.00000088 ETH |
 | Vault runtime size | 6,883 bytes for the current contracts, read from Base Sepolia with `eth_getCode`; 1,102 bytes less than the previous build (7,985), which copied the rules in and out of storage |
-| Browser suite (`npm run e2e`, Chromium, production build) | 61 tests, all passing (61 of 61 on 2026-11-20); on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
+| Browser suite (`npm run e2e`, Chromium, production build) | 64 tests, all passing in CI; on this machine 1 to 3 can time out (90 s) under load in a full run and pass when rerun alone. Covers seven scripted personas, a vault on a test network through a stand-in wallet, keyboard-only journey, reduced motion, performance |
 | The live site in three browser engines (`BROWSER=chromium|firefox|webkit node web/e2e/live-check.mjs`, 2026-11-21) | passes in Chromium, Firefox and WebKit (the engine of Safari): every journey step, the security headers, no console errors. A Next.js prefetch cancelled by the script's own page loads is ignored in each engine's wording; staying on each page or clicking a link shows no error in any of them |
 | Use cases on Base Sepolia (`web/scripts/base-sepolia-usecases.ts`, 2026-11-21) | a trial vault valid for 150 seconds paid $1 before its end ([tx](https://sepolia.basescan.org/tx/0x0c3f96b421732e9f909776af3b47895a20fe314dbc5d90a3fdd416a7bc161878)) and refused the same $1 after it with code 5, Expired ([tx](https://sepolia.basescan.org/tx/0x56c7dca50973c275fa81388e2976b8095f4607c20d9174c010478896d1abd0d5)); an agent paid $5 into another agent's vault, whose balance went from $92.00 to $97.00 ([tx](https://sepolia.basescan.org/tx/0x24b8898341356ee3b2e63b8317b4065628ba48f6b7278af351a447b6a773a2ff)); the launcher lists the owner's three vaults by name; the activity feed read the expiry refusal back |
 | Two AI agents against the current contracts (Base Sepolia, 2026-11-21, [`qa/agent-runs/2026-11-21-agents-current-build.md`](qa/agent-runs/2026-11-21-agents-current-build.md)) | through the real MCP server and its five tools: a purchasing agent paid the two jobs that fit, previewed the two that did not, refused to split a payment around the limit and ignored a planted prompt injection; a hostile agent made 11 calls (replayed and skipped request numbers, odd amounts, paying by name, a real send) and moved $0 ([refused on chain](https://sepolia.basescan.org/tx/0x3baeb08447d80ec8203eeed1ecaf640112d41fed4561584caa2aaef5e70c2185)) |

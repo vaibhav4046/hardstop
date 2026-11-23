@@ -50,6 +50,8 @@ const INSTRUCTIONS = `This server lets you spend from a HARDSTOP vault as its ag
 
 type Reply = { text: string; json: Record<string, unknown> }
 
+const SITE = 'https://hardstop-omega.vercel.app'
+
 /** How long an identical payment counts as a possible duplicate of one already paid. */
 const REPEAT_WINDOW_MS = 10 * 60 * 1000
 
@@ -162,7 +164,20 @@ No transaction was sent.`,
   }
 
   return (): McpServer => {
-    const server = new McpServer({ name: 'hardstop', version: '0.1.0' }, { instructions: INSTRUCTIONS })
+    const server = new McpServer(
+      {
+        name: 'hardstop',
+        title: 'HARDSTOP',
+        version: '0.1.1',
+        websiteUrl: SITE,
+        // The site's own mark, for clients that show a server's icon.
+        icons: [
+          { src: `${SITE}/icon.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
+          { src: `${SITE}/apple-icon.png`, mimeType: 'image/png', sizes: ['180x180'] },
+        ],
+      },
+      { instructions: INSTRUCTIONS },
+    )
 
     server.registerTool(
       'hardstop_status',

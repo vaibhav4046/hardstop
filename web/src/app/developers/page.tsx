@@ -26,6 +26,21 @@ const EXAMPLE_FORMAT = {
   window: 'today',
 }
 
+const MCP_DEMO = `# Claude Code (other clients: command npx, these arguments)
+claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo`
+
+/** Copied from a run of the demo server (2026-11-23), lightly trimmed: the dates and vault address change every run. */
+const MCP_REPLIES = `> hardstop_pay { to: "Cloud hosting", amount_usd: 4 }
+✅ Paid: $4.00 to Cloud hosting. Inside every limit. $16.00 left today.
+
+> hardstop_pay { to: "Cloud hosting", amount_usd: 15 }
+⛔ Refused: $15.00 to Cloud hosting. One payment may be at most $10.00.
+
+> hardstop_status
+[████░░░░░░░░░░░░░░░░] $4.00 of $20.00 used today.
+Rules in force: up to $10.00 per payment and $20.00 per day.
+Worst case over the next 24 hours, by the contract's own arithmetic: $36.00.`
+
 const COMMANDS = `# in fe/  (Fe 26.6.0)
 fe test                       # kernel, adversary and vault tests on the EVM
 fe test --backend native      # the same kernel and adversary tests, as a native program
@@ -129,6 +144,32 @@ export default function Developers() {
         <pre className="code mt-4 max-w-[60rem]" tabIndex={0} aria-label="Usage of hardstop decide">
           <code>{DECIDE_USAGE}</code>
         </pre>
+      </section>
+
+      <section className="mt-[var(--gap-section)]" aria-labelledby="mcp-title">
+        <h2 id="mcp-title" className="section-title">
+          Connect an AI agent
+        </h2>
+        <p className="prose soft mt-6">
+          HARDSTOP is also an MCP server, so any assistant that speaks the Model Context Protocol can be a vault&rsquo;s
+          agent. It gets five tools: <code className="mono">hardstop_status</code>,{' '}
+          <code className="mono">hardstop_preview_payment</code>, <code className="mono">hardstop_pay</code>,{' '}
+          <code className="mono">hardstop_recipients</code> and <code className="mono">hardstop_request_more</code>, which
+          only drafts a note to the owner. There is no tool that changes a limit. This starts a practice vault in memory,
+          with nothing to clone and no keys:
+        </p>
+        <pre className="code mt-5 max-w-[60rem]" tabIndex={0} aria-label="MCP demo">
+          <code>{MCP_DEMO}</code>
+        </pre>
+        <p className="prose soft mt-5">What the agent reads back, from that practice vault:</p>
+        <pre className="code mt-4 max-w-[60rem]" tabIndex={0} aria-label="MCP replies">
+          <code>{MCP_REPLIES}</code>
+        </pre>
+        <p className="small soft mt-3">
+          Claude Desktop, Cursor, VS Code, Antigravity and the other setups, and every tool&rsquo;s arguments:{' '}
+          <a href={source('web/mcp/README.md')}>web/mcp/README.md</a>. Listed in the official MCP Registry as{' '}
+          <code className="mono">io.github.vaibhav4046/hardstop</code>.
+        </p>
       </section>
 
       <section className="mt-[var(--gap-section)]" aria-labelledby="codes-title">

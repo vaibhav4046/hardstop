@@ -15,7 +15,7 @@ the reference; this page only says where things stand.
 | Committed web artifacts vs a fresh build | identical |
 | `npm test` (web) | 107 tests, passing locally and in CI |
 | `npx tsc --noEmit` | clean |
-| Browser suite | 61 tests; green in CI (GitHub Actions) |
+| Browser suite | 64 tests; green in CI (GitHub Actions) |
 | Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app |
 
 ## Done

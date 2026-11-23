@@ -27,6 +27,11 @@ jobs:
           echo "$HOME/.fe/bin" >> "$GITHUB_PATH"
       - run: fe --version
 
+      - name: The contest starter's checks, from the repository root (fe.toml there is a workspace of fe/)
+        run: |
+          fe fmt --check
+          fe test
+          fe build
       - name: Format
         working-directory: fe
         run: fe fmt --check

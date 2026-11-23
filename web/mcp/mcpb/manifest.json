@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "hardstop",
   "display_name": "HARDSTOP",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A spending firewall for your AI agent: it pays only through your vault, inside limits it cannot change.",
   "long_description": "HARDSTOP gives the assistant one wallet: a vault whose contract enforces your limits (per payment, per day, an end date, approved recipients, a pause switch). The assistant can check the vault, preview a payment, pay, list recipients and draft a request for more room. It cannot raise its own limit; no tool here can. Test networks only (Base Sepolia, Sepolia): the dollars have no value. Turn on Practice vault to try it with no keys.",
   "author": { "name": "Vaibhav Lalwani", "url": "https://github.com/vaibhav4046" },

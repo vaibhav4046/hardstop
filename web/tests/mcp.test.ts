@@ -74,6 +74,10 @@ test('the server offers exactly the five agent tools and the status resource, an
   }
   const { resources } = await client.listResources()
   assert.deepEqual(resources.map((r) => r.uri), ['hardstop://status'])
+  // The server names itself with the site's logo, so clients that show server icons show HARDSTOP's.
+  const info = client.getServerVersion()
+  assert.equal(info?.title, 'HARDSTOP')
+  assert.deepEqual(info?.icons?.map((icon) => icon.src), ['https://hardstop-omega.vercel.app/icon.svg', 'https://hardstop-omega.vercel.app/apple-icon.png'])
   const missing = (await client.callTool({ name: 'hardstop_propose', arguments: {} })) as CallToolResult
   assert.equal(missing.isError, true)
   assert.match(text(missing), /not found/i)

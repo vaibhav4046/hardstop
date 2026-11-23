@@ -85216,7 +85216,20 @@ No transaction was sent.`,
     throw new Error(`"${oneLine(to).slice(0, 60)}" is neither an address (0x followed by 40 hex characters) nor a recipient name this server knows. hardstop_recipients lists the names it knows.`);
   };
   return () => {
-    const server = new McpServer({ name: "hardstop", version: "0.1.0" }, { instructions: INSTRUCTIONS });
+    const server = new McpServer(
+      {
+        name: "hardstop",
+        title: "HARDSTOP",
+        version: "0.1.1",
+        websiteUrl: SITE2,
+        // The site's own mark, for clients that show a server's icon.
+        icons: [
+          { src: `${SITE2}/icon.svg`, mimeType: "image/svg+xml", sizes: ["any"] },
+          { src: `${SITE2}/apple-icon.png`, mimeType: "image/png", sizes: ["180x180"] }
+        ]
+      },
+      { instructions: INSTRUCTIONS }
+    );
     server.registerTool(
       "hardstop_status",
       {
@@ -85471,7 +85484,7 @@ async function main2() {
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 }
-var amount, INSTRUCTIONS, REPEAT_WINDOW_MS, ok, failed, formatFor, oneLine, createServer2;
+var amount, INSTRUCTIONS, SITE2, REPEAT_WINDOW_MS, ok, failed, formatFor, oneLine, createServer2;
 var init_server3 = __esm({
   "mcp/server.ts"() {
     init_entry();
@@ -85486,6 +85499,7 @@ var init_server3 = __esm({
     init_vault();
     amount = external_exports.union([external_exports.number(), external_exports.string()]).describe('Dollar amount of test dollars, for example 4 or "12.50". At most two decimals.');
     INSTRUCTIONS = `This server lets you spend from a HARDSTOP vault as its agent. The vault's contract enforces the owner's limits (per payment, per spending window, an end date, approved recipients, a pause switch); you cannot change them, and no tool here can. Check hardstop_status before spending, use hardstop_preview_payment when unsure, and if you need more room use hardstop_request_more and show the draft to your user. These are test networks: the dollars have no value.`;
+    SITE2 = "https://hardstop-omega.vercel.app";
     REPEAT_WINDOW_MS = 10 * 60 * 1e3;
     ok = ({ text, json: json3 }) => ({ content: [{ type: "text", text }], structuredContent: json3 });
     failed = (error62) => ({ isError: true, content: [{ type: "text", text: plain(error62) }] });

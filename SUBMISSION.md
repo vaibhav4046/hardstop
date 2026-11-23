@@ -82,10 +82,15 @@ that changes them does not compile. Around that, the compiler enforces:
   `prove(owner, ctx)` makes from the concrete `Evm`. A hand-made proof, a
   stand-in context, a proof used twice or one thrown away as a bare
   statement each fails to compile.
-- **The ratchet's laws at compile time.** `amend`, `cancel`, `meet`,
+- **The ratchet's laws, checked at compile time on sample policies.** `amend`, `cancel`, `meet`,
   `loosens` and the time operators are `const fn`, and `static_assert`s run
   them on fixed policies: no policy loosens itself, a raise waits out the
   cooling period, a tightening applies at once. Breaking one fails the build.
+
+What the compiler guards is the code: whoever edits the contract (its author,
+a maintainer, an AI coding assistant) cannot loosen the agent's authority
+without the build failing. The running agent is stopped by the deployed
+contract itself, its owner checks and cooling period.
 
 On every push CI makes 30 attack edits and requires the compiler to refuse
 each one (`scripts/pay-cannot-loosen.sh`).
@@ -93,8 +98,9 @@ each one (`scripts/pay-cannot-loosen.sh`).
 **Where the compiler stops.** Where `Pay` sends allowed money, what it tells
 the kernel, copies of `Approval` (Fe 26.6's `StorageMap::get` needs `Copy`
 values), and the bodies of `vault.fe`, the kernel, `sealed.fe` and the launcher are guarded
-by tests and by source checks that read the text and pin that code (35
-checks and catches), not by the compiler. One gap was a Fe bug: any type could
+by tests and by source checks that read the text (7 checks, catching 28
+attack edits; some of those only by a sha256 pin, which fails on any change
+to the pinned code), not by the compiler. One gap was a Fe bug: any type could
 implement Fe 26.6's private `Call` trait, so a forged `Call` compiled. This
 project reported it (argotorg/fe#2036) and fixed it in the compiler
 (argotorg/fe#2042, merged 2026-11-21); on Fe master the forgery is refused
@@ -105,7 +111,7 @@ command-line program. Every error code and limit:
 ## Evidence it works
 
 - `fe test`: 101 passed on the EVM; 52 passed natively.
-- Web: 107 unit tests (including the MCP server and watcher) and 61 browser
+- Web: 107 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
@@ -116,8 +122,8 @@ command-line program. Every error code and limit:
   and paused, and the gas of every call, each with its transaction link, in
   the README. Earlier builds ran there too, including a vault opened by
   clicking through MetaMask on the live site.
-- Real AI agents through real MCP clients (2026-11-22): Claude Code's,
-  Cursor's and Antigravity's own MCP clients each ran the same six steps
+- Real AI agents through real MCP clients (2026-11-22): Claude Code, Cursor
+  (its agent CLI) and Antigravity, each through its own MCP client, ran the same six steps
   against a Base Sepolia vault. Each paid an allowed amount ($3, or $1 when
   only $1 was left that day), had an unapproved recipient and a $15 payment
   refused on chain, and could not raise its own limit (only a drafted request

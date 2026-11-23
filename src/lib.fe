@@ -1,0 +1,3 @@
+// The Fe project is in fe/ (fe/fe.toml). This workspace root lets `fe test`,
+// `fe build` and `fe fmt --check` run from the repository root too, as the
+// contest starter's CI does; this file only gives `fe fmt` something to check.
