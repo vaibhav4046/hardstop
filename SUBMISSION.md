@@ -60,9 +60,14 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    means editing its `uses` list, which compiles but fails a CI check on that
    list, and a rule change would still need the owner's use-once proof.
 
-`research/COMPETITOR_MATRIX.md` compares this with Safe, Zodiac's Delay
-Modifier, Argent and the closest Fe entry, Leash, whose policy is fixed at
-compile time.
+Prior art: Safe's allowance module caps spending, Zodiac's Delay Modifier
+queues transactions behind a cooldown, and Argent used a security period
+for sensitive changes. `research/COMPETITOR_MATRIX.md` compares HARDSTOP in
+detail with the closest Fe entry, Leash, whose policy is fixed at compile
+time. Leash also checks at compile time, with a `const fn` that refuses a
+badly configured policy, and a script that proves it; HARDSTOP's
+compile-time laws instead check how its engine behaves on every policy of
+a grid.
 
 ## What is built in Fe
 
@@ -141,7 +146,10 @@ without the build failing. The running agent is stopped by the deployed
 contract itself, its owner checks and cooling period.
 
 On every push CI makes 46 attack edits and requires the compiler to refuse
-each one (`scripts/pay-cannot-loosen.sh`).
+each one (`scripts/pay-cannot-loosen.sh`). It also keeps 6 control edits
+that must compile; two of them are attacks the compiler does not stop (a
+transfer imported into `vault.fe`, and one through a forged `Call` on Fe
+26.6), and the source checks must catch both.
 
 **Where the compiler stops.** `vault.fe` importing a transfer of its own and
 calling it beside the payout, copies of `Approval` (Fe 26.6's
@@ -202,10 +210,19 @@ command-line program. Every error code and limit:
 
 ## Honest limits
 
-Test networks only; unaudited; MetaMask's site scanner currently warns
-before connecting (a review was requested on 2026-11-18); a waiting raise is
-shown on every page of the site, but the site sends nothing; alerts
-elsewhere need the optional self-hosted watcher running. Full list in the README's "Limitations".
+Test networks only, with a test token the vault's creator mints (not
+USDC); unaudited; one vault, one token, one agent, and vaults cannot be
+upgraded. The cooling period only helps an owner who looks or runs the
+self-hosted watcher; the site itself sends nothing. A stolen owner key is
+out of scope. Fixed windows let a full cap be spent at the end of one window
+and again at the start of the next (`exposure` counts it). On the site the
+agent is a trial key kept in the browser. `setAgent` with the owner's own
+address silently does nothing. The current contracts were exercised through
+the MCP client, not by an AI assistant; the assistant runs were on the
+previous ones. No human user testing: the personas in `qa/` are scripts.
+The native build needs Linux, macOS or WSL. MetaMask's site scanner warns
+before connecting (a review was requested on 2026-11-18). Full list in
+`docs/LIMITATIONS.md`.
 
 ## AI assistance
 

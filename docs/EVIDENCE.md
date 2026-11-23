@@ -59,7 +59,7 @@ does not claim any of that as new. See
 
 ## Results
 
-Measured from 2026-11-17 to 2026-11-22; raw output in [`EVIDENCE_LOG.md`](../EVIDENCE_LOG.md).
+Measured from 2026-11-17 to 2026-11-23; raw output in [`EVIDENCE_LOG.md`](../EVIDENCE_LOG.md).
 
 | What | Result |
 |---|---|

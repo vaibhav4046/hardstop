@@ -50,3 +50,5 @@ a "Tokens transferred" row; the two refusals moved nothing.
 | The $1 payment | GPU Market refused | $15 refused |
 |---|---|---|
 | ![$1 paid](screens/2026-11-22-antigravity-1-paid-1.png) | ![GPU Market refused](screens/2026-11-22-antigravity-2-refused-gpu-market.png) | ![$15 refused](screens/2026-11-22-antigravity-3-refused-15.png) |
+
+**Not recorded:** which model drove the agent. The run used the client's default, and this note did not capture its name.
