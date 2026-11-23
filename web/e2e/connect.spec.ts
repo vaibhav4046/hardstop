@@ -34,9 +34,10 @@ test.describe('Connect your AI', () => {
     await claude.hover()
     await expect.poll(colour).toBe('rgb(217, 119, 87)')
 
-    // First the line that needs nothing, then the one for your own vault. Each copy button puts exactly its line on the clipboard, and says so.
-    const [demo, install] = await section.locator('.connect-line code').allTextContents()
+    // First the line that needs nothing, then the practice server's address, then the line for your own vault. Each copy button puts exactly its line on the clipboard, and says so.
+    const [demo, practice, install] = await section.locator('.connect-line code').allTextContents()
     expect(demo).toBe('claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo')
+    expect(practice).toBe('https://hardstop-omega.vercel.app/mcp')
     // The documented order: Claude's options, then the server name, then `--` and the command.
     expect(install).toMatch(/^claude mcp add --env HARDSTOP_AGENT_KEY=.* --transport stdio .*hardstop -- npx -y github:vaibhav4046\/hardstop$/)
     await section.getByRole('button', { name: 'Copy install line' }).click()
