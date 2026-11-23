@@ -33,7 +33,7 @@ Pay { to, amount, nonce } -> u8
 the rules or approves a recipient does not compile (adding `mut` to the
 `uses` list compiles, but a CI check pins that list). The rules themselves are
 a sealed type that only the kernel can make or change, and never at once
-when they loosen. CI makes 30 attack edits and requires the compiler
+when they loosen. CI makes 36 attack edits and requires the compiler
 to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
 contest's scope: building this found a hole in Fe itself, private traits
 that anyone could implement; the fix,
@@ -56,6 +56,16 @@ Then ask it to pay Cloud hosting $4, then $15. What it reads back:
 [████░░░░░░░░░░░░░░░░] $4.00 of $20.00 used today.
 ```
 
+**Or install nothing.** Any assistant that takes a remote MCP server can use
+the site's practice server; each session gets its own practice vault, kept
+in memory and forgotten after 30 idle minutes:
+
+```bash
+claude mcp add --transport http hardstop-practice https://hardstop-omega.vercel.app/mcp
+```
+
+`/mcp/tricked` instead starts each vault with the tricked owner's raise below.
+
 **The case caps miss: the owner is fooled.** Replace `--demo` with `--tricked`
 and the practice vault starts with a $1,000-a-day raise its owner was talked
 into. The agent is still refused, and the contract's worst case shows the danger
@@ -75,7 +85,8 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 | Claim | Check it | Expect |
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
-| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 80 lines starting `ok` |
+| The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 87 lines starting `ok` |
+| The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 26 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel and it fails with 8-0081 |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `108` pass |
@@ -156,12 +167,18 @@ npm test                          # 108 tests
 - **Guarded:** owner handlers need an unforgeable, use-once proof
   (`OwnerCall`) bound to the real caller, and `static_assert`s check the
   verdict codes and the ratchet's laws at compile time.
+- **Guarded, on a grid:** the promise to the owner. 137 `static_assert`s in
+  [`fe/src/kernel/laws.fe`](fe/src/kernel/laws.fe) make the compiler run
+  `amend`, `decide` and `exposure` over 128 policies and all 16,384 pairs:
+  no signature raises the worst case before the cooling period ends, no
+  payment beats it, and an agent that spends all it can reaches it exactly.
+  A kernel broken so any of this fails does not build. A grid, not every input.
 - **Not guarded by the compiler:** where `Pay` sends the money a verdict
   allowed. Tests and a source check (it reads the text) pin `Pay`'s only
   transfer; `Approval` is still `Copy`, so a source check and three tests
   catch an older approval put back.
-- **Pinned by CI:** 30 compiler refusals, 7 control edits that must compile,
-  7 source checks and 29 edits they catch, 7 of them also by a failing test, and sha256 pins on `kernel.fe`,
+- **Pinned by CI:** 36 compiler refusals, 7 control edits that must compile,
+  8 source checks and 29 edits they catch, 7 of them also by a failing test, and sha256 pins on `kernel.fe`,
   `kernel/sealed.fe` and `launcher.fe`
   ([`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)).
 

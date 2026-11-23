@@ -37,8 +37,9 @@ Every command above except the `decide` example, the browser suite included, run
 
 - **Reproducible CLI example:** the commands above; `./out/hardstop` prints
   usage with no arguments.
-- **Live app:** https://hardstop-omega.vercel.app (static; no server-side
-  state, no secrets). Open a vault on Base Sepolia or Sepolia with your own
+- **Live app:** https://hardstop-omega.vercel.app (static pages, no secrets;
+  its one server route is the public practice MCP server at `/mcp`, which
+  holds in-memory practice vaults only and reads no keys). Open a vault on Base Sepolia or Sepolia with your own
   wallet, or in your browser with no wallet. `node web/e2e/live-check.mjs https://hardstop-omega.vercel.app`
   drives the whole journey against it and fails on any wrong verdict or
   console error.

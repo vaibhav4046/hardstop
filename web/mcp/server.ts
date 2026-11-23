@@ -433,7 +433,7 @@ async function main(): Promise<void> {
     },
   })
   // The one-file install (npx) has one entry point; --watch makes it the watcher, which reads and never holds a key.
-  if (values.watch) return (await import('./watch.ts')).main()
+  if (values.watch) return (await import(/* turbopackIgnore: true */ './watch.ts')).main()
   let options: Options = {}
   // --demo is the same as HARDSTOP_FAKE=1, for one-line installs (npx) where setting a variable is awkward.
   // "true" is what the Claude Desktop extension's Practice vault switch (mcp/mcpb) passes.

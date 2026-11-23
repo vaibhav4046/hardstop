@@ -109,6 +109,47 @@ for (const path of ['/how-it-works', '/developers']) {
 }
 
 await browser.close()
+
+// The practice MCP server answers an MCP client: initialize, then a payment
+// that is paid and one that is refused, in a session of its own.
+for (const path of ['/mcp', '/mcp/tricked']) {
+  const mcp = async (body, session) => {
+    const response = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        'mcp-protocol-version': '2025-06-18',
+        ...(session ? { 'mcp-session-id': session } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    const text = await response.text()
+    return { status: response.status, session: response.headers.get('mcp-session-id'), json: text ? JSON.parse(text) : null }
+  }
+  try {
+    const init = await mcp({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'live-check', version: '1' } },
+    })
+    if (init.status !== 200 || !init.session || init.json?.result?.serverInfo?.name !== 'hardstop') {
+      problems.push(`${path}: initialize answered ${init.status} ${JSON.stringify(init.json)}`)
+      continue
+    }
+    await mcp({ jsonrpc: '2.0', method: 'notifications/initialized' }, init.session)
+    const pay = (id, amount) =>
+      mcp({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'hardstop_pay', arguments: { to: 'Cloud hosting', amount_usd: amount } } }, init.session)
+    const small = (await pay(2, path === '/mcp' ? '3' : '500')).json?.result?.content?.[0]?.text ?? ''
+    const expected = path === '/mcp' ? /^✅ Paid/m : /^⛔ Refused/m
+    if (!expected.test(small)) problems.push(`${path}: payment answered ${JSON.stringify(small)}`)
+    else console.log(`ok   ${path}: ${small.split('\n')[0]}`)
+  } catch (error) {
+    problems.push(`${path}: ${error.message}`)
+  }
+}
+
 if (problems.length > 0) {
   console.log(`\n${problems.length} problem(s):\n` + problems.map((problem) => `  ${problem}`).join('\n'))
   process.exit(1)

@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
-// The app is static: no API of its own, no analytics, no remote
-// fonts or images. The policy below says so. `'unsafe-inline'` for scripts is
+// The pages are static: no analytics, no remote fonts or images. The one
+// server route is the public practice MCP server (src/app/mcp), which keeps
+// in-memory practice vaults and reads no keys. The policy below says so. `'unsafe-inline'` for scripts is
 // what Next's static output needs for its inline bootstrap; a per-request
 // nonce would require rendering every page on the server.
 const contentSecurityPolicy = [

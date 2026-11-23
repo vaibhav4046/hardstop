@@ -28,14 +28,21 @@ The full list, moved here from the [README](../README.md).
   vault someone else deployed with the same code and you as owner can carry
   founding recipients you did not choose. My vaults lists only vaults your
   wallet launched; a vault opened from a link is checked by its code only.
-- **Alerts need the watcher running.** The site has no server and sends
-  nothing: every page shows a waiting loosening with a cancel button while
+- **Alerts need the watcher running.** The site sends nothing (its only
+  server route is the practice MCP server, which knows no real vault): every page shows a waiting loosening with a cancel button while
   it is open. The optional, self-hosted watcher (`web/mcp/watch.ts`) checks
   the vault around the clock and alerts by phone push (ntfy), webhook or desktop notification,
   but only while someone runs it. Without it, the ratchet only helps an
   owner who looks.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
+- **The agent's key cannot be swapped inside a vault.** A vault fixes its
+  agent when it is created. If the key leaks, the owner retires the vault
+  in three steps: pause (instant, so the key can pay nothing more),
+  withdraw, and launch a new vault, which gets a new key and works at once.
+  `web/tests/rotation.test.ts` runs exactly that on the compiled contracts:
+  the old key is refused `NotAgent` by the new vault. The new vault has a
+  new address, so whatever pays through it needs the new address too.
 - **A stolen owner key is out of scope**, as is a malicious token.
 - **Not professionally audited**, and built on a young compiler. An AI
   reviewer attacked it once ([`security/AUDIT.md`](../security/AUDIT.md));
