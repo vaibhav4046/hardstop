@@ -850,3 +850,39 @@ fn removing_a_recipient_while_it_cools_is_instant() {
     )
     assert!(removed == Instant::at(0))
 }
+
+/// Every day from 2020 to 2040, at a different second of each day, the
+/// caps hold and a raise waits the whole cooling period. Every other test
+/// here runs near second 1,000,000, so without this a kernel that only
+/// misbehaved on dates around today would pass them all. (The campaign in
+/// `adversary_tests.fe` also samples such dates, at random.)
+#[test]
+fn the_caps_and_the_cooling_period_hold_on_every_day_from_2020_to_2040() {
+    let start: u64 = 1577836800
+    let dated = Rules {
+        schedule: Schedule { anchor: at(start), window_secs: secs(DAY), cooling_secs: secs(DAY) },
+        active: Policy {
+            per_payment: 10,
+            per_window: 20,
+            valid_until: at(start + 7400 * DAY),
+            paused: false,
+        },
+        queued: Queued::none(),
+    }
+    let raise = Policy {
+        per_payment: 50,
+        per_window: 100,
+        valid_until: at(start + 7400 * DAY),
+        paused: false,
+    }
+    var day: u64 = 0
+    while day < 7306 {
+        let now = start + day * DAY + (day * 7919) % DAY
+        let spent = Ledger { window: day, spent: 15, next_nonce: 0 }
+        assert!(code(dated, fresh(), ask(amount: 11, nonce: 0), now) == 10)
+        assert!(code(dated, spent, ask(amount: 6, nonce: 0), now) == 11)
+        let raised = amend(owner(), rules: dated, proposed: raise, now: at(now))
+        assert!(raised.queued.effective_at == at(now + DAY))
+        day = day + 1
+    }
+}

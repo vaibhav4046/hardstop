@@ -146,6 +146,27 @@ fn the_caller_owns_the_vault_and_the_launcher_does_not() uses (evm: mut Evm) {
     assert!(token == test_dollar(launcher))
 }
 
+/// The recipients left blank stay blank: nobody but `shop` is approved,
+/// least of all the agent, which could then pay itself.
+#[test]
+fn only_the_named_recipient_is_approved() uses (evm: mut Evm) {
+    let launcher = launcher()
+    let vault = launch(launcher, agent: key(), salt: 7)
+    let approved = [shop(), key(), evm.address(), launcher, Address::zero()]
+    var i: usize = 0
+    while i < 5 {
+        let from: u64 = evm
+            .call(
+                addr: vault,
+                gas: GAS,
+                value: Wei::zero(),
+                message: VaultMsg::ApprovedFrom { who: approved[i] },
+            )
+        assert!((from != 0) == (i == 0))
+        i = i + 1
+    }
+}
+
 #[test]
 fn the_vault_holds_exactly_the_deposit() uses (evm: mut Evm) {
     let launcher = launcher()
