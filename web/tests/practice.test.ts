@@ -66,15 +66,41 @@ test('the tricked practice server starts with a $1,000 raise waiting, and the ag
   await agent.close()
 })
 
-test('a request without a session must be an initialize; an unknown session is told to start again', async () => {
+test('a request without a session must be an initialize; a session this copy does not hold carries on with a new vault', async () => {
   const server = practice()
   const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }
   const list = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
   const noSession = await server.handle(new Request(URL_, { method: 'POST', headers, body: list }))
   assert.equal(noSession.status, 400)
-  const gone = await server.handle(new Request(URL_, { method: 'POST', headers: { ...headers, 'mcp-session-id': 'nope' }, body: list }))
-  assert.equal(gone.status, 404)
   assert.equal(server.size, 0)
+
+  // As when the host sends a session's request to another copy of the server.
+  const elsewhere = '0b7d8a8e-3c4f-4f0e-9a51-2d6c1e7f9a10'
+  const answer = await server.handle(new Request(URL_, { method: 'POST', headers: { ...headers, 'mcp-session-id': elsewhere }, body: list }))
+  assert.equal(answer.status, 200)
+  assert.equal(answer.headers.get('mcp-session-id'), elsewhere)
+  assert.equal(((await answer.json()) as { result: { tools: unknown[] } }).result.tools.length, 5)
+  assert.equal(server.size, 1)
+
+  // An id this server would never hand out is replaced.
+  const odd = await server.handle(new Request(URL_, { method: 'POST', headers: { ...headers, 'mcp-session-id': 'nope' }, body: list }))
+  assert.equal(odd.status, 200)
+  assert.notEqual(odd.headers.get('mcp-session-id'), 'nope')
+})
+
+test('two copies of the server: a session moving between them keeps working', async () => {
+  const one = practice()
+  const two = practice()
+  let calls = 0
+  const client = new Client({ name: 'practice-test', version: '1.0.0' })
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL(URL_), {
+      // Alternate between the two copies, as a host with two instances might.
+      fetch: async (input, init) => ((calls += 1) % 2 ? one : two).handle(new Request(input, init)),
+    }),
+  )
+  for (let i = 0; i < 4; i += 1) assert.match(text(await call(client, 'hardstop_status')), /HARDSTOP vault/)
+  await client.close()
 })
 
 test('large bodies, too many requests and too many new sessions are refused', async () => {
@@ -93,14 +119,15 @@ test('large bodies, too many requests and too many new sessions are refused', as
   await assert.rejects(connect(server, '198.51.100.3'), /429|Too many/)
 })
 
-test('a vault idle for 30 minutes is forgotten', async () => {
+test('a vault idle for 30 minutes is forgotten, and the session carries on with a new one', async () => {
   let clock = 1_000_000
   const server = practice({ now: () => clock })
   const agent = await connect(server)
-  assert.equal(server.size, 1)
+  assert.match(text(await call(agent, 'hardstop_pay', { to: SHOP, amount_usd: '3' })), /^✅ Paid/m)
+  assert.match(text(await call(agent, 'hardstop_status')), /\$3\.00 of \$20\.00 used/)
   clock += 31 * 60_000
-  await assert.rejects(call(agent, 'hardstop_status'), /404|ended/)
-  assert.equal(server.size, 0)
+  assert.match(text(await call(agent, 'hardstop_status')), /\$0\.00 of \$20\.00 used/)
+  assert.equal(server.size, 1)
 })
 
 test('rate limits count an IPv6 address by its /64, and an IPv4 address by itself', async () => {

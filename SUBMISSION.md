@@ -189,7 +189,7 @@ command-line program. Every error code and limit:
 - Install nothing at all: https://hardstop-omega.vercel.app/mcp is a public
   practice MCP server for any assistant that takes a remote server. Each
   session gets its own practice vault, in memory, forgotten after 30 idle
-  minutes; `/mcp/tricked` starts it with the tricked owner's raise waiting.
+  minutes or reset if the host moves the session to another instance; `/mcp/tricked` starts it with the tricked owner's raise waiting.
   It reads no key and reaches no network.
 
 ## Honest limits
