@@ -9,7 +9,7 @@ the reference; this page only says where things stand.
 |---|---|
 | `fe fmt --check` | clean |
 | `fe test` (EVM) | 106 passed, 0 failed |
-| `fe test --backend native` (WSL) | 52 passed, 0 failed |
+| `fe test --backend native` (WSL) | 54 passed, 0 failed |
 | Native campaign, 20,000 games of 40 requests | `violation 0` |
 | `scripts/pay-cannot-loosen.sh` | 80 lines starting `ok`: 30 compiler refusals, 7 controls that must compile, 7 source checks, 29 edits they must catch, 7 edits a test must catch |
 | Committed web artifacts vs a fresh build | identical |

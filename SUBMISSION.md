@@ -134,7 +134,7 @@ command-line program. Every error code and limit:
 
 ## Evidence it works
 
-- `fe test`: 106 passed on the EVM (the native count is in CI's log).
+- `fe test`: 106 passed on the EVM; 54 passed natively.
 - Web: 108 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,

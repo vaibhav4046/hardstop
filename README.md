@@ -72,7 +72,7 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
 | The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 80 lines starting `ok` |
-| Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
+| Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `108` pass |
 | The whole site in a browser | `cd web && npm run e2e` | 64 tests |
@@ -130,7 +130,7 @@ and Node 24. Every command, with notes: [`docs/BUILD.md`](docs/BUILD.md).
 ```sh
 cd fe
 fe test                           # 106 tests on the EVM
-fe test --backend native          # the 52 kernel + adversary tests again, natively
+fe test --backend native          # the 54 kernel + adversary tests again, natively
 fe build --backend native         # writes out/hardstop
 ./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
                                   # prints "10 10 0 0 0": code 10, over the per-payment limit of 10

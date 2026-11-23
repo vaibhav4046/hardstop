@@ -8,7 +8,7 @@ The full results, on-chain transactions and gas figures, moved here from the [RE
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `106 passed; 0 failed` |
 | The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 80 lines starting `ok` |
-| The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `52 passed` |
+| The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `108` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 64 tests |
@@ -62,7 +62,7 @@ Measured from 2026-11-17 to 2026-11-22; raw output in [`EVIDENCE_LOG.md`](../EVI
 | What | Result |
 |---|---|
 | `fe test` (EVM) | 106 passed, 0 failed |
-| `fe test --backend native` | 52 passed, 0 failed |
+| `fe test --backend native` | 54 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 15 of 15 mutants caught, on both targets (the 15th, a cancel that lands a raise at once, added after the third review) |
 | Exposure promise under attack | taken 2,938 times in 200 games: 347 with a raise waiting, 565 with money already spent, reached exactly 100 times, never exceeded |
