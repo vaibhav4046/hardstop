@@ -1,0 +1,193 @@
+//! Vault tests at a realistic, fixed block time. Fe master only.
+//!
+//! `#[test(timestamp = N)]` (argotorg/fe #2048, after Fe 26.6) sets the block
+//! time a whole test runs at. It does not move time during a test, and each
+//! test starts from a fresh chain, so nothing here lets a queued raise
+//! mature, a window roll over or a policy run out. Those time-travel checks
+//! of the compiled vault live in `web/tests/vault.test.ts`; the kernel's
+//! are in `fe/src/tests.fe`.
+//!
+//! What this adds over `fe/src/vault_tests.fe`, which runs at timestamp 1:
+//! the vault deployed and used at a present-day clock (2023-11-14), where
+//! `now - 1` is not 0 and so cannot be mistaken for the vault's "not set"
+//! value, and every time the vault records is checked against that clock.
+//!
+//! This ingot is not a member of the root workspace, so Fe 26.6 (which
+//! rejects the `timestamp` argument) never compiles it. The nightly
+//! Fe-master workflow runs it.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Call, Evm}
+use hardstop::token::{TestDollar, TokenMsg}
+use hardstop::vault::{Vault, VaultMsg}
+
+const USD: u256 = 1000000
+const GAS: u256 = 3000000
+const DAY: u64 = 86400
+const HOUR: u64 = 3600
+const FAR_FUTURE: u64 = 4000000000
+/// The block time every test here runs at; keep in step with the attributes.
+const T: u64 = 1700000000
+const SHOP: Address = Address::new(0x5109)
+
+msg AgentMsg {
+    #[selector = sol("pay(address,address,uint256,uint64)")]
+    Pay { vault: Address, to: Address, amount: u256, nonce: u64 } -> u8,
+}
+
+/// Plays the agent: the vault sees this contract as the caller.
+contract Agent uses (call: mut Call) {
+    recv AgentMsg {
+        Pay { vault, to, amount, nonce } -> u8 uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1500000,
+                value: Wei::zero(),
+                message: VaultMsg::Pay { to, amount, nonce },
+            )
+        }
+    }
+}
+
+/// A vault funded with $100: $10 per payment, $20 per day, valid until
+/// `valid_until`, an hour's cooling period, `SHOP` approved from creation.
+fn vault(token: Address, agent: Address, valid_until: u64, salt: u256) -> Address
+uses (evm: mut Evm)
+{
+    let vault = evm
+        .create2<Vault>(
+            value: Wei::zero(),
+            args: (
+                evm.address(),
+                agent,
+                token,
+                10 * USD,
+                20 * USD,
+                valid_until,
+                DAY,
+                HOUR,
+                SHOP,
+                Address::zero(),
+                Address::zero(),
+            ),
+            salt,
+        )
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: TokenMsg::Mint { to: vault, amount: 100 * USD },
+    )
+    vault
+}
+
+fn pay(_ agent: Address, vault: Address, amount: u256, nonce: u64) -> u8
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: agent,
+        gas: GAS,
+        value: Wei::zero(),
+        message: AgentMsg::Pay { vault, to: SHOP, amount, nonce },
+    )
+}
+
+#[test(timestamp = 1700000000)]
+fn the_test_runs_at_the_set_clock() uses (evm: mut Evm) {
+    let now: u64 = evm.timestamp().as_seconds().downcast_saturate()
+    assert!(now == T)
+}
+
+/// A policy that ends this second still pays; one that ended a second ago
+/// is refused as expired (code 5).
+#[test(timestamp = 1700000000)]
+fn valid_until_is_compared_with_the_present_day_clock() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let agent = evm.create2<Agent>(value: Wei::zero(), args: (), salt: 2)
+    let last = vault(token, agent, valid_until: T, salt: 3)
+    let gone = vault(token, agent, valid_until: T - 1, salt: 4)
+    assert!(pay(agent, vault: last, amount: USD, nonce: 0) == 0)
+    assert!(pay(agent, vault: gone, amount: USD, nonce: 0) == 5)
+}
+
+/// The day window starts at the block the vault is created in, and a
+/// payment at that block is counted in window 0.
+#[test(timestamp = 1700000000)]
+fn the_day_window_is_anchored_at_creation() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let agent = evm.create2<Agent>(value: Wei::zero(), args: (), salt: 2)
+    let v = vault(token, agent, valid_until: FAR_FUTURE, salt: 3)
+    let (anchor, window_secs, cooling_secs): (u64, u64, u64) = evm
+        .call(
+            addr: v,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::ScheduleOf {},
+        )
+    assert!(anchor == T && window_secs == DAY && cooling_secs == HOUR)
+    assert!(pay(agent, vault: v, amount: 4 * USD, nonce: 0) == 0)
+    let (window, spent, next_nonce): (u64, u256, u64) = evm
+        .call(
+            addr: v,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::LedgerOf {},
+        )
+    assert!(window == 0 && spent == 4 * USD && next_nonce == 1)
+    assert!(
+        evm.call(
+                addr: v,
+                gas: GAS,
+                value: Wei::zero(),
+                message: VaultMsg::ApprovedFrom { who: SHOP },
+            )
+            == T,
+    )
+}
+
+/// A raise queued at T takes effect at T + cooling, not before: the old cap
+/// still refuses (code 10). A recipient added at T is approved from
+/// T + cooling.
+#[test(timestamp = 1700000000)]
+fn changes_made_at_t_wait_until_t_plus_cooling() uses (evm: mut Evm) {
+    let token = evm.create2<TestDollar>(value: Wei::zero(), args: (), salt: 1)
+    let agent = evm.create2<Agent>(value: Wei::zero(), args: (), salt: 2)
+    let v = vault(token, agent, valid_until: FAR_FUTURE, salt: 3)
+    evm.call(
+        addr: v,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::Propose {
+            per_payment: 50 * USD,
+            per_window: 50 * USD,
+            valid_until: FAR_FUTURE,
+            paused: false,
+        },
+    )
+    let (queued_payment, _, _, _, effective_at): (u256, u256, u64, bool, u64) = evm
+        .call(
+            addr: v,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::QueuedOf {},
+        )
+    assert!(queued_payment == 50 * USD && effective_at == T + HOUR)
+    assert!(pay(agent, vault: v, amount: 15 * USD, nonce: 0) == 10)
+
+    let newcomer = Address::new(0xbeef)
+    evm.call(
+        addr: v,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::SetRecipient { who: newcomer, approved: true },
+    )
+    assert!(
+        evm.call(
+                addr: v,
+                gas: GAS,
+                value: Wei::zero(),
+                message: VaultMsg::ApprovedFrom { who: newcomer },
+            )
+            == T + HOUR,
+    )
+}
