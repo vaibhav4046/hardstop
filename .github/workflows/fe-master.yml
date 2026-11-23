@@ -47,6 +47,13 @@ jobs:
       - name: HARDSTOP's Fe tests
         working-directory: fe
         run: ../fe-src/target/release/fe test
+      # fe-time/ uses #[test(timestamp = N)] (argotorg/fe #2048), which Fe
+      # 26.6 rejects, so it is not in the root workspace and only runs here.
+      - name: Vault tests at a fixed present-day clock (fe-time/)
+        working-directory: fe-time
+        run: |
+          ../fe-src/target/release/fe fmt --check
+          ../fe-src/target/release/fe test
       - name: The refusal script (it checks whichever compiler it is given)
         shell: bash
         run: FE="$PWD/fe-src/target/release/fe" bash scripts/pay-cannot-loosen.sh

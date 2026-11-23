@@ -1,0 +1,6 @@
+[ingot]
+name = "hardstop_time"
+version = "0.1.0"
+
+[dependencies]
+hardstop = "../fe"
