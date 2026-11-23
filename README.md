@@ -8,6 +8,23 @@ loss is a number you can read before anything goes wrong.
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 Live app: https://hardstop-omega.vercel.app
 
+**For judges, in 60 seconds.**
+
+1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the
+   rules, the approvals and its own key read-only, and it can move money
+   only through a sealed, use-once `Payout` the kernel returns. A payment
+   that writes a rule, or pays anyone else, does not compile.
+2. **The promise is checked by the compiler.** On every build, Fe itself
+   runs the vault's engine over 16,384 policy pairs: whatever the owner
+   signs, the worst case cannot rise before the cooling period ends.
+3. **A tricked approval waits.** Loosening takes a cooling period; tightening
+   is instant. The worst case is a number before any money moves.
+
+Check it: `cd fe && fe test` (112 passed), `FE=fe bash scripts/pay-cannot-loosen.sh`
+(91 lines `ok`: 47 attack edits the compiler refuses), or point any AI
+assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15.
+What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
+
 **New: update film (85 s, 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4): the tricked-owner run, the three AI agents refused on Base Sepolia, and the compiler refusals. ([`web/public/demo/hardstop-update.mp4`](web/public/demo/hardstop-update.mp4))
 
 **Demo video (2 min, narrated, with music and captions):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
