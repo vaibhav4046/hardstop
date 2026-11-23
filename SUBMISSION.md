@@ -151,7 +151,7 @@ command-line program. Every error code and limit:
 ## Evidence it works
 
 - `fe test`: 106 passed on the EVM; 54 passed natively.
-- Web: 110 unit tests (including the MCP server and watcher) and 64 browser
+- Web: 117 unit tests (including the MCP server and watcher) and 64 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
@@ -176,6 +176,11 @@ command-line program. Every error code and limit:
   vault switch), one-click Cursor and VS Code install links, and
   `npx -y github:vaibhav4046/hardstop` for any other client. Listed in the
   official MCP Registry as `io.github.vaibhav4046/hardstop` (2026-11-23).
+- Install nothing at all: https://hardstop-omega.vercel.app/mcp is a public
+  practice MCP server for any assistant that takes a remote server. Each
+  session gets its own practice vault, in memory, forgotten after 30 idle
+  minutes; `/mcp/tricked` starts it with the tricked owner's raise waiting.
+  It reads no key and reaches no network.
 
 ## Honest limits
 

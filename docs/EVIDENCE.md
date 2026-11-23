@@ -12,7 +12,7 @@ The full results, on-chain transactions and gas figures, moved here from the [RE
 | A contract the owner calls cannot act as the owner (the vault checks the caller, not the transaction's origin) | `web/tests/vault.test.ts`, "the vault checks the caller, not the origin"; on a vault built with `prove` also accepting `ctx.origin()` that test fails (run 2026-11-24, below) | passes on the real vault |
 | The same kernel gives the same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst-case figure | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `110` pass |
+| Web app, wallet path, MCP server and watcher work against the compiled contracts | `cd web && npm ci && npm test` | `117` pass |
 | The whole site works in a browser | `cd web && npm run e2e` | 64 tests |
 | AI agents cannot spend past it | [`qa/agent-runs/`](../qa/agent-runs/) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions, gas table below | `status 1` each |
