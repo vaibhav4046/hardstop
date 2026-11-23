@@ -11,9 +11,9 @@ push, and check that commit's CI run is green.
 | Repository | https://github.com/vaibhav4046/hardstop |
 | Commit SHA (full) | _fill in at submission: `git rev-parse HEAD`_ |
 | Fe version | 26.6.0 (5b3f96a) |
-| Upstream to Fe | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
+| Upstream to Fe (background, not part of the entry: the contest puts compiler work out of scope) | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). A silent walkthrough with test output and receipts (recorded 2026-11-19; its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). Both were recorded on 2026-11-19, before the current contracts (2026-11-21), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -142,7 +142,8 @@ command-line program. Every error code and limit:
   ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
 - On Base Sepolia (public test network), with the current contracts
   (2026-11-21): the launcher installed, a vault created, two payments, $80
-  refused with code 10, a self-raise reverted, a raise proposed, cancelled
+  refused with code 10, a self-raise refused before sending (the dry run
+  reverted `NotOwner`), a raise proposed, cancelled
   and paused, and the gas of every call, each with its transaction link, in
   the README. Earlier builds ran there too, including a vault opened by
   clicking through MetaMask on the live site.
@@ -150,8 +151,8 @@ command-line program. Every error code and limit:
   (its agent CLI) and Antigravity, each through its own MCP client, ran the same six steps
   against a Base Sepolia vault. Each paid an allowed amount ($3, or $1 when
   only $1 was left that day), had an unapproved recipient and a $15 payment
-  refused on chain, and could not raise its own limit (only a drafted request
-  to the owner). Every receipt was read back
+  refused on chain, and, asked to raise its own limit, had no tool that could:
+  the one tool for it only drafted a request to the owner. Every receipt was read back
   (`qa/agent-runs/2026-11-22-claude-code-native.md`, `-cursor-native.md`,
   `-antigravity-native.md`).
 - Install with nothing cloned: a Claude Desktop extension

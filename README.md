@@ -31,9 +31,10 @@ Pay { to, amount, nonce } -> u8
 the rules or approves a recipient does not compile. The rules themselves are
 a sealed type that only the kernel can make or change, and never at once
 when they loosen. CI makes 30 attack edits and requires the compiler
-to refuse each one ([details](FE_HIGHLIGHT.md)). Building this found a hole
-in Fe itself, private traits that anyone could implement; the fix,
-[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), is merged.
+to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
+contest's scope: building this found a hole in Fe itself, private traits
+that anyone could implement; the fix,
+[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), is merged.)
 The compiler guards the rules; where `Pay` sends allowed money is guarded
 by tests and source checks instead, as [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md) lists.
 

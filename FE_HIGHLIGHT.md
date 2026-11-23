@@ -110,12 +110,12 @@ both edits as controls that must compile on Fe 26.6.
 
 The forged `Call` is a compiler bug, and it is fixed by this project's pull
 request [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), merged
-into Fe on 2026-11-21 (the nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its 101 tests there with the forged `Call` and stand-in `Ctx` refused; the same patch is
+into Fe on 2026-11-21 (the nightly CI job `fe-master` builds unpatched Fe master, whose head on 2026-11-21 is the #2042 merge, and HARDSTOP passes its tests there with the forged `Call` and stand-in `Ctx` refused; the same patch is
 [`research/fe-patches/2-private-trait-visibility.patch`](research/fe-patches/2-private-trait-visibility.patch)):
 a private trait named in an `impl` header, a bound, a `where` clause, a
 super-trait or an associated-type bound outside its module is now "not
 visible" (2-0003), as a private function or struct already is. With the
-patched compiler, HARDSTOP still passes `fe test` (101), and the refusal
+patched compiler, HARDSTOP still passes `fe test`, and the refusal
 script, which checks whichever compiler it is given, requires the forged
 `Call` and the stand-in `Ctx` below to be refused at the seal instead of
 compiling. CI and the deployed contracts use the unpatched 26.6 release.
