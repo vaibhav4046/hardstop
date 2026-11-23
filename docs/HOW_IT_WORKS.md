@@ -127,7 +127,7 @@ web/
 ```
 
 ```
- agent ──pay()──▶ Vault ──facts──▶ kernel::decide ──▶ Allow ─▶ ledger, then transfer, Paid
+ agent ──pay()──▶ Vault ──sealed facts──▶ Books::judge (kernel::decide) ──▶ Allow ─▶ counted, then Payout.send(), Paid
                     ▲                              └─▶ Deny  ─▶ Blocked(code, detail), nothing moves
  owner ─propose()───┘──▶ kernel::amend ──▶ tighter parts now, looser parts after cooling
 
@@ -188,7 +188,7 @@ an edit to `Pay` can swap it (tests: `fe/src/vault_tests.fe`, the
 `agent key` tests in `web/tests/vault.test.ts`). For a working agent at
 once, the owner can instead **pause**, **withdraw** and **launch** a new
 vault (`web/tests/rotation.test.ts`); that is also the only way for vaults
-made before 2026-11-24.
+made through earlier launchers.
 
 ## Connect your AI
 

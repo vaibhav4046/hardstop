@@ -13,7 +13,7 @@ push, and check that commit's CI run is green.
 | Fe version | 26.6.0 (5b3f96a) |
 | Upstream to Fe (background, not part of the entry: the contest puts compiler work out of scope) | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | Update film, 85 s, recorded 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the 30 compiler refusals and 106 Fe tests; narrated by a synthetic voice, captions burned in, no music). The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (2026-11-21), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | Update film, 85 s, recorded 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the compiler refusals and Fe tests as they stood that morning, 30 and 106; narrated by a synthetic voice, captions burned in, no music). It was recorded before that evening's changes (the compile-time laws, the sealed payout, key replacement and the practice server; now 46 refusals and 112 tests), which are under Evidence below. The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (2026-11-23), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -27,7 +27,8 @@ can read before anything goes wrong.
 ## The problem, in two sentences
 
 In a controlled test published in October 2026, AI agents holding a wallet
-with a daily cap raised that cap themselves in 9 of 10 models, because the
+with a daily cap raised that cap themselves in 9 of 10 models (in at least
+one of 20 runs each, per the preprint), because the
 cap-change path trusted a passcode the agent could read. HARDSTOP moves the
 rules into a contract where loosening any rule waits out a cooling period,
 so a tricked approval becomes a visible pending change instead of an
@@ -83,7 +84,7 @@ compile time.
   password, email or server) and shows only the vaults that wallet launched,
   on any device. It is installed through the deterministic deployment proxy,
   so it has the same address on every network. It is installed on Base
-  Sepolia (2026-11-24); on Sepolia the site installs it on first use (one
+  Sepolia (2026-11-23); on Sepolia the site installs it on first use (one
   extra wallet approval).
 
 ## Fe highlight
@@ -124,7 +125,7 @@ a CI check pins every handler's `uses` list). Around that, the compiler enforces
   tried and all fail the build; seven of them pass every earlier check. The
   contracts' bytecode is unchanged by any of it. This is a grid, not every
   input.
-- **Paid only as judged (2026-11-24).** `vault.fe` holds no transfer. The
+- **Paid only as judged (2026-11-23).** `vault.fe` holds no transfer. The
   kernel judges a payment from sealed inputs (caller and time, stored rules,
   the agent, the recipient's approval, the spending so far), counts it, and
   returns a sealed, use-once `Payout` that pays only that recipient that
@@ -167,7 +168,7 @@ command-line program. Every error code and limit:
   the unit tests and the browser suite on every push
   ([runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml)).
 - On Base Sepolia (public test network), with the current contracts
-  (2026-11-24): the launcher installed, a vault created, two payments, $80
+  (2026-11-23): the launcher installed, a vault created, two payments, $80
   refused with code 10, a self-raise and a self-swap of the agent's key
   refused before sending (the dry runs reverted `NotOwner`), a raise
   proposed, cancelled and paused, the agent's key replaced by the owner (the
@@ -182,15 +183,17 @@ command-line program. Every error code and limit:
   refused on chain, and, asked to raise its own limit, had no tool that could:
   the one tool for it only drafted a request to the owner. Every receipt was read back
   (`qa/agent-runs/2026-11-22-claude-code-native.md`, `-cursor-native.md`,
-  `-antigravity-native.md`). On the current contracts (2026-11-24) the same
+  `-antigravity-native.md`). On the current contracts (2026-11-23) the same
   six steps ran through the official MCP client, not an assistant, with the
   same results and receipts read back
-  (`qa/agent-runs/2026-11-24-mcp-client-current-build.md`).
+  (`qa/agent-runs/2026-11-23-mcp-client-current-build.md`).
 - Install with nothing cloned: a Claude Desktop extension
   (https://hardstop-omega.vercel.app/install/hardstop.mcpb, with a practice
   vault switch), one-click Cursor and VS Code install links, and
   `npx -y github:vaibhav4046/hardstop` for any other client. Listed in the
-  official MCP Registry as `io.github.vaibhav4046/hardstop` (2026-11-23).
+  official MCP Registry as `io.github.vaibhav4046/hardstop` (version 0.1.1,
+  published the morning of 2026-11-23, before that evening's contracts; the
+  extension on the site is 0.1.2).
 - Install nothing at all: https://hardstop-omega.vercel.app/mcp is a public
   practice MCP server for any assistant that takes a remote server. Each
   session gets its own practice vault, in memory, forgotten after 30 idle

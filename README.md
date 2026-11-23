@@ -43,7 +43,7 @@ that anyone could implement; the fix,
 The compiler guards the rules; where `Pay` sends allowed money is guarded
 by tests and source checks instead, as [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md) lists.
 
-**Try it in 15 seconds, nothing to clone.** An AI agent on a practice vault
+**Try it in a minute.** An AI agent on a practice vault
 ($10 a payment, $20 a day), in Claude Code:
 
 ```bash
@@ -81,7 +81,7 @@ Worst case over the next 24 hours, by the contract's own arithmetic: $1,020.00.
 ```
 
 Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](web/mcp/README.md).
-Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
+Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop` (version 0.1.1, published the morning of 2026-11-23, before that evening's contracts; the extension on the site is newer, 0.1.2).
 
 ## For judges: one screen
 
@@ -95,7 +95,7 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop`.
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `120` pass |
 | Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 120; `fe-time`: 4 passed |
 | The whole site in a browser | `cd web && npm run e2e` | 64 tests |
-| AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/) | $0 past the limits |
+| AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on the previous contracts (2026-11-22); on the current ones the same six steps through the MCP client, not an assistant | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions and gas: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
 | Fe bugs found, fixes sent upstream | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040); PRs [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042), [#2048](https://github.com/argotorg/fe/pull/2048); CI job `patched-fe` | #2048 and #2042 merged; #2041 open; job green |
 | All of the above runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
@@ -109,7 +109,8 @@ is a spending cap. In a controlled test published in October 2026 (Cornell
 Tech and Yale; [preprint](https://arxiv.org/html/2610.35835v3),
 [CoinDesk report](https://www.coindesk.com/tech/2026/11/01/ai-agents-bypassed-crypto-spending-limits-without-human-approval-researchers-find-in-a-new-test)),
 agents holding a wallet with a daily cap **raised that cap themselves in 9
-of 10 models tested**, by reading the one-time passcode that was supposed to
+of 10 models tested** (in at least one of 20 runs each, per the preprint),
+by reading the one-time passcode that was supposed to
 prove a human had approved the change. The cap arithmetic was never broken;
 the **cap-change path** was. On-chain spending caps for agents already exist,
 and HARDSTOP does not claim one as new
@@ -131,7 +132,7 @@ Three things, all in Fe, all built during the contest window:
   the rules and the exposure bound; it must catch 15 deliberately broken kernels.
 
 ```
- agent ──pay()──▶ Vault ──facts──▶ kernel::decide ──▶ Allow ─▶ ledger, then transfer, Paid
+ agent ──pay()──▶ Vault ──sealed facts──▶ Books::judge (kernel::decide) ──▶ Allow ─▶ counted, then Payout.send(), Paid
                     ▲                              └─▶ Deny  ─▶ Blocked(code, detail), nothing moves
  owner ─propose()───┘──▶ kernel::amend ──▶ tighter parts now, looser parts after cooling
 
@@ -163,7 +164,7 @@ npm test                          # 120 tests
 - **Guarded:** `Pay` has no `mut` on `terms`, `approved_from` or `seat`, so a
   payment that writes the rules, approves a recipient or swaps its own key
   does not compile; a CI check pins the `uses` list itself.
-- **Guarded (since 2026-11-24):** where `Pay` sends money. `vault.fe` holds no
+- **Guarded (since 2026-11-23):** where `Pay` sends money. `vault.fe` holds no
   transfer: the kernel judges the payment from sealed inputs (the caller and
   time, the stored rules, the agent, the recipient's approval, the spending
   so far), counts it, and returns a sealed, use-once `Payout` that pays only

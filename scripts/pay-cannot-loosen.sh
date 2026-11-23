@@ -284,7 +284,7 @@ if ! why=$(check_open); then
 fi
 echo "ok   source check: init opens once, with owner_ and agent_, and stores that Owner and Seat"
 
-# Where `Pay` sends money is the compiler's now (2026-11-24): vault.fe holds
+# Where `Pay` sends money is the compiler's now (2026-11-23): vault.fe holds
 # no transfer of its own. `Books::judge` counts an allowed payment and returns
 # a sealed `Payout` that can pay only that recipient that amount, from the
 # caller and time read by `moment` and the agent read by `seat.now`; `Payout`,
@@ -902,7 +902,7 @@ kernel_refused '+ wrapping instead of saturating' \
 kernel_refused 'amend applying a raise at once' \
   '^    let active = meet(in_force, proposed)$' '    let active = proposed'
 
-# 8. The grid laws (kernel/laws.fe), added 2026-11-24. The compiler runs
+# 8. The grid laws (kernel/laws.fe), added 2026-11-23. The compiler runs
 #    `decide` and `exposure` on every policy of a grid, so these edits, which
 #    pass every check above, fail the build too ("static assertion failed").
 kernel_refused 'decide checking the window cap instead of what is left in it' \

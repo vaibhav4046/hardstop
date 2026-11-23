@@ -1,4 +1,4 @@
-# The public practice server, driven by an MCP client (2026-11-24)
+# The public practice server, driven by an MCP client (2026-11-23)
 
 `https://hardstop-omega.vercel.app/mcp` (and `/mcp/tricked`) is the
 HARDSTOP MCP server on the site itself: each MCP session gets its own

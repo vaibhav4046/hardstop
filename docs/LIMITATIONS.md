@@ -4,7 +4,7 @@ The full list, moved here from the [README](../README.md).
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
   The current launcher, `0x120b607e82bc365710439b283c13eec8d293f206`, is installed on Base
-  Sepolia (2026-11-24, transactions in the results table); on Sepolia the
+  Sepolia (2026-11-23, transactions in the results table); on Sepolia the
   site installs it on first use, which takes one extra wallet approval.
   Earlier launchers stay on Base Sepolia with the vaults opened through them
   (ten, listed in
@@ -36,14 +36,14 @@ The full list, moved here from the [README](../README.md).
   owner who looks.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
-- **Replacing the agent's key takes a cooling period.** In vaults made since
-  2026-11-24 the owner can replace the key (`setAgent`): the old key stops at
+- **Replacing the agent's key takes a cooling period.** In vaults made through the current
+  launcher (2026-11-23) the owner can replace the key (`setAgent`): the old key stops at
   once, and the new one may pay only after the cooling period, like any
   loosening, so a tricked owner cannot hand the vault to an attacker's key
   at once. Until then nobody can pay. An owner who needs a working agent
   sooner can instead pause, withdraw and launch a new vault, which works at
   once but has a new address (`web/tests/rotation.test.ts`). Vaults made
-  before 2026-11-24 have only that second way. Naming the owner's own
+  through earlier launchers have only that second way. Naming the owner's own
   address as the new agent does nothing, without an error (security/AUDIT.md
   item 22): to revoke a key, name the zero address or a new key.
 - **A stolen owner key is out of scope**, as is a malicious token.

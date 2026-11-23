@@ -1,6 +1,6 @@
-# The six steps on the current contracts, through the MCP client (Base Sepolia, 2026-11-24)
+# The six steps on the current contracts, through the MCP client (Base Sepolia, 2026-11-23)
 
-The vault was rebuilt on 2026-11-24: it now pays only through the kernel's
+The vault was rebuilt on 2026-11-23: it now pays only through the kernel's
 sealed payout, and the owner can replace the agent's key. The AI-assistant
 runs of 2026-11-22 (Claude Code, Cursor, Antigravity) used the previous
 contracts. They were not repeated on the new ones: the Claude Code CLI's

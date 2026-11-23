@@ -97,7 +97,7 @@ reduce the worst case by its own amount when the worst case was the largest
 number there is, because `exposure` saturates there and means "unbounded".
 That is the documented behaviour, not a bug; the law now states it.
 
-## Fifth review, 2026-11-24: the sealed payout and the agent's seat
+## Fifth review, 2026-11-23: the sealed payout and the agent's seat
 
 An AI reviewer attacked the new payment path and key replacement on a copy
 of the branch, wrote five probe tests of `Seat` at exact seconds, and ran

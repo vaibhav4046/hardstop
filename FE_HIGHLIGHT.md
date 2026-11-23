@@ -45,8 +45,8 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | The worst case is a promise: no signature raises it before the cooling period ends, no payment beats it, and an agent reaches it exactly | 137 `static_assert`s in `kernel/laws.fe` run `amend`, `cancel`, `decide` and `exposure` over a grid of 128 policies (16,384 pairs) | six kernel edits no earlier check catches (`decide` ignoring a cap, the end date or a pause; `exposure` forgetting later windows or a waiting raise): 8-0081 |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
-| `Pay` pays only what the kernel allowed, to whom it allowed (2026-11-24) | `Books::judge` reads the caller and time from a sealed `Moment`, the rules from a sealed `TermsNow`, the agent from a sealed `AgentNow` and the recipient's sealed `Approval`; it counts the payment and returns a sealed, use-once `Payout`, the only thing in `vault.fe` that can send money | a hand-made `Payout`, `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books`: 2-0003; a payout sent twice: 16-0002 |
-| The owner can replace the agent's key; the old key stops at once, the new one waits out the cooling period (2026-11-24) | the agent is a sealed `Seat`, not `Copy`, changed in place only by `Seat::replace`, which takes an `OwnerCall` | `Pay` writing its own seat: 8-0018; `SetAgent` without its owner check: 8-0012; the old seat saved aside to put back: 16-0002 |
+| `Pay` pays only what the kernel allowed, to whom it allowed (2026-11-23) | `Books::judge` reads the caller and time from a sealed `Moment`, the rules from a sealed `TermsNow`, the agent from a sealed `AgentNow` and the recipient's sealed `Approval`; it counts the payment and returns a sealed, use-once `Payout`, the only thing in `vault.fe` that can send money | a hand-made `Payout`, `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books`: 2-0003; a payout sent twice: 16-0002 |
+| The owner can replace the agent's key; the old key stops at once, the new one waits out the cooling period (2026-11-23) | the agent is a sealed `Seat`, not `Copy`, changed in place only by `Seat::replace`, which takes an `OwnerCall` | `Pay` writing its own seat: 8-0018; `SetAgent` without its owner check: 8-0012; the old seat saved aside to put back: 16-0002 |
 | Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
 | Not covered by the compiler | the bodies of `vault.fe` (including `init`, `Withdraw`, owner controls and post-contract helpers), of `prove` and the rest of `kernel/sealed.fe`, of the helpers around the contract (`seconds`, `founded`), and all of `launcher.fe` and `kernel.fe` | edits compile (and `init` / `seconds` / `prove` / `Withdraw` / post-contract edits can pass `fe test` if time-gated or left unexercised; an AI review panel found `init`, `tx.origin`, `seconds`, launcher blank-recipient, `kernel.fe` date-gated caps/maturities, and `Withdraw`/post-contract gaps); a source check pins full `vault.fe` plus `prelude`/`init`, `sealed.fe`, `launcher.fe` and `kernel.fe` by sha256 (comments and blank lines ignored), and catches nine such edits; `launcher.test.ts` also reads every rule of a launched vault back |
 | Runtime vs native & view consistency | view handler outputs (`policy()`, `queued()`, ...) matching the native specification | `differential.test.ts` checks 2,400 payment requests + 480 exposure queries against the native kernel, and `vault-code.test.ts` pins the vault runtime bytecode hash |
@@ -58,7 +58,7 @@ and the last row's are controls it requires to compile, run by CI job `verify`
 on the pinned Fe 26.6 release on every push.
 
 The agent's entire authority is one handler signature. This is `Pay` in
-[`fe/src/vault.fe`](fe/src/vault.fe), since 2026-11-24:
+[`fe/src/vault.fe`](fe/src/vault.fe), since 2026-11-23:
 
 ```fe
 Pay { to, amount, nonce } -> u8
@@ -101,7 +101,7 @@ transfer of its own (`std::evm::erc20::safe_transfer`) and calling it beside
 the payout. Fe 26.6 has no way to forbid an import, and inside a handler
 every host effect is the concrete `Evm`, which implements `Call`, so any
 mutable effect `Pay` holds (it needs `mut log` to record a payment) can be
-rebound as `Call` (`with (Call = mut log) { ... }`). Before 2026-11-24 a
+rebound as `Call` (`with (Call = mut log) { ... }`). Before 2026-11-23 a
 second reason was a Fe bug: any type could implement the private `Call`
 trait (reported as [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036),
 fixed on Fe master by this project's
@@ -240,7 +240,7 @@ those cases, not every input (breadth comes from `fe test` and the seeded
 adversary).
 
 **The promise to the owner, checked by the compiler on a grid
-(2026-11-24).** The asserts above run the kernel on a few fixed policies.
+(2026-11-23).** The asserts above run the kernel on a few fixed policies.
 [`fe/src/kernel/laws.fe`](fe/src/kernel/laws.fe) goes further: Fe 26.6's
 `const fn` runs `while` loops, so the compiler itself walks a grid of 128
 policies (each cap 0, 1, 100 or the largest number; an end date before,

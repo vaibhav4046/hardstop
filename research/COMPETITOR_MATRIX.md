@@ -1,6 +1,6 @@
 # HARDSTOP — Competitor Matrix
 
-## Outcome (2026-11-23, updated 2026-11-24): what was built against this field
+## Outcome (2026-11-23, updated later that day): what was built against this field
 
 The research below is from 2026-11-17, before HARDSTOP was built, and its verdict ("thin") was the brief for what to build. What was built, checked against the closest entry and the prior art:
 
@@ -8,8 +8,8 @@ The research below is from 2026-11-17, before HARDSTOP was built, and its verdic
 - **`devprashant19/Leash`**, the closest Fe entry (README read again 2026-11-23, last push 2026-11-21): one Fe policy for chain and CLI, typed refusal codes, a parity suite, an agent tool mode. Its module "holds one policy fixed at compile time", so changing a limit means building and deploying a new module.
 - **What HARDSTOP adds, each in this repository:**
   1. **Limits that change at run time, under a ratchet.** The owner loosens or tightens a live vault: tightening applies at once, loosening waits out the cooling period and can be cancelled until then, and a tightening also cuts a waiting raise (`amend`, `cancel` in `fe/src/kernel.fe`).
-  2. **A worst case the contract computes, and the compiler checks.** `exposure` returns the most the agent can move between two moments under the rules in force and any waiting change; the site and the MCP status show it. Since 2026-11-24, `fe/src/kernel/laws.fe` makes the Fe compiler run `amend`, `decide` and `exposure` over 128 policies (16,384 pairs) on every build: no signature raises the worst case before the cooling period ends, no payment beats it, and a greedy agent reaches it exactly. That is a grid, not every input.
-  3. **Agent authority bounded by the compiler.** `Pay` takes the rules, the approvals and the agent's own key without `mut`; they are sealed types only the kernel can build, and owner actions need a use-once `OwnerCall`. Since 2026-11-24 `vault.fe` holds no transfer: the kernel returns a sealed, use-once `Payout` that pays only the judged recipient and amount, and the owner can replace the agent's key under the same ratchet (the old key stops at once, the new one waits). CI makes 46 attack edits that the compiler must refuse (`scripts/pay-cannot-loosen.sh`).
+  2. **A worst case the contract computes, and the compiler checks.** `exposure` returns the most the agent can move between two moments under the rules in force and any waiting change; the site and the MCP status show it. Since 2026-11-23, `fe/src/kernel/laws.fe` makes the Fe compiler run `amend`, `decide` and `exposure` over 128 policies (16,384 pairs) on every build: no signature raises the worst case before the cooling period ends, no payment beats it, and a greedy agent reaches it exactly. That is a grid, not every input.
+  3. **Agent authority bounded by the compiler.** `Pay` takes the rules, the approvals and the agent's own key without `mut`; they are sealed types only the kernel can build, and owner actions need a use-once `OwnerCall`. Since 2026-11-23 `vault.fe` holds no transfer: the kernel returns a sealed, use-once `Payout` that pays only the judged recipient and amount, and the owner can replace the agent's key under the same ratchet (the old key stops at once, the new one waits). CI makes 46 attack edits that the compiler must refuse (`scripts/pay-cannot-loosen.sh`).
   4. **A fix to Fe itself.** Building this found that any type could implement Fe's private `Call` trait; the fix was merged into the compiler (argotorg/fe#2042).
 
 The rest of this file is the 2026-11-17 research, unchanged.
