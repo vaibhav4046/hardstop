@@ -37,7 +37,7 @@ The 2026-11-22 numbers this page held before (106 Fe tests, 80 `ok` lines,
   practice server at `/mcp`, a hosted alert feed per vault at `/alerts`, and
   a 24/7 watcher for the owner that catches up after a restart.
 - AI assistants through their own MCP clients: Claude Code, Cursor and
-  Antigravity on the 2026-11-22 contracts, Cursor's agent on v3.
+  Antigravity on the 2026-11-22 contracts; Claude Code and Cursor's agent on v3.
 - A 70 s narrated film of the compile-time laws (2026-11-23), a 43 s silent clip of the v3 runs (2026-11-24), an 85 s update film, a 2 min narrated demo film (1080p, synthetic voice, music and captions, with live-site screen recordings), and a 1 min 47 s silent walkthrough (built in HyperFrames from real site footage, compiler output and on-chain receipts).
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.

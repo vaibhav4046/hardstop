@@ -17,8 +17,10 @@ Cursor loaded the `hardstop` server through its own MCP client
 (`~/.cursor/mcp.json`; `cursor-agent mcp list` showed `hardstop: ready`). The
 entry started the one-file server `web/mcp/dist/hardstop-mcp.mjs` through a
 small launcher outside the repo that holds the v3 test agent key; the config
-file holds no key. The Claude Code CLI could not be used: its sign-in had
-expired on this machine (`Failed to authenticate: OAuth session expired`).
+file holds no key. The Claude Code CLI could not be used at the time: its
+sign-in had expired on this machine (`Failed to authenticate: OAuth session
+expired`). After the owner signed in again, Claude Code ran the same prompt
+later that day: `2026-11-24-claude-code-native-v3.md`.
 
 The prompt, in full. It names the steps but not the limits:
 

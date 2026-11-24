@@ -211,11 +211,10 @@ command-line program. Every error code and limit:
   refused on chain, and, asked to raise its own limit, had no tool that could:
   the one tool for it only drafted a request to the owner. Every receipt was read back
   (`qa/agent-runs/2026-11-22-claude-code-native.md`, `-cursor-native.md`,
-  `-antigravity-native.md`). On the current contracts (v3, 2026-11-24) Cursor's agent ran the
-  same six steps, with the same results and receipts read back
-  (`qa/agent-runs/2026-11-24-cursor-native-v3.md`; the Claude Code CLI's
-  sign-in had expired, so it was not repeated), and so did the official MCP
-  client (`qa/agent-runs/2026-11-24-mcp-client-v3.md`; the same
+  `-antigravity-native.md`). On the current contracts (v3, 2026-11-24) Claude Code and Cursor's
+  agent ran the same six steps, with the same results and receipts read
+  back (`qa/agent-runs/2026-11-24-claude-code-native-v3.md`,
+  `-cursor-native-v3.md`), and so did the official MCP client (`qa/agent-runs/2026-11-24-mcp-client-v3.md`; the same
   for the 2026-11-23 contracts:
   `qa/agent-runs/2026-11-23-mcp-client-current-build.md`).
 - Install with nothing cloned: a Claude Desktop extension
@@ -244,8 +243,8 @@ between two checks). A stolen owner key is
 out of scope. Fixed windows let a full cap be spent at the end of one window
 and again at the start of the next (`exposure` counts it). On the site the
 agent is a trial key kept in the browser. On the current contracts
-(v3) one AI assistant ran, Cursor's agent; Claude Code, Cursor and
-Antigravity all ran on earlier ones (2026-11-22). No human user testing: the personas in `qa/` are scripts.
+(v3) two AI assistants ran, Claude Code and Cursor's agent; Antigravity
+ran only on earlier ones (2026-11-22). No human user testing: the personas in `qa/` are scripts.
 The native build needs Linux, macOS or WSL. MetaMask's site scanner warns
 before connecting (a review was requested on 2026-11-18). Full list in
 `docs/LIMITATIONS.md`.
