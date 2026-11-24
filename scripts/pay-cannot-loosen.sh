@@ -296,7 +296,7 @@ SEND='payout.send()'
 JUDGE='let verdict = ledger'
 SEALED='ingot::kernel::sealed'
 refused 'Pay sending to the caller, 1000x, through a hand-made Payout' '`to` is not visible' 2-0003 \
-  "$PAY" "$SEND" replace "$SEALED::Payout { token, to: ctx.caller(), amount: amount * 1000 }.send()"
+  "$PAY" "$SEND" replace "$SEALED::Payout { token: ctx.address(), to: ctx.caller(), amount: amount * 1000 }.send()"
 refused 'Pay sending the payout twice' 'cannot use a value after it was moved' 16-0002 \
   "$PAY" "$SEND" after "$SEND"
 refused 'Pay judged as if the caller were the agent' '`agent` is not visible' 2-0003 \
@@ -314,7 +314,7 @@ TRANSFER_IMPORT='
 use std::evm::erc20::safe_transfer
 '
 APPEND=$TRANSFER_IMPORT control 'NOT covered by the compiler: Pay importing a transfer of its own and paying the caller 1000x' \
-  "$PAY" "$SEND" before 'safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000)'
+  "$PAY" "$SEND" before 'let stolen = ledger.token()\n            safe_transfer(token: stolen, receiver: ctx.caller(), amount: amount * 1000)'
 # On Fe 26.6, taking `mut call` away from `Pay` would not close this: `Call`'s
 # methods have default bodies and its seal is reachable, so any type can be a
 # `Call`. A compiler with the private-trait fix refuses the forged `Call`.
@@ -331,7 +331,7 @@ fn steal(_ token: Address, to: Address, amount: u256) uses (ctx: Ctx) {
 }
 '
 APPEND=$FORGED_CALL seal_control 'NOT covered by Fe 26.6: Pay paying through a function with no Call in its uses' \
-  "$PAY" "$SEND" before 'steal(token, to: ctx.caller(), amount: amount * 1000)'
+  "$PAY" "$SEND" before 'let stolen = ledger.token()\n            steal(stolen, to: ctx.caller(), amount: amount * 1000)'
 
 # A source check closes what the compiler leaves open (it reads text; it is
 # not a compiler guarantee): in vault.fe, comments stripped, nothing names a
@@ -614,7 +614,7 @@ shape_check_catches 'a glob import, to name Terms another way' \
   vault_sed 's/^use ingot::kernel::sealed::{$/use ingot::kernel::sealed::*\nuse ingot::kernel::sealed::{/'
 shape_check_catches 'a type alias for Terms' vault_sed 's/^pub contract Vault uses/type Kept = Terms\n\npub contract Vault uses/'
 shape_check_catches 'Withdraw given the rules to write' \
-  vault_sed 's/^        Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {$/        Withdraw { amount } uses (ctx, owner, token, mut terms, mut call, mut log) {/'
+  vault_sed 's/^        Withdraw { amount } uses (ctx, owner, ledger, mut call, mut log) {$/        Withdraw { amount } uses (ctx, owner, ledger, mut terms, mut call, mut log) {/'
 shape_check_catches 'Pay granting the caller an allowance on the token' \
   edit_handler "$PAY" "$SEND" after 'let _ = try_approve(token, spender: ctx.caller(), amount: 1)'
 shape_check_catches 'a new handler that moves money with no owner check' \
@@ -818,7 +818,7 @@ test_catches 'Pay without mut call, paying the caller 1000x through with (Call =
   allowed_payment_moves_exactly_the_amount \
   -e '/^            mut call,$/d' \
   -e 's/^use std::evm::{Address, Call, Ctx, Evm, Log, StorageMap, revert_error}$/&\nuse std::evm::erc20::safe_transfer/' \
-  -e 's/^                    payout.send()$/                    with (Call = mut log) { safe_transfer(token, receiver: ctx.caller(), amount: amount * 1000) }/'
+  -e 's/^                    payout.send()$/                    let stolen = ledger.token()\n                    with (Call = mut log) { safe_transfer(token: stolen, receiver: ctx.caller(), amount: amount * 1000) }/'
 test_catches 'the launcher approving the agent when a recipient is left blank' launcher.fe \
   only_the_named_recipient_is_approved \
   's/^                        payee_b,$/                        if payee_b == Address::zero() { agent } else { payee_b },/'
