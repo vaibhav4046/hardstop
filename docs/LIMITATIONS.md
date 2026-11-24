@@ -53,7 +53,7 @@ The full list, moved here from the [README](../README.md).
   the zero address or a new key. Naming the owner's own address is refused
   in v3 (the call reverts `InvalidPolicy`); in vaults made through the
   2026-11-23 launcher it does nothing, without an error
-  ([`security/AUDIT.md`](../security/AUDIT.md) item 22).
+  ([`security/AUDIT.md`](../security/AUDIT.md) item 26).
 - **A stolen owner key is out of scope**, as is a malicious token.
 - **Not professionally audited**, and built on a young compiler. An AI
   reviewer attacked it once ([`security/AUDIT.md`](../security/AUDIT.md));

@@ -50,7 +50,7 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    before the tricked approval, $1,020 after, shown a day before the raise
    could be used. `fe/src/kernel/laws.fe` makes the Fe compiler itself run
    `amend`, `decide` and `exposure` over a grid of 128 policies (16,384
-   pairs) on every build: whatever the owner signs, that number cannot go up
+   pairs) on every build: for every pair on that grid, whatever the owner signs, that number cannot go up
    before the cooling period ends; no payment beats it; and an agent that
    spends all it can gets exactly it. Break the kernel so any of these fails
    and the contract does not build.

@@ -8,8 +8,9 @@
 //! Each handler's `uses` clause is its whole authority over storage. `Pay`
 //! lists `terms` and `approved_from` without `mut`, so the agent's code path
 //! cannot change its own limits or its own recipients; the compiler rejects
-//! a `Pay` that tries. `owner`, `agent` and `token` are immutable: no handler
-//! can list them `mut`.
+//! a `Pay` that tries. `owner` is immutable: no handler can list it `mut`.
+//! The agent's key sits in `seat`, which only the owner's `SetAgent` can
+//! replace, through the kernel.
 //!
 //! The rules are stored as `Terms` (`kernel::sealed`), whose field this file
 //! cannot see. A handler that lists `mut terms` can store only terms the
@@ -228,6 +229,8 @@ const MIN_COOLING_SECS: u64 = 60
 pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
     owner: Owner,
     mut seat: Seat,
+    // Never read: the token the vault pays in is sealed in `ledger` (`Books`).
+    // Kept so the deployed code stays recognisable by its 64-byte tail.
     token: Address,
     mut terms: Terms,
     mut ledger: Books,

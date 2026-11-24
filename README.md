@@ -13,17 +13,16 @@ Live app: https://hardstop-omega.vercel.app
 **For judges, in 60 seconds.**
 
 1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the rules, the approvals and its own key read-only, and it can move money only through a sealed, use-once `Payout` the kernel returns, in the vault's own token. A payment that writes a rule, or pays anyone else, does not compile.
-2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: whatever the owner signs, the worst case cannot rise before the cooling period ends.
+2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: for every pair on that grid, whatever the owner signs, the worst case cannot rise before the cooling period ends.
 3. **A tricked approval waits.** Loosening takes a cooling period; tightening is instant. The worst case is a number before any money moves.
 
 Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
-## Films (newest first)
+## Film
 
-- **Laws film (70 s, recorded the evening of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4) ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4)). The compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia (on the 2026-11-23 contracts, before v3), and the practice server refusing $15. Every shot is a real run; sources in [`docs/FILM_SOURCES_2026-11-23.md`](docs/FILM_SOURCES_2026-11-23.md).
-- **Update film (85 s, recorded the morning of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4) ([`web/public/demo/hardstop-update.mp4`](web/public/demo/hardstop-update.mp4)). The tricked-owner run, the three AI agents refused on Base Sepolia, and the compiler refusals.
-- **Demo video (2 min, 2026-11-19, narrated, with music and captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4) ([`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)). The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.
-- **Silent walkthrough (1 min 47 s, 2026-11-19):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4) ([`web/public/demo/hardstop-walkthrough.mp4`](web/public/demo/hardstop-walkthrough.mp4)), with the test output and on-chain receipts. Its test counts are from that day; the current ones are in the table below.
+**[Watch the 70-second film](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4)** ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4); narrated by a synthetic voice, captions, every shot a real run; [sources](docs/FILM_SOURCES_2026-11-23.md)): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. It was recorded on the 2026-11-23 contracts; v3 (2026-11-24) only seals the token and refuses the owner as agent.
+
+Older films, from earlier builds: [update film, 85 s](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4) (three AI agents refused on Base Sepolia), [demo, 2 min](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4), [silent walkthrough](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4).
 
 [![HARDSTOP demo video: the vault door, the lab test, the live site, an AI agent refused, the Fe compiler refusal, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 
@@ -83,7 +82,7 @@ Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `120` pass |
 | Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 120; `fe-time`: 4 passed |
 | The whole site in a browser | `cd web && npm run e2e` | 64 tests |
-| AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) the same six steps through the official MCP client, not an assistant | $0 past the limits |
+| An agent cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) the same six steps through the official MCP client, not an assistant | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions and gas for the current contracts (v3, 2026-11-24), including a vault holding testnet USDC: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
 | Fe bugs found, fixes sent upstream | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040); PRs [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042), [#2048](https://github.com/argotorg/fe/pull/2048); CI job `patched-fe` | #2048 and #2042 merged; #2041 open; job green |
 | All of the above runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
