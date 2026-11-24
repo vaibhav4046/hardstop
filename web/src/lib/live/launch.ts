@@ -82,7 +82,7 @@ export async function launchVault(
   const data = encodeFunctionData({
     abi: launcherAbi,
     functionName: 'launch',
-    args: [chain.agent, setup.perPayment, setup.perWindow, setup.validUntil, setup.windowSecs, setup.coolingSecs, a, b, c, ZERO, setup.funding, salt],
+    args: [chain.agent, setup.perPayment, setup.perWindow, setup.validUntil, setup.windowSecs, setup.coolingSecs, a, b, c, setup.token ?? ZERO, setup.funding, salt],
   })
 
   onStep('launching')

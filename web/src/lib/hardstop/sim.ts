@@ -33,6 +33,12 @@ export type Setup = {
   payees: Hex[]
   /** Test dollars minted into the vault. */
   funding: bigint
+  /**
+   * An existing token for the vault to hold (for example testnet USDC). The
+   * launcher then mints nothing: `funding` must be zero and the owner sends
+   * the token to the vault. Leave out for the launcher's test dollars.
+   */
+  token?: Hex
   /** Block timestamp at creation. */
   now: bigint
 }
