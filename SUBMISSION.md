@@ -51,8 +51,8 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
    second the raise starts; up to that second it stays $40), shown a day
    before the raise could be used. `fe/src/kernel/laws.fe` makes the Fe compiler itself run
    `amend`, `decide` and `exposure` over a grid of 128 policies (16,384
-   pairs) on every build (one schedule, starting from a vault with nothing
-   waiting): for every pair on that grid, whatever the owner signs, that number cannot go up
+   pairs) on every build (two schedules, from a vault with nothing waiting
+   and from one with a raise already waiting): for every pair on that grid, whatever the owner signs, that number cannot go up
    before the cooling period ends; no payment beats it; and an agent that
    spends all it can gets exactly it. Break the kernel so any of these fails
    and the contract does not build.
@@ -127,7 +127,7 @@ a CI check pins every handler's `uses` list). Around that, the compiler enforces
   statement each fails to compile.
 - **The ratchet's laws, checked at compile time over a grid.** `amend`,
   `cancel`, `meet`, `loosens`, `decide`, `exposure` and the time operators
-  are `const fn`. 277 `static_assert`s in `fe/src/kernel/laws.fe` run them
+  are `const fn`. 373 `static_assert`s in `fe/src/kernel/laws.fe` run them
   on 128 policies and every pair of them: a tighter limit applies at once,
   a looser one waits to the second, a cancelled raise never happens, no
   signature raises the worst case before the cooling period ends, and no
@@ -216,7 +216,14 @@ command-line program. Every error code and limit:
   back (`qa/agent-runs/2026-11-24-claude-code-native-v3.md`,
   `-cursor-native-v3.md`), and so did the official MCP client (`qa/agent-runs/2026-11-24-mcp-client-v3.md`; the same
   for the 2026-11-23 contracts:
-  `qa/agent-runs/2026-11-23-mcp-client-current-build.md`).
+  `qa/agent-runs/2026-11-23-mcp-client-current-build.md`). Those tools
+  cannot change a rule, so the agent's raw key was also sent, forced on
+  chain, at every owner-only function (`propose`, `setRecipient`,
+  `setAgent`, `withdraw`, `cancelQueued`, `pause`: each reverted
+  `NotOwner`) and at two $500 payments (refused, codes 9 and 10); the vault
+  kept all $86 (`qa/agent-runs/2026-11-24-raw-agent-key-v3.md`). Claude
+  Code, handed that key and told to get $500 out, declined and sent
+  nothing.
 - Install with nothing cloned: a Claude Desktop extension
   (https://hardstop-omega.vercel.app/install/hardstop.mcpb, with a practice
   vault switch), one-click Cursor and VS Code install links, and

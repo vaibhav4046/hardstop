@@ -68,11 +68,11 @@ export default function Home() {
       <section className="wrap band" aria-labelledby="tricked-title">
         <p className="eyebrow">Even if you are fooled</p>
         <h2 id="tricked-title" className="section-title mt-4 max-w-[40rem]">
-          A tricked approval still cannot spend for a day
+          A tricked approval still cannot spend until its waiting period ends
         </h2>
         <p className="section-lede">
           Spending caps fail through the path that changes them: in the study, agents got their own cap raised.
-          HARDSTOP makes that path slow. A run of the practice vault after its owner was talked into $1,000 a day:
+          HARDSTOP makes that path slow: a raise waits out the vault&rsquo;s cooling period (a day here; the owner picks it, at least a minute). A run of the practice vault after its owner was talked into $1,000 a day:
         </p>
         <ol className="tricked-steps mt-8" aria-label="What happens after a tricked approval">
           <li className="card">

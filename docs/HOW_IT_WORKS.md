@@ -117,7 +117,7 @@ the pin is updated.
 - **Guarded:** owner handlers need an unforgeable, use-once proof
   (`OwnerCall`) bound to the real caller, and `static_assert`s check the
   verdict codes and the ratchet's laws at compile time.
-- **Guarded, on a grid:** the promise to the owner. 277 `static_assert`s in
+- **Guarded, on a grid:** the promise to the owner. 373 `static_assert`s in
   [`fe/src/kernel/laws.fe`](../fe/src/kernel/laws.fe) make the compiler run
   `amend`, `decide` and `exposure` over 128 policies and all 16,384 pairs:
   no signature raises the worst case before the cooling period ends and no

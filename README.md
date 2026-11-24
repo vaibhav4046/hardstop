@@ -12,9 +12,9 @@ also guards every change to it:
 
 - a raise waits out a cooling period, and the owner can cancel it until then; a tighter limit applies at once;
 - what the raise could cost is a number the contract computes before any money moves;
-- on every build, the Fe compiler itself checks that no signature raises that number before the cooling period ends.
+- on every build, the Fe compiler itself checks, over a grid of policies, that no signature raises that number before the cooling period ends.
 
-So a tricked owner, or an agent that gets an approval it should not have, makes a visible, cancellable pending change, not a loss. Two AI assistants, Claude Code and Cursor, were pointed at the current contracts on Base Sepolia (2026-11-24) and moved $0 past its limits ([Claude Code](qa/agent-runs/2026-11-24-claude-code-native-v3.md), [Cursor](qa/agent-runs/2026-11-24-cursor-native-v3.md)).
+So a tricked owner, or an agent that gets an approval it should not have, makes a visible, cancellable pending change, not a loss. Two AI assistants, Claude Code and Cursor, were pointed at the current contracts on Base Sepolia (2026-11-24) and moved $0 past its limits ([Claude Code](qa/agent-runs/2026-11-24-claude-code-native-v3.md), [Cursor](qa/agent-runs/2026-11-24-cursor-native-v3.md)). Their tools cannot change a rule, so the agent's raw key was also sent at every owner-only function and at $500 payments: each was refused on chain, and the vault kept every dollar ([run](qa/agent-runs/2026-11-24-raw-agent-key-v3.md)).
 
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 Live app: https://hardstop-omega.vercel.app
@@ -24,7 +24,7 @@ Live app: https://hardstop-omega.vercel.app
 **For judges, in 60 seconds.**
 
 1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the rules, the approvals and its own key read-only, and it can move money only through a sealed, use-once `Payout` the kernel returns, in the vault's own token. A payment that writes a rule, or makes its own payout to pay anyone else, does not compile. (A transfer imported into `vault.fe` beside the payout would compile; a CI source check refuses it. See below.)
-2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: for every pair on that grid, whatever the owner signs, the worst case cannot rise before the cooling period ends. (A grid, one schedule, starting from a vault with nothing waiting; `fe test` and a seeded adversary cover the rest.)
+2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: for every pair on that grid, whatever the owner signs, the worst case cannot rise before the cooling period ends. (A grid, on two schedules, from a vault with nothing waiting and from one with a raise already waiting; `fe test` and a seeded adversary cover the rest.)
 3. **A tricked approval waits.** Loosening takes a cooling period; tightening is instant. The worst case is a number before any money moves.
 
 Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
@@ -38,7 +38,7 @@ Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen
 | Leash (`devprashant19`, closest Fe entry) | per transaction and per period | limits are fixed at compile time; a change is a new deployment | not described | a `const fn` stops the build on a malformed policy |
 | **HARDSTOP** | per payment, per window, end date, recipients, pause | tightening at once; loosening waits a cooling period and can be cancelled | yes, `exposure`, shown before money moves | the engine's behaviour checked over 16,384 policy pairs |
 
-Read from each project's own docs and code (2026-11-17, Leash again 2026-11-23); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
+What Leash does that HARDSTOP does not: a rolling 24-hour window (HARDSTOP's windows are fixed), a circuit breaker, and running as a module on a Safe. Read from each project's own docs and code (2026-11-17, Leash again 2026-11-23); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
 
 ## Film
 
@@ -80,7 +80,7 @@ Worst case over the next 24 hours, by the contract's own arithmetic: $1,020.00.
 ⛔ Refused: $500.00 to Cloud hosting. One payment may be at most $10.00.
 ```
 
-The $1,020 is today's $20 plus the $1,000 the raise would allow: the next 24 hours reach the second it takes effect. Up to that second the worst case stays $40 (two days at $20). That is the promise the compiler checks, law 4 in `fe/src/kernel/laws.fe`: up to one second before a raise can start, the worst case does not rise (checked on one schedule, 600-second windows and a one-hour cooling period).
+The $1,020 is today's $20 plus the $1,000 the raise would allow: the next 24 hours reach the second it takes effect. Up to that second the worst case stays $40: windows are fixed 24-hour blocks, so the next 24 hours cross one reset, and $20 can go out before it and $20 after. That is the promise the compiler checks, law 4 in `fe/src/kernel/laws.fe`: up to one second before a raise can start, the worst case does not rise (checked on two schedules, and with a raise already waiting).
 
 **Build and check it yourself** (Fe 26.6.0; more in [`docs/BUILD.md`](docs/BUILD.md)):
 
@@ -102,13 +102,13 @@ Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](
 |---|---|---|
 | Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `113 passed; 0 failed` |
 | The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 92 lines starting `ok` |
-| The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 55 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel in a way a law covers and the build fails (8-0081, or 3-0026 if the broken kernel runs past Fe's compile-time step limit) |
+| The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 72 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel in a way a law covers and the build fails (8-0081, or 3-0026 if the broken kernel runs past Fe's compile-time step limit) |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `125` pass |
 | Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 125; `fe-time`: 4 passed |
 | The whole site in a browser | `cd web && npm run e2e` | 65 tests |
-| An agent cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) Claude Code ([run](qa/agent-runs/2026-11-24-claude-code-native-v3.md)), Cursor's agent ([run](qa/agent-runs/2026-11-24-cursor-native-v3.md)) and the official MCP client | $0 past the limits |
+| An agent cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) Claude Code ([run](qa/agent-runs/2026-11-24-claude-code-native-v3.md)), Cursor's agent ([run](qa/agent-runs/2026-11-24-cursor-native-v3.md)) and the official MCP client; and the agent's raw key sent at every owner-only function ([run](qa/agent-runs/2026-11-24-raw-agent-key-v3.md)) | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions and gas for the current contracts (v3, 2026-11-24), including a vault holding testnet USDC: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
 | Fe bugs found, fixes sent upstream | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040); PRs [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042), [#2048](https://github.com/argotorg/fe/pull/2048); CI job `patched-fe` | #2048 and #2042 merged; #2041 open; job green |
 | All of the above runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
@@ -120,7 +120,7 @@ The table with every detail: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#the-claims-ta
 - **Guarded:** `Pay` gets the rules, the approvals and its own key without `mut`, so a payment that writes them does not compile (a CI check pins the `uses` list).
 - **Guarded:** `Pay` pays only through a sealed, use-once `Payout` from the kernel: that recipient, that amount, and (since v3, 2026-11-24) the vault's own token, sealed in the kernel's `Books` from creation.
 - **Guarded:** rules, approvals and the owner's proof are sealed types only the kernel can make; `Terms` is not `Copy`, so old rules cannot be put back.
-- **Guarded, on a grid:** 277 `static_assert`s in `fe/src/kernel/laws.fe` check the worst-case promise over 16,384 policy pairs. A grid, not every input.
+- **Guarded, on a grid:** 373 `static_assert`s in `fe/src/kernel/laws.fe` check the worst-case promise over 16,384 policy pairs. A grid, not every input.
 - **Refused when it runs (v3):** `setAgent` with the owner's own address reverts.
 - **Not guarded by the compiler:** a transfer imported into `vault.fe` and called beside the payout, and an older `Approval` put back (`Approval` is `Copy`). Source checks and tests catch both. CI pins 48 compiler refusals, 6 controls, 8 source checks and 23 edits they catch, and 7 edits a test catches.
 

@@ -206,6 +206,90 @@ const fn a_signature_cannot_raise_the_worst_case(from: u64, count: u64, spent: u
     true
 }
 
+/// A second schedule, the other way round from the first: the cooling
+/// period (250 s) is shorter than a window (1000 s), and windows start at
+/// second 7. The owner signs at second 1234, still in window 1.
+const NOW_B: Instant = Instant { secs: 1234 }
+/// The last second before anything signed at `NOW_B` could loosen the rules.
+const LAST_SAFE_B: Instant = Instant { secs: 1483 }
+
+/// `active` in force, nothing queued, on the second schedule.
+const fn calm_b(_ active: Policy) -> Rules {
+    Rules {
+        schedule: Schedule {
+            anchor: Instant::at(7),
+            window_secs: Seconds::of(1000),
+            cooling_secs: Seconds::of(250),
+        },
+        active,
+        queued: Queued::none(),
+    }
+}
+
+/// Law 4b. Law 4 again on the second schedule, where a loosening matures
+/// inside the window it was signed in.
+const fn on_a_second_schedule_too(from: u64, count: u64) -> bool {
+    var a: u64 = from
+    while a < from + count {
+        let ra = calm_b(policy(a))
+        let held = ledger(0)
+        let before = exposure(rules: ra, ledger: held, now: NOW_B, until: LAST_SAFE_B)
+        var p: u64 = 0
+        while p < GRID {
+            let signed_b = amend(
+                OwnerProof { granted: true },
+                rules: ra,
+                proposed: policy(p),
+                now: NOW_B,
+            )
+            if exposure(
+                    rules: signed_b,
+                    ledger: held,
+                    now: NOW_B,
+                    until: LAST_SAFE_B,
+                ) > before {
+                return false
+            }
+            p += 1
+        }
+        a += 1
+    }
+    true
+}
+
+/// Law 4c. Law 4 from a vault where a raise is already waiting (policy 42
+/// of the grid: 100 a payment, 100 a window, until second 4600; due at
+/// second `due`), so a signature can ask for more than it: whatever the owner
+/// signs now, the worst case before this cooling period ends does not go
+/// up. A new signature never makes a waiting raise land sooner or bigger.
+const fn with_a_raise_already_waiting(from: u64, count: u64, due: u64) -> bool {
+    var a: u64 = from
+    while a < from + count {
+        let waiting = Rules {
+            schedule: calm(policy(a)).schedule,
+            active: policy(a),
+            queued: Queued { policy: policy(42), effective_at: Instant::at(due) },
+        }
+        let held = ledger(0)
+        let before = exposure(rules: waiting, ledger: held, now: NOW, until: LAST_SAFE)
+        var p: u64 = 0
+        while p < GRID {
+            if exposure(
+                    rules: signed(waiting, policy(p)),
+                    ledger: held,
+                    now: NOW,
+                    until: LAST_SAFE,
+                )
+                > before {
+                return false
+            }
+            p += 1
+        }
+        a += 1
+    }
+    true
+}
+
 /// Law 5. The vault never pays more than the worst case it reports, and a
 /// payment uses up at least its own amount of that worst case.
 const fn a_payment_fits_the_worst_case(from: u64, count: u64) -> bool {
@@ -720,6 +804,107 @@ static_assert(a_signature_cannot_raise_the_worst_case(from: 124, count: 4, spent
 static_assert(a_signature_cannot_raise_the_worst_case(from: 124, count: 4, spent: 1))
 static_assert(a_signature_cannot_raise_the_worst_case(from: 124, count: 4, spent: 2))
 static_assert(a_signature_cannot_raise_the_worst_case(from: 124, count: 4, spent: 3))
+
+// Law 4b, for every grid policy and every signature, on the second schedule.
+static_assert(on_a_second_schedule_too(from: 0, count: 4))
+static_assert(on_a_second_schedule_too(from: 4, count: 4))
+static_assert(on_a_second_schedule_too(from: 8, count: 4))
+static_assert(on_a_second_schedule_too(from: 12, count: 4))
+static_assert(on_a_second_schedule_too(from: 16, count: 4))
+static_assert(on_a_second_schedule_too(from: 20, count: 4))
+static_assert(on_a_second_schedule_too(from: 24, count: 4))
+static_assert(on_a_second_schedule_too(from: 28, count: 4))
+static_assert(on_a_second_schedule_too(from: 32, count: 4))
+static_assert(on_a_second_schedule_too(from: 36, count: 4))
+static_assert(on_a_second_schedule_too(from: 40, count: 4))
+static_assert(on_a_second_schedule_too(from: 44, count: 4))
+static_assert(on_a_second_schedule_too(from: 48, count: 4))
+static_assert(on_a_second_schedule_too(from: 52, count: 4))
+static_assert(on_a_second_schedule_too(from: 56, count: 4))
+static_assert(on_a_second_schedule_too(from: 60, count: 4))
+static_assert(on_a_second_schedule_too(from: 64, count: 4))
+static_assert(on_a_second_schedule_too(from: 68, count: 4))
+static_assert(on_a_second_schedule_too(from: 72, count: 4))
+static_assert(on_a_second_schedule_too(from: 76, count: 4))
+static_assert(on_a_second_schedule_too(from: 80, count: 4))
+static_assert(on_a_second_schedule_too(from: 84, count: 4))
+static_assert(on_a_second_schedule_too(from: 88, count: 4))
+static_assert(on_a_second_schedule_too(from: 92, count: 4))
+static_assert(on_a_second_schedule_too(from: 96, count: 4))
+static_assert(on_a_second_schedule_too(from: 100, count: 4))
+static_assert(on_a_second_schedule_too(from: 104, count: 4))
+static_assert(on_a_second_schedule_too(from: 108, count: 4))
+static_assert(on_a_second_schedule_too(from: 112, count: 4))
+static_assert(on_a_second_schedule_too(from: 116, count: 4))
+static_assert(on_a_second_schedule_too(from: 120, count: 4))
+static_assert(on_a_second_schedule_too(from: 124, count: 4))
+
+// Law 4c, for every grid policy and every signature, with a raise already waiting,
+// due inside the span (second 2000) and on its last safe second (4599).
+static_assert(with_a_raise_already_waiting(from: 0, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 0, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 4, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 4, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 8, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 8, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 12, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 12, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 16, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 16, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 20, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 20, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 24, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 24, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 28, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 28, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 32, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 32, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 36, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 36, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 40, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 40, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 44, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 44, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 48, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 48, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 52, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 52, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 56, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 56, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 60, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 60, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 64, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 64, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 68, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 68, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 72, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 72, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 76, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 76, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 80, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 80, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 84, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 84, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 88, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 88, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 92, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 92, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 96, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 96, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 100, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 100, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 104, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 104, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 108, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 108, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 112, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 112, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 116, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 116, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 120, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 120, count: 4, due: 4599))
+static_assert(with_a_raise_already_waiting(from: 124, count: 4, due: 2000))
+static_assert(with_a_raise_already_waiting(from: 124, count: 4, due: 4599))
 
 // Law 5, for every grid policy, amount spent and amount asked.
 static_assert(a_payment_fits_the_worst_case(from: 0, count: 32))
