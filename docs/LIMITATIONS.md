@@ -3,11 +3,11 @@
 The full list, moved here from the [README](../README.md).
 
 - **Test networks only.** A vault can be opened on Base Sepolia or Sepolia.
-  The current launcher, `0x120b607e82bc365710439b283c13eec8d293f206`, is installed on Base
-  Sepolia (2026-11-23, transactions in the results table); on Sepolia the
+  The current launcher, `0x40646dfb8d374037a4011e8ab222c6e13d35d707` (v3), is installed on Base
+  Sepolia (2026-11-24, transactions in the results table); on Sepolia the
   site installs it on first use, which takes one extra wallet approval.
   Earlier launchers stay on Base Sepolia with the vaults opened through them
-  (ten, listed in
+  (eleven, listed in
   [`EVIDENCE_LOG.md`](../EVIDENCE_LOG.md#launchers-on-base-sepolia)). A
   launcher's address follows from its code, so every change to the
   contracts gives a new one. The agent is a trial key kept in the browser;
@@ -22,7 +22,13 @@ The full list, moved here from the [README](../README.md).
   is not on MetaMask's public blocklist (`eth-phishing-detect`); a review has
   to be requested from MetaMask. Until then a visitor has to click past it.
 - **One vault, one token, one agent, three recipients at creation.** No Safe
-  integration, no calldata rules, no multi-token caps.
+  integration, no calldata rules, no multi-token caps. The token is fixed
+  when the vault is created. By default it is the launcher's test dollar;
+  since v3 (2026-11-24) a vault can instead hold an existing token, such as
+  Circle's testnet USDC on Base Sepolia (one run, with
+  `web/scripts/base-sepolia-usdc.ts`; see
+  [`EVIDENCE.md`](EVIDENCE.md#results)). The site itself still opens
+  test-dollar vaults.
 - **Open only vaults you launched yourself.** The launcher makes whoever
   calls it the owner, so the founding recipients are the owner's choice. A
   vault someone else deployed with the same code and you as owner can carry
@@ -37,15 +43,17 @@ The full list, moved here from the [README](../README.md).
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
 - **Replacing the agent's key takes a cooling period.** In vaults made through the current
-  launcher (2026-11-23) the owner can replace the key (`setAgent`): the old key stops at
+  launcher (v3, 2026-11-24) and the one before it (2026-11-23) the owner can replace the key (`setAgent`): the old key stops at
   once, and the new one may pay only after the cooling period, like any
   loosening, so a tricked owner cannot hand the vault to an attacker's key
   at once. Until then nobody can pay. An owner who needs a working agent
   sooner can instead pause, withdraw and launch a new vault, which works at
   once but has a new address (`web/tests/rotation.test.ts`). Vaults made
-  through earlier launchers have only that second way. Naming the owner's own
-  address as the new agent does nothing, without an error (security/AUDIT.md
-  item 22): to revoke a key, name the zero address or a new key.
+  through earlier launchers have only that second way. To revoke a key, name
+  the zero address or a new key. Naming the owner's own address is refused
+  in v3 (the call reverts `InvalidPolicy`); in vaults made through the
+  2026-11-23 launcher it does nothing, without an error
+  ([`security/AUDIT.md`](../security/AUDIT.md) item 22).
 - **A stolen owner key is out of scope**, as is a malicious token.
 - **Not professionally audited**, and built on a young compiler. An AI
   reviewer attacked it once ([`security/AUDIT.md`](../security/AUDIT.md));

@@ -570,8 +570,16 @@ $ npm test                        -> 69 passed
 
 Each change to the contracts gives the launcher a new address (CREATE2 from
 its code). Earlier launchers stay on Base Sepolia with the vaults opened
-through them:
+through them. The current launcher is `0x40646dfb8d374037a4011e8ab222c6e13d35d707`
+(v3, 2026-11-24; its run is in [`docs/EVIDENCE.md`](docs/EVIDENCE.md#results)).
+Earlier ones:
 
+- `0x120b607e82bc365710439b283c13eec8d293f206` (2026-11-23, the vault pays
+  only through the kernel's sealed payout and the owner can replace the
+  agent's key, but `Pay` still handed the kernel the token as a plain
+  address, and `setAgent` with the owner's own address did nothing; its
+  transactions were the gas table until 2026-11-24, and the MCP-client run
+  of 2026-11-23 used a vault made through it)
 - `0xcca9a9e12a1f817299a8c0ac076049e1f901e398` (2026-11-21, lists and names
   each owner's vaults; the vault pays through its own transfer and fixes
   its agent at creation; its transactions were the gas table until
@@ -579,7 +587,7 @@ through them:
   made through it)
 - `0xeac071c085b20c02f36ed1771cbf9826da6b8e02` (2026-11-21, lists each owner's vaults, without names)
 - `0x77b42805c30cc6a0e598f02a9d8b4a9525bab4ee` (2026-11-21, the same vault code
-  as the current launcher, without the per-owner list of vaults)
+  as `0xcca9…` above, without the per-owner list of vaults)
 - `0x770bbe43a3669f066b8dc3274ff6dca9f22a8fd1` (2026-11-20, while `Terms` was
   `Copy`; its transactions were the gas table until 2026-11-21)
 - `0xed8a5d83c64f71b6d027742124239dccbf018e44` (2026-11-19, before the

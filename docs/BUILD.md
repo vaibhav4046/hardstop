@@ -13,7 +13,7 @@ fe --version                      # fe 26.6.0 (5b3f96a)
 
 cd fe
 fe fmt --check
-fe test                           # 112 tests on the EVM
+fe test                           # 113 tests on the EVM
 fe test --backend native          # the 54 kernel + adversary tests again, natively
 fe build --emit bytecode,runtime-bytecode,abi
 fe build --backend native         # writes out/hardstop
@@ -23,7 +23,7 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 108 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 120 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
 npm run e2e                       # 64 browser tests against the production build

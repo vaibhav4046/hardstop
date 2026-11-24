@@ -1,4 +1,8 @@
-# The six steps on the current contracts, through the MCP client (Base Sepolia, 2026-11-23)
+# The six steps on the contracts of 2026-11-23, through the MCP client (Base Sepolia, 2026-11-23)
+
+These were the current contracts on 2026-11-23. The same run on the v3
+contracts (2026-11-24) is in
+[`2026-11-24-mcp-client-v3.md`](2026-11-24-mcp-client-v3.md).
 
 The vault was rebuilt on 2026-11-23: it now pays only through the kernel's
 sealed payout, and the owner can replace the agent's key. The AI-assistant

@@ -37,9 +37,8 @@
 //! does not compile.
 //!
 //! Not the compiler's: which address `init` gives `open` (the source check
-//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_` and `agent_`), the
-//! token `Pay` hands `judge` (a plain address; the source check pins it to
-//! the stored `token`), and a transfer imported into this file beside the
+//! in `scripts/pay-cannot-loosen.sh` pins it to `owner_` and `agent_`), and
+//! a transfer imported into this file beside the
 //! payout, which compiles: Fe cannot forbid an import, and any mutable
 //! effect here can be rebound as `Call`. The source check refuses any
 //! transfer in this file; tests catch one too.

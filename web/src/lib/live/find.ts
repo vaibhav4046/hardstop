@@ -27,7 +27,7 @@ export const VAULT_IMMUTABLE_BYTES = 64
 const EARLIER_IMMUTABLE_BYTES = 128
 export const KNOWN_VAULT_CODE: Readonly<Record<Hex, string>> = {
   '0xb60e4b42e05fcf043e75a48d28f4020970b29748dcd60c48ce9fa5f06071961a':
-    "the current build, where the vault's token is sealed in its books and naming the owner as the agent is refused (launcher 0x40646dfb8d374037a4011e8ab222c6e13d35d707)",
+    "the current build, where the vault's token is sealed in its books and naming the owner as the agent is refused (launcher 0x40646dfb8d374037a4011e8ab222c6e13d35d707, on Base Sepolia since 2026-11-24)",
   '0x5665837d83994d6ba0c14c2e7b26391c3ac560ace214fedc47e0a3a76f9837f5':
     "an earlier build, where the vault pays only through the kernel's sealed payout and the owner can replace the agent's key (launcher 0x120b607e82bc365710439b283c13eec8d293f206, on Base Sepolia since 2026-11-23)",
   '0x0d29aaa99568bef7f1b8a9e7f9f4caedaa0690673f163ed325e00699c1bd836b':

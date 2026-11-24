@@ -12,7 +12,7 @@ With Fe 26.6.0 on your path, from the repository root:
 
 ```
 $ cd fe && fe test
-test result: ok. 112 passed; 0 failed
+test result: ok. 113 passed; 0 failed
 
 $ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
 ok   control: Pay may read its own spending
@@ -29,7 +29,7 @@ $ gh run list -R vaibhav4046/hardstop -L 1
                                     and every night on unpatched Fe master: .github/workflows/fe-master.yml)
 ```
 
-Output pasted from a run on 2026-11-23. [CI runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml).
+Output pasted from the v3 run of 2026-11-24. [CI runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml).
 
 ## On one screen
 
@@ -45,12 +45,12 @@ Output pasted from a run on 2026-11-23. [CI runs](https://github.com/vaibhav4046
 | The worst case is a promise: no signature raises it before the cooling period ends, no payment beats it, and an agent reaches it exactly (on a 72-policy grid in five setups) | 277 `static_assert`s in `kernel/laws.fe` run `amend`, `cancel`, `decide` and `exposure` over a grid of 128 policies (16,384 pairs) | seven kernel edits no earlier check catches (`decide` ignoring a cap, the end date or a pause, or refusing on the last valid second; `exposure` forgetting later windows or a waiting raise): 8-0081 (3-0026 is also accepted beside it) |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
-| `Pay` pays only what the kernel allowed, to whom it allowed (2026-11-23) | `Books::judge` reads the caller and time from a sealed `Moment`, the rules from a sealed `TermsNow`, the agent from a sealed `AgentNow` and the recipient's sealed `Approval`; it counts the payment and returns a sealed, use-once `Payout`, the only thing in `vault.fe` that can send money | a hand-made `Payout`, `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books`: 2-0003; a payout sent twice: 16-0002 |
-| The owner can replace the agent's key; the old key stops at once, the new one waits out the cooling period (2026-11-23) | the agent is a sealed `Seat`, not `Copy`, changed in place only by `Seat::replace`, which takes an `OwnerCall` | `Pay` writing its own seat: 8-0018; `SetAgent` without its owner check: 8-0012; the old seat saved aside to put back: 16-0002 |
+| `Pay` pays only what the kernel allowed, to whom it allowed (2026-11-23) | `Books::judge` reads the caller and time from a sealed `Moment`, the rules from a sealed `TermsNow`, the agent from a sealed `AgentNow` and the recipient's sealed `Approval`; it counts the payment and returns a sealed, use-once `Payout`, the only thing in `vault.fe` that can send money. Since v3 (2026-11-24) it pays only in the vault's own token: the token is sealed in `Books` from creation, and `judge` takes no token | a hand-made `Payout`, `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books` (so no payout in another token): 2-0003; a payout sent twice: 16-0002 |
+| The owner can replace the agent's key; the old key stops at once, the new one waits out the cooling period (2026-11-23) | the agent is a sealed `Seat`, not `Copy`, changed in place only by `Seat::replace`, which takes an `OwnerCall`. Since v3 (2026-11-24) `replace` refuses the owner's own address and `SetAgent` reverts `InvalidPolicy` (a runtime check; `fe test`: `the_owner_cannot_name_itself_the_agent`) | `Pay` writing its own seat: 8-0018; `SetAgent` without its owner check: 8-0012; the old seat saved aside to put back: 16-0002 |
 | Not covered by the compiler | a new handler, or a capability added to one; a `Terms` kept under an alias or a glob import; a token allowance granted to the caller; the time `Pay` gives `decide` | edits compile and pass `fe test`; a source check (text, not the compiler) pins the vault's imports, storage fields, handlers and their `uses` exactly, refuses aliases, globs and token approvals, and requires every `now` to be the chain's; it catches six such edits (one of them, a made-up time in `Propose`, the compiler now refuses too) |
 | Not covered by the compiler | the bodies of `vault.fe` (including `init`, `Withdraw`, owner controls and post-contract helpers), of `prove` and the rest of `kernel/sealed.fe`, of the helpers around the contract (`seconds`, `founded`), and all of `launcher.fe` and `kernel.fe` | edits compile (and `init` / `seconds` / `prove` / `Withdraw` / post-contract edits can pass `fe test` if time-gated or left unexercised; an AI review panel found `init`, `tx.origin`, `seconds`, launcher blank-recipient, `kernel.fe` date-gated caps/maturities, and `Withdraw`/post-contract gaps); a source check pins full `vault.fe` plus `prelude`/`init`, `sealed.fe`, `launcher.fe` and `kernel.fe` by sha256 (comments and blank lines ignored), and catches nine such edits; `launcher.test.ts` also reads every rule of a launched vault back |
 | Runtime vs native & view consistency | view handler outputs (`policy()`, `queued()`, ...) matching the native specification | `differential.test.ts` checks 2,400 payment requests + 480 exposure queries against the native kernel, and `vault-code.test.ts` pins the vault runtime bytecode hash |
-| Not covered on Fe 26.6 | the token `Pay` hands `judge` (a plain address; a source check pins it to the stored `token`); `vault.fe` importing a transfer of its own and calling it beside the payout (a source check refuses any transfer, ERC-20 function or raw call in `vault.fe`, and requires `Pay` to send only the payout, right after `Verdict::Pay`); a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and the source check catches it too. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
+| Not covered on Fe 26.6 | `vault.fe` importing a transfer of its own and calling it beside the payout (a source check refuses any transfer, ERC-20 function or raw call in `vault.fe`, and requires `Pay` to send only the payout, right after `Verdict::Pay`); a forged `Call` or `Ctx` (Fe bug [argotorg/fe#2036](https://github.com/argotorg/fe/issues/2036), fixed on Fe master by this project's [#2042](https://github.com/argotorg/fe/pull/2042), merged 2026-11-21) | edits compile; tests catch the first, and the source check catches it too. With [`research/fe-patches`](research/fe-patches/) applied, both forgeries fail with 2-0003, checked by CI job `patched-fe` |
 
 The first ten rows are edits that
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh) requires to fail,
@@ -58,18 +58,17 @@ and the last row's are controls it requires to compile, run by CI job `verify`
 on the pinned Fe 26.6 release on every push.
 
 The agent's entire authority is one handler signature. This is `Pay` in
-[`fe/src/vault.fe`](fe/src/vault.fe), since 2026-11-23:
+[`fe/src/vault.fe`](fe/src/vault.fe), since v3 (2026-11-24):
 
 ```fe
 Pay { to, amount, nonce } -> u8
-    uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log)
+    uses (ctx, seat, terms, approved_from, mut ledger, mut call, mut log)
 {
     let rules = terms.now()
     let agent = seat.now(ctx)
     let approval = approved_from.get(key: to)
     let at = moment(ctx)
-    let pay_in = token
-    let verdict = ledger.judge(at, terms: rules, seat: agent, approval, token: pay_in, to, amount, nonce)
+    let verdict = ledger.judge(at, terms: rules, seat: agent, approval, to, amount, nonce)
     match verdict {
         Verdict::Pay(payout) => {
             payout.send()
@@ -92,9 +91,11 @@ concrete `Evm`), the stored rules (`TermsNow`), the key that may pay now
 (`AgentNow`), the recipient's `Approval`, and the spending so far (`Books`,
 which `judge` changes in place). `Books::judge` runs `decide`, counts an
 allowed payment, and returns a `Payout`: a sealed, use-once value that can
-pay only that recipient that amount. (The token it pays in is a plain
-address `Pay` hands to `judge`; the source check pins it to the stored
-`token`, the compiler does not.) A hand-made `Payout`,
+pay only that recipient that amount, in the vault's own token. Since v3
+(2026-11-24) that token is sealed inside `Books` when the vault is created,
+and `judge` has no token argument, so `Pay` cannot choose the token a
+payout pays in. (Before v3, `Pay` handed `judge` the token as a plain
+address, and only a source check pinned it.) A hand-made `Payout`,
 `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books` fails with 2-0003; a
 payout sent twice fails with 16-0002. Each of these is an edit in the script.
 

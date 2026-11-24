@@ -8,62 +8,28 @@ loss is a number you can read before anything goes wrong.
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 Live app: https://hardstop-omega.vercel.app
 
+> Unaudited contest prototype, on test networks only. Do not put real money in it.
+
 **For judges, in 60 seconds.**
 
-1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the
-   rules, the approvals and its own key read-only, and it can move money
-   only through a sealed, use-once `Payout` the kernel returns. A payment
-   that writes a rule, or pays anyone else, does not compile.
-2. **The promise is checked by the compiler.** On every build, Fe itself
-   runs the vault's engine over 16,384 policy pairs: whatever the owner
-   signs, the worst case cannot rise before the cooling period ends.
-3. **A tricked approval waits.** Loosening takes a cooling period; tightening
-   is instant. The worst case is a number before any money moves.
+1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the rules, the approvals and its own key read-only, and it can move money only through a sealed, use-once `Payout` the kernel returns, in the vault's own token. A payment that writes a rule, or pays anyone else, does not compile.
+2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: whatever the owner signs, the worst case cannot rise before the cooling period ends.
+3. **A tricked approval waits.** Loosening takes a cooling period; tightening is instant. The worst case is a number before any money moves.
 
-Check it: `cd fe && fe test` (112 passed), `FE=fe bash scripts/pay-cannot-loosen.sh`
-(92 lines `ok`: 48 attack edits the compiler refuses), or point any AI
-assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15.
-What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
+Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
-**Newest film (70 s, recorded the evening of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. Every shot is a real run; sources in [`docs/FILM_SOURCES_2026-11-23.md`](docs/FILM_SOURCES_2026-11-23.md). ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4))
+## Films (newest first)
 
-**Update film (85 s, recorded the morning of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4): the tricked-owner run, the three AI agents refused on Base Sepolia, and the compiler refusals. ([`web/public/demo/hardstop-update.mp4`](web/public/demo/hardstop-update.mp4))
-
-**Demo video (2 min, narrated, with music and captions):** [watch in the browser](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
-(also in the repo: [`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)).
-The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.
-A silent walkthrough (1 min 47 s, recorded 2026-11-19; the test counts on screen are from that day, the current ones are in the table below) with the test output and on-chain receipts:
-[watch](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4)
-([`web/public/demo/hardstop-walkthrough.mp4`](web/public/demo/hardstop-walkthrough.mp4)).
+- **Laws film (70 s, recorded the evening of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4) ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4)). The compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia (on the 2026-11-23 contracts, before v3), and the practice server refusing $15. Every shot is a real run; sources in [`docs/FILM_SOURCES_2026-11-23.md`](docs/FILM_SOURCES_2026-11-23.md).
+- **Update film (85 s, recorded the morning of 2026-11-23, narrated, captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4) ([`web/public/demo/hardstop-update.mp4`](web/public/demo/hardstop-update.mp4)). The tricked-owner run, the three AI agents refused on Base Sepolia, and the compiler refusals.
+- **Demo video (2 min, 2026-11-19, narrated, with music and captions):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4) ([`web/public/demo/hardstop-demo.mp4`](web/public/demo/hardstop-demo.mp4)). The narration is a synthetic voice (Kokoro, generated on the builder's machine); the screen recordings in it are the live site.
+- **Silent walkthrough (1 min 47 s, 2026-11-19):** [watch](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4) ([`web/public/demo/hardstop-walkthrough.mp4`](web/public/demo/hardstop-walkthrough.mp4)), with the test output and on-chain receipts. Its test counts are from that day; the current ones are in the table below.
 
 [![HARDSTOP demo video: the vault door, the lab test, the live site, an AI agent refused, the Fe compiler refusal, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
 
-> Unaudited contest prototype, on test networks only. Do not put real money in it.
+## Try it
 
-**The Fe idea in ten seconds.** The agent's whole authority is one handler
-signature in [`fe/src/vault.fe`](fe/src/vault.fe):
-
-```fe
-Pay { to, amount, nonce } -> u8
-    uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log)
-```
-
-`terms`, `approved_from` and `seat` come without `mut`, so a payment that
-writes the rules, approves a recipient or swaps its own key does not compile
-(adding `mut` to the `uses` list compiles, but a CI check pins that list).
-And it can pay only through a sealed `Payout` the kernel returns: only
-that recipient, only that amount. The rules themselves are
-a sealed type that only the kernel can make or change, and never at once
-when they loosen. CI makes 48 attack edits and requires the compiler
-to refuse each one ([details](FE_HIGHLIGHT.md)). (Background, outside the
-contest's scope: building this found a hole in Fe itself, private traits
-that anyone could implement; the fix,
-[argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042), is merged.)
-The compiler guards the rules; where `Pay` sends allowed money is guarded
-by tests and source checks instead, as [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md) lists.
-
-**Try it in a minute.** An AI agent on a practice vault
-($10 a payment, $20 a day), in Claude Code:
+An AI agent on a practice vault ($10 a payment, $20 a day), in Claude Code:
 
 ```bash
 claude mcp add hardstop-demo -- npx -y github:vaibhav4046/hardstop --demo
@@ -77,21 +43,13 @@ Then ask it to pay Cloud hosting $4, then $15. What it reads back:
 [████░░░░░░░░░░░░░░░░] $4.00 of $20.00 used today.
 ```
 
-**Or install nothing.** Any assistant that takes a remote MCP server can use
-the site's practice server; each session gets its own practice vault, kept
-in memory, forgotten after 30 idle minutes, and reset if the host moves the
-session to another server instance:
+**Or install nothing.** Any assistant that takes a remote MCP server can use the site's practice server. Each session gets its own practice vault, kept in memory, forgotten after 30 idle minutes, and reset if the host moves the session to another server instance. `/mcp/tricked` starts each vault with the tricked owner's raise below.
 
 ```bash
 claude mcp add --transport http hardstop-practice https://hardstop-omega.vercel.app/mcp
 ```
 
-`/mcp/tricked` instead starts each vault with the tricked owner's raise below.
-
-**The case caps miss: the owner is fooled.** Replace `--demo` with `--tricked`
-and the practice vault starts with a $1,000-a-day raise its owner was talked
-into. The agent is still refused, and the contract's worst case shows the danger
-before any money moves (a run on 2026-11-23):
+**The case caps miss: the owner is fooled.** Replace `--demo` with `--tricked` and the practice vault starts with a $1,000-a-day raise its owner was talked into. The agent is still refused, and the contract's worst case shows the danger before any money moves (a run on 2026-11-23):
 
 ```
 ⏳ A change is waiting: up to $1,000.00 per payment and $1,000.00 per day, until 23 Dec 2026, 09:45. It takes effect 24 Nov 2026, 09:45 unless the owner cancels it.
@@ -99,14 +57,25 @@ Worst case over the next 24 hours, by the contract's own arithmetic: $1,020.00.
 ⛔ Refused: $500.00 to Cloud hosting. One payment may be at most $10.00.
 ```
 
-Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](web/mcp/README.md).
-Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop` (version 0.1.1, published the morning of 2026-11-23, before that evening's contracts; the extension on the site is newer, 0.1.2).
+**Build and check it yourself** (Fe 26.6.0; more in [`docs/BUILD.md`](docs/BUILD.md)):
+
+```bash
+cd fe
+fe test                           # 113 tests on the EVM
+fe test --backend native          # the 54 kernel + adversary tests again, natively
+fe build --backend native         # writes out/hardstop
+./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
+cd ../web
+npm test                          # 120 web tests
+```
+
+Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](web/mcp/README.md). Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop` (version 0.1.1, published the morning of 2026-11-23, before that evening's contracts; the extension on the site is newer, 0.1.2).
 
 ## For judges: one screen
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `112 passed; 0 failed` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `113 passed; 0 failed` |
 | The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 92 lines starting `ok` |
 | The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 55 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel in a way a law covers and the build fails (8-0081, or 3-0026 if the broken kernel runs past Fe's compile-time step limit) |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
@@ -114,130 +83,27 @@ Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop` (version
 | Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `120` pass |
 | Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 120; `fe-time`: 4 passed |
 | The whole site in a browser | `cd web && npm run e2e` | 64 tests |
-| AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on the previous contracts (2026-11-22); on the current ones the same six steps through the MCP client, not an assistant | $0 past the limits |
-| It ran on a public network | Base Sepolia transactions and gas: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
+| AI agents cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) the same six steps through the official MCP client, not an assistant | $0 past the limits |
+| It ran on a public network | Base Sepolia transactions and gas for the current contracts (v3, 2026-11-24), including a vault holding testnet USDC: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
 | Fe bugs found, fixes sent upstream | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040); PRs [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042), [#2048](https://github.com/argotorg/fe/pull/2048); CI job `patched-fe` | #2048 and #2042 merged; #2041 open; job green |
 | All of the above runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
 
 The table with every detail: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#the-claims-table-in-full).
 
-## The problem
-
-People are starting to let AI agents pay for things, and the usual safety net
-is a spending cap. In a controlled test published in October 2026 (Cornell
-Tech and Yale; [preprint](https://arxiv.org/html/2610.35835v3),
-[CoinDesk report](https://www.coindesk.com/tech/2026/11/01/ai-agents-bypassed-crypto-spending-limits-without-human-approval-researchers-find-in-a-new-test)),
-agents holding a wallet with a daily cap **raised that cap themselves in 9
-of 10 models tested** (in at least one of 20 runs each, per the preprint),
-by reading the one-time passcode that was supposed to
-prove a human had approved the change. The cap arithmetic was never broken;
-the **cap-change path** was. On-chain spending caps for agents already exist,
-and HARDSTOP does not claim one as new
-([`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md)); its
-answer is to make the cap-change path slow, cancellable and bounded.
-Sources and figures: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#the-problem-with-sources).
-
-## How it works
-
-Three things, all in Fe, all built during the contest window:
-
-- **A ratchet.** Tightening a rule is instant. Loosening one (a higher cap, a
-  later expiry, a new recipient, resuming after a pause) is queued, takes
-  effect only after a cooling period, and can be cancelled until then.
-- **A worst-case number.** `exposure(rules, ledger, now, until)` is a pure
-  function returning the most the agent can move between two moments.
-- **An attacker written in Fe.** `adversary.fe` plays seeded hostile games
-  against the kernel and checks every verdict against a second statement of
-  the rules and the exposure bound; it must catch 15 deliberately broken kernels.
-
-```
- agent ──pay()──▶ Vault ──sealed facts──▶ Books::judge (kernel::decide) ──▶ Allow ─▶ counted, then Payout.send(), Paid
-                    ▲                              └─▶ Deny  ─▶ Blocked(code, detail), nothing moves
- owner ─propose()───┘──▶ kernel::amend ──▶ tighter parts now, looser parts after cooling
-
- the same kernel.fe ──fe build --backend native──▶ ./hardstop decide | exposure | campaign
-```
-
-The full design, the timelock comparison, the file layout, accounts and the
-MCP server: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md).
-
-### Build and test
-
-Needs Fe 26.6.0, x86-64 Linux or AArch64 macOS for native (WSL2 on Windows)
-and Node 24. Every command, with notes: [`docs/BUILD.md`](docs/BUILD.md).
-
-```sh
-cd fe
-fe test                           # 112 tests on the EVM
-fe test --backend native          # the 54 kernel + adversary tests again, natively
-fe build --backend native         # writes out/hardstop
-./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
-                                  # prints "10 10 0 0 0": code 10, over the per-payment limit of 10
-cd ../web
-npm ci
-npm test                          # 120 tests
-```
-
 ## What the compiler does and does not guard
 
-- **Guarded:** `Pay` has no `mut` on `terms`, `approved_from` or `seat`, so a
-  payment that writes the rules, approves a recipient or swaps its own key
-  does not compile; a CI check pins the `uses` list itself.
-- **Guarded (since 2026-11-23):** where `Pay` sends money. `vault.fe` holds no
-  transfer: the kernel judges the payment from sealed inputs (the caller and
-  time, the stored rules, the agent, the recipient's approval, the spending
-  so far), counts it, and returns a sealed, use-once `Payout` that pays only
-  that recipient that amount. A hand-made one does not compile.
-- **Guarded:** rules and approvals are sealed types (`Terms`, `Approval` in
-  [`fe/src/kernel/sealed.fe`](fe/src/kernel/sealed.fe)) that only the kernel
-  can make; `Terms` is not `Copy`, so saving the rules aside and putting them
-  back fails to compile (16-0002).
-- **Guarded:** owner handlers need an unforgeable, use-once proof
-  (`OwnerCall`) bound to the real caller, and `static_assert`s check the
-  verdict codes and the ratchet's laws at compile time.
-- **Guarded, on a grid:** the promise to the owner. 277 `static_assert`s in
-  [`fe/src/kernel/laws.fe`](fe/src/kernel/laws.fe) make the compiler run
-  `amend`, `decide` and `exposure` over 128 policies and all 16,384 pairs:
-  no signature raises the worst case before the cooling period ends and no
-  payment beats it; on a smaller grid of 72 policies, in five timing setups
-  including spans of no time and one second, an agent that spends all it
-  can reaches it exactly. A kernel broken in a way a law covers does not
-  build. A grid, not every input.
-- **Not guarded by the compiler:** `vault.fe` importing a transfer of its own
-  and calling it beside the payout (Fe cannot forbid an import), and the
-  token `Pay` hands the kernel (a plain address). Tests and a
-  source check (it reads the text) refuse any transfer in `vault.fe`;
-  `Approval` is still `Copy`, so a source check and three tests catch an
-  older approval put back.
-- **Pinned by CI:** 48 compiler refusals, 6 control edits that must compile,
-  8 source checks and 23 edits they catch, 7 edits also caught by a failing test, and sha256 pins on `kernel.fe`,
-  `kernel/sealed.fe` and `launcher.fe`
-  ([`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)).
+- **Guarded:** `Pay` gets the rules, the approvals and its own key without `mut`, so a payment that writes them does not compile (a CI check pins the `uses` list).
+- **Guarded:** `Pay` pays only through a sealed, use-once `Payout` from the kernel: that recipient, that amount, and (since v3, 2026-11-24) the vault's own token, sealed in the kernel's `Books` from creation.
+- **Guarded:** rules, approvals and the owner's proof are sealed types only the kernel can make; `Terms` is not `Copy`, so old rules cannot be put back.
+- **Guarded, on a grid:** 277 `static_assert`s in `fe/src/kernel/laws.fe` check the worst-case promise over 16,384 policy pairs. A grid, not every input.
+- **Refused when it runs (v3):** `setAgent` with the owner's own address reverts.
+- **Not guarded by the compiler:** a transfer imported into `vault.fe` and called beside the payout, and an older `Approval` put back (`Approval` is `Copy`). Source checks and tests catch both. CI pins 48 compiler refusals, 6 controls, 8 source checks and 23 edits they catch, and 7 edits a test catches.
 
-Every error code and limit: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
-
-## Evidence
-
-- [`docs/EVIDENCE.md`](docs/EVIDENCE.md): every result, Base Sepolia transaction and gas figure.
-- [`EVIDENCE_LOG.md`](EVIDENCE_LOG.md): raw output, and earlier builds on Base Sepolia.
-- [`qa/`](qa/): scripted personas, AI agent runs, screenshots and every issue found.
-- [`docs/UPSTREAM.md`](docs/UPSTREAM.md): the Fe issues and fixes sent upstream.
-- [`security/AUDIT.md`](security/AUDIT.md) (an AI review), [`security/THREAT_MODEL.md`](security/THREAT_MODEL.md), [`security/ASSUMPTIONS.md`](security/ASSUMPTIONS.md).
-- [`DECISIONS.md`](DECISIONS.md): design decisions and their costs.
-- [`research/EVIDENCE_DATA.md`](research/EVIDENCE_DATA.md): the problem's figures, re-checked at source.
+The full list: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md#what-the-compiler-does-and-does-not-guard-in-full). Every error code: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md). The problem and its sources, every result and gas figure: [`docs/EVIDENCE.md`](docs/EVIDENCE.md). Design and accounts: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md). Build and test commands: [`docs/BUILD.md`](docs/BUILD.md).
 
 ## Limitations
 
-- **Test networks only** (Base Sepolia, Sepolia). The agent is a trial key kept in the browser.
-- **Not professionally audited**, and built on a young compiler.
-- **One vault, one token, one agent, three recipients at creation.**
-- **Alerts need the watcher running.** Without it, the ratchet only helps an
-  owner who looks.
-- **Fixed windows.** A full cap can be spent at the end of one window and
-  again at the start of the next; `exposure` accounts for it.
-- **A stolen owner key is out of scope**, as is a malicious token.
-
-The full list, including two MetaMask issues: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+Test networks only (Base Sepolia, Sepolia), not professionally audited, and built on a young compiler. One vault holds one token (the launcher's test dollar, or since v3 an existing token such as testnet USDC), has one agent and three recipients at creation. Alerts need the self-hosted watcher running. A stolen owner key and a malicious token are out of scope. The full list, including two MetaMask issues: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 ## Declaration
 

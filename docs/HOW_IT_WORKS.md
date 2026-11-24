@@ -63,7 +63,7 @@ The agent's entire authority is one handler signature, `Pay` in
 
 ```fe
 Pay { to, amount, nonce } -> u8
-    uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log)
+    uses (ctx, seat, terms, approved_from, mut ledger, mut call, mut log)
 ```
 
 `terms`, `approved_from` and `seat` have no `mut`, so a `Pay` that changed
@@ -80,19 +80,77 @@ ratchet's laws. CI edits copies of the code and requires the compiler to
 refuse each attack (48 refusals, plus 6 control edits that must still
 compile, 8 source checks and 23 edits they catch, and 7 edits a test must catch, in
 [`scripts/pay-cannot-loosen.sh`](../scripts/pay-cannot-loosen.sh)). The same
-pure `decide` also builds as a native program. Not covered by the compiler:
-where `Pay` sends the money a verdict allowed. Tests cover it, and a source
-check (it reads the text; it is not a compiler guarantee) requires `Pay`'s
-only transfer to be exactly `safe_transfer(token, receiver: to, amount)`,
-right after the ledger is updated, pins what `Pay` tells the kernel, and
-catches eight edits that compile. A further source check pins the vault's
-shape (its imports, storage, handlers and their `uses`, no token
-approvals, and the chain's own time for every `now` given to the kernel)
-and catches six more edits that compile and pass every test. `init`, the
-helpers around the contract, and all of `kernel.fe`, `kernel/sealed.fe` and
+pure `decide` also builds as a native program.
+
+`Pay` names no token. Since v3 (2026-11-24) the token is sealed inside the
+kernel's `Books` when the vault is created, and `Books::judge` has no token
+argument, so the payout always pays in the vault's own token. The owner's
+`Withdraw` reads the same token from the books. What is still not covered by
+the compiler: `vault.fe` importing a transfer of its own and calling it
+beside the payout (Fe cannot forbid an import), and `Approval` being `Copy`.
+A source check (it reads the text; it is not a compiler guarantee) refuses
+any transfer, ERC-20 function or raw call in `vault.fe` and requires `Pay`
+to send only the payout. A further source check pins the vault's shape (its
+imports, storage, handlers and their `uses`, no token approvals, and the
+chain's own time for every `now` given to the kernel). `init`, the helpers
+around the contract, and all of `kernel.fe`, `kernel/sealed.fe` and
 `launcher.fe` are pinned by their sha256, so a change to them fails CI until
-the pin is updated; that catches six more edits an AI review panel found on
-2026-11-21.
+the pin is updated.
+
+### What the compiler does and does not guard, in full
+
+- **Guarded:** `Pay` has no `mut` on `terms`, `approved_from` or `seat`, so a
+  payment that writes the rules, approves a recipient or swaps its own key
+  does not compile; a CI check pins the `uses` list itself.
+- **Guarded (since 2026-11-23):** where `Pay` sends money. `vault.fe` holds no
+  transfer: the kernel judges the payment from sealed inputs (the caller and
+  time, the stored rules, the agent, the recipient's approval, the spending
+  so far), counts it, and returns a sealed, use-once `Payout` that pays only
+  that recipient that amount. A hand-made one does not compile.
+- **Guarded (since v3, 2026-11-24):** the token a payout pays in. It is
+  sealed in the kernel's `Books` from creation, and `Books::judge` takes no
+  token, so `Pay` cannot choose it.
+- **Guarded:** rules and approvals are sealed types (`Terms`, `Approval` in
+  [`fe/src/kernel/sealed.fe`](../fe/src/kernel/sealed.fe)) that only the kernel
+  can make; `Terms` is not `Copy`, so saving the rules aside and putting them
+  back fails to compile (16-0002).
+- **Guarded:** owner handlers need an unforgeable, use-once proof
+  (`OwnerCall`) bound to the real caller, and `static_assert`s check the
+  verdict codes and the ratchet's laws at compile time.
+- **Guarded, on a grid:** the promise to the owner. 277 `static_assert`s in
+  [`fe/src/kernel/laws.fe`](../fe/src/kernel/laws.fe) make the compiler run
+  `amend`, `decide` and `exposure` over 128 policies and all 16,384 pairs:
+  no signature raises the worst case before the cooling period ends and no
+  payment beats it; on a smaller grid of 72 policies, in five timing setups
+  including spans of no time and one second, an agent that spends all it
+  can reaches it exactly. A kernel broken in a way a law covers does not
+  build. A grid, not every input.
+- **Checked when the code runs (v3):** `setAgent` with the owner's own
+  address reverts `InvalidPolicy` (`fe test`:
+  `the_owner_cannot_name_itself_the_agent`).
+- **Not guarded by the compiler:** `vault.fe` importing a transfer of its own
+  and calling it beside the payout (Fe cannot forbid an import). Tests and a
+  source check (it reads the text) refuse any transfer in `vault.fe`.
+  `Approval` is still `Copy`, so a source check and three tests catch an
+  older approval put back.
+- **Pinned by CI:** 48 compiler refusals, 6 control edits that must compile,
+  8 source checks and 23 edits they catch, 7 edits also caught by a failing
+  test, and sha256 pins on `kernel.fe`, `kernel/sealed.fe` and `launcher.fe`
+  ([`scripts/pay-cannot-loosen.sh`](../scripts/pay-cannot-loosen.sh)).
+
+### The Fe idea, as the README used to put it
+
+`terms`, `approved_from` and `seat` come without `mut`, so a payment that
+writes the rules, approves a recipient or swaps its own key does not compile
+(adding `mut` to the `uses` list compiles, but a CI check pins that list).
+And it can pay only through a sealed `Payout` the kernel returns: only that
+recipient, only that amount, only in the vault's own token. The rules
+themselves are a sealed type that only the kernel can make or change, and
+never at once when they loosen. CI makes 48 attack edits and requires the
+compiler to refuse each one. (Background, outside the contest's scope:
+building this found a hole in Fe itself, private traits that anyone could
+implement; the fix, [argotorg/fe#2042](https://github.com/argotorg/fe/pull/2042),
+is merged.)
 
 The full account, with every error code and limit:
 [`FE_HIGHLIGHT.md`](../FE_HIGHLIGHT.md).
@@ -104,10 +162,10 @@ fe/src/
   kernel.fe           pure. decide / amend / cancel / exposure. Both targets.
   kernel/sealed.fe    sealed Terms, Owner, Approval, OwnerCall. Only kernel sees fields.
   adversary.fe        pure. Seeded campaign + reference spec. Both targets.
-  vault.fe            EVM only. Holds the token, gathers facts, obeys the kernel.
+  vault.fe            EVM only. Holds one token, gathers facts, obeys the kernel.
   launcher.fe         EVM only. Creates a vault in one transaction, owned by the caller,
                       and lists each owner's vaults on chain.
-  token.fe            EVM only. 6-decimal test token.
+  token.fe            EVM only. 6-decimal test token (a v3 vault can hold another token instead).
   cli.fe              native only. decide / exposure / batch / campaign.
   tests.fe            kernel tests, run on both targets
   adversary_tests.fe  campaign + 15 broken kernels, run on both targets
@@ -185,7 +243,10 @@ leaked key stops paying at once, and the new key may pay after the cooling
 period, because a new spender is a loosening too. The agent is stored as a
 sealed `Seat` that only the owner's proof changes, so neither the agent nor
 an edit to `Pay` can swap it (tests: `fe/src/vault_tests.fe`, the
-`agent key` tests in `web/tests/vault.test.ts`). For a working agent at
+`agent key` tests in `web/tests/vault.test.ts`). To revoke a key without
+naming a new one, name the zero address. Since v3 (2026-11-24) naming the
+owner's own address is refused (`InvalidPolicy`), because it would leave the
+leaked key working. For a working agent at
 once, the owner can instead **pause**, **withdraw** and **launch** a new
 vault (`web/tests/rotation.test.ts`); that is also the only way for vaults
 made through earlier launchers.

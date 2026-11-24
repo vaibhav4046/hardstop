@@ -28,8 +28,8 @@
 #    under another address still compiles; it approves no one, a runtime
 #    check tested in fe/src/vault_tests.fe.
 # 6. What the compiler does not check, kept visible so the README cannot
-#    drift: which address `init` gives `open` (a source check below), the
-#    token `Pay` hands the kernel, and a transfer imported into vault.fe
+#    drift: which address `init` gives `open` (a source check below), and
+#    a transfer imported into vault.fe
 #    beside the sealed payout: an edit that pays the caller a thousand times
 #    that way compiles, and so does one made through a function whose
 #    `uses` lists no `Call`, because any type can implement `Call` (both
