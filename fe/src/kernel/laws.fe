@@ -390,6 +390,89 @@ const fn a_waiting_raise_is_counted(from: u64, count: u64) -> bool {
 // touches, reached in full payments of $100 or $30 and the rest; and 3
 // windows when the policy ends at second 1800.
 
+/// A vault set up another way: windows of `window` seconds, loosenings
+/// waiting `cooling` seconds, `active` in force since second 0.
+const fn setup(_ active: Policy, window: u64, cooling: u64) -> Rules {
+    Rules {
+        schedule: Schedule {
+            anchor: Instant::at(0),
+            window_secs: Seconds::of(window),
+            cooling_secs: Seconds::of(cooling),
+        },
+        active,
+        queued: Queued::none(),
+    }
+}
+
+/// What a greedy agent gets paid from `from` to `until`, both inclusive:
+/// it drains the vault at `from` and at the start of every later window.
+const fn take_span(_ rules: Rules, from: Instant, until: Instant) -> u256 {
+    if until < from { return 0 }
+    let window = rules.schedule.window_secs.secs()
+    let (first, after_first) = drain(
+        rules,
+        Ledger { window: 0, spent: 0, next_nonce: 7 },
+        at: from,
+    )
+    var total: u256 = first
+    var held = after_first
+    var w: u64 = from.secs() / window + 1
+    while w * window <= until.secs() {
+        let (more, later) = drain(rules, held, at: Instant::at(w * window))
+        total += more
+        held = later
+        w += 1
+    }
+    total
+}
+
+/// The five setups of law 8: (window, cooling, from, until).
+const fn edge(_ k: u64) -> (u64, u64, u64, u64) {
+    if k == 0 {
+        // A span of no time at all.
+        (600, 3600, 1000, 1000)
+    } else if k == 1 {
+        // One second.
+        (600, 3600, 1000, 1001)
+    } else if k == 2 {
+        // The last second of a window and the first of the next.
+        (600, 3600, 1199, 1200)
+    } else if k == 3 {
+        // Hour windows, a one-minute cooling period, across a window's edge.
+        (3600, 60, 3599, 3600)
+    } else {
+        // Day windows over two days.
+        (86400, 86400, 50, 172800)
+    }
+}
+
+/// Law 8. The worst case stays exact at the edges and under other
+/// schedules: for spans of no time and of one second, across a window's
+/// edge, with hour windows and a one-minute cooling period, and with day
+/// windows over two days, a greedy agent gets paid exactly what
+/// `exposure` reports. Each policy of the smaller grid, in each setup.
+const fn exact_at_the_edges(from: u64, count: u64) -> bool {
+    var n: u64 = from
+    while n < from + count {
+        let active = bounded(n)
+        var k: u64 = 0
+        while k < 5 {
+            let (window, cooling, start, end) = edge(k)
+            let rules = setup(active, window, cooling)
+            let ledger = Ledger { window: 0, spent: 0, next_nonce: 7 }
+            let start_at = Instant::at(start)
+            let end_at = Instant::at(end)
+            if take_span(rules, from: start_at, until: end_at)
+                != exposure(rules, ledger, now: start_at, until: end_at) {
+                return false
+            }
+            k += 1
+        }
+        n += 1
+    }
+    true
+}
+
 // Law 1, over every pair of grid policies.
 static_assert(meet_never_loosens(from: 0, count: 8))
 static_assert(meet_never_loosens(from: 8, count: 8))
@@ -671,6 +754,14 @@ static_assert(a_waiting_raise_is_counted(from: 56, count: 4))
 static_assert(a_waiting_raise_is_counted(from: 60, count: 4))
 static_assert(a_waiting_raise_is_counted(from: 64, count: 4))
 static_assert(a_waiting_raise_is_counted(from: 68, count: 4))
+
+// Law 8, for every policy of the smaller grid, in each of five setups.
+static_assert(exact_at_the_edges(from: 0, count: 12))
+static_assert(exact_at_the_edges(from: 12, count: 12))
+static_assert(exact_at_the_edges(from: 24, count: 12))
+static_assert(exact_at_the_edges(from: 36, count: 12))
+static_assert(exact_at_the_edges(from: 48, count: 12))
+static_assert(exact_at_the_edges(from: 60, count: 12))
 
 // Laws 6 and 7 are not about nothing. $250 a window over the 7 windows the
 // span touches, reached in full payments of $100, or of $30 and the rest;

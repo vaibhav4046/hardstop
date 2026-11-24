@@ -134,7 +134,7 @@ export default function Developers() {
             <a href={source('fe/src/kernel/laws.fe')}>kernel/laws.fe</a> has Fe run <code className="mono">amend</code>,{' '}
             <code className="mono">decide</code> and <code className="mono">exposure</code> over a grid of 128 policies
             and all 16,384 pairs while it builds: whatever the owner signs, the worst case cannot go up before the
-            cooling period ends; no payment beats it; and an agent that spends all it can reaches it exactly. A kernel
+            cooling period ends; no payment beats it; and, on a smaller grid in five timing setups, an agent that spends all it can reaches it exactly. A kernel
             broken so any of this fails does not build. It is a grid, not every input.
           </p>
         </div>

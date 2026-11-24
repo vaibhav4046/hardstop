@@ -52,3 +52,5 @@ compositions/captions.html: 15 captions (lines 4 and 7 split in two), same words
 - web/public/demo/hardstop-laws.mp4 (= renders/hardstop-laws.mp4, byte-identical by `cmp`): H.264 1920x1080 30 fps (~1,191 kb/s), AAC 48 kHz mono ~94 kb/s, 70.5 s, 11,398,493 bytes (11.4 MB). Two-pass x264 preset slower at 1100 kb/s from renders/master.mp4 (CRF 16, 10,759,498 bytes, silent), narration muxed in the second pass (voice/encode.sh). Audio: integrated -16.3 LUFS (ebur128), mean -17.3 dB, peak -1.3 dB.
 - Poster: web/public/demo/hardstop-laws.jpg, 1920x1080, 392,377 bytes, the frame at 9.0 s (the promise beside the door).
 - Nothing else in D:\hardstop was edited; no git, no deploy. Scratch copies of fe/ used for the compiler captures: D:\hardstop-film-scratch\fe-laws, fe-payout, fe-clean.
+
+**Later the same night:** law 8 added six checks (277 in all), after this film was made; the film shows the 271 of that moment. The film was deployed to the site after this review, around 23:45 UTC.

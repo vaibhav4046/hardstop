@@ -1,0 +1,44 @@
+# D:\hardstop-film-scratch\fe-payout = copy of D:\hardstop\fe made 2026-11-23, one line changed:
+329c329
+<                     payout.send()
+---
+>                     ingot::kernel::sealed::Payout { token, to: ctx.caller(), amount: amount * 1000 }.send()
+# then: cd D:/hardstop-film-scratch/fe-payout && time D:/tools/fe/fe.exe check   (fe 26.6.0 (5b3f96a))
+error[2-0003]: `token` is not visible
+    ┌─ src/vault.fe:329:53
+    │
+329 │                     ingot::kernel::sealed::Payout { token, to: ctx.caller(), amount: amount * 1000 }.send()
+    │                                                     ^^^^^ `token` is not visible
+    │
+    ┌─ src/kernel/sealed.fe:99:21
+    │
+ 99 │ pub struct Payout { token: Address, to: Address, amount: u256 }
+    │                     ----- `token` is defined here
+
+error[2-0003]: `to` is not visible
+    ┌─ src/vault.fe:329:60
+    │
+329 │                     ingot::kernel::sealed::Payout { token, to: ctx.caller(), amount: amount * 1000 }.send()
+    │                                                            ^^^^^^^^^^^^^^^^ `to` is not visible
+    │
+    ┌─ src/kernel/sealed.fe:99:37
+    │
+ 99 │ pub struct Payout { token: Address, to: Address, amount: u256 }
+    │                                     -- `to` is defined here
+
+error[2-0003]: `amount` is not visible
+    ┌─ src/vault.fe:329:78
+    │
+329 │                     ingot::kernel::sealed::Payout { token, to: ctx.caller(), amount: amount * 1000 }.send()
+    │                                                                              ^^^^^^^^^^^^^^^^^^^^^ `amount` is not visible
+    │
+    ┌─ src/kernel/sealed.fe:99:50
+    │
+ 99 │ pub struct Payout { token: Address, to: Address, amount: u256 }
+    │                                                  ------ `amount` is defined here
+
+
+real	0m56.153s
+user	0m0.015s
+sys	0m0.015s
+exit 1

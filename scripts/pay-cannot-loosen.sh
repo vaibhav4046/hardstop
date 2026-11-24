@@ -748,8 +748,8 @@ if grep -qE '(^|[^A-Za-z0-9_])pub([^A-Za-z0-9_]|$)' <(sed 's#//.*##' "$LAWS"); t
   exit 1
 fi
 LAW_ASSERTS=$(grep -c '^static_assert(' "$LAWS")
-if [ "$LAW_ASSERTS" -lt 271 ]; then
-  echo "FAIL kernel/laws.fe has $LAW_ASSERTS grid checks, expected at least 271"
+if [ "$LAW_ASSERTS" -lt 277 ]; then
+  echo "FAIL kernel/laws.fe has $LAW_ASSERTS grid checks, expected at least 277"
   exit 1
 fi
 echo "ok   source check: kernel/laws.fe has no pub item and all $LAW_ASSERTS grid checks"
@@ -920,3 +920,7 @@ kernel_refused 'exposure ignoring a raise that takes effect in the span' \
   '^    if !cooled(at: queued.effective_at, now: until) {$' '    if true {'
 kernel_refused 'decide refusing on the last second the policy is valid' \
   '^    if now > policy.valid_until {$' '    if now >= policy.valid_until {'
+# Law 8 (added after a judge's planted bug passed the build): exposure
+# answering nothing for a span of no time.
+kernel_refused 'exposure answering nothing for a span of no time' \
+  '^    if end < start { return 0 }$' '    if end <= start { return 0 }'

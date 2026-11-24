@@ -1,0 +1,25 @@
+owner 0x296067b49F888DE31C0e654871cBC2256A261870
+launcher 0x120b607e82bc365710439b283c13eec8d293f206 (installing now)
+  step: wallet
+  step: network
+  step: installing
+  step: launching
+  step: confirming
+vault 0x28c9496c736f833f3701158c2cb27e34c1d62c69
+token 0xa523b3ebea7f4fdd032ed452ca5ab05f2f53a9c6
+launched in 0x852af808e638d6d4e57a655ecc0bc1634f41cda7ab5c28b1cd3880a786e9bdfb
+agent 0x7114ba95f45ec00f305d5d56e51e324a78738867
+agent pays $4              0x8ee88363ae1b36750e5bc262bd1a71f938364c8bdb4cfb964527f9976a7da5c7  ok  gas 130106  verdict 0
+agent pays $4 again        0x9c176d86707047edaf5fff9037e7d9898ce999a7760cfe6d80b6b27cbda2f40c  ok  gas 78818  verdict 0
+agent asks for $80         0xb00789509820af9536af21c4aeb876d4656eb4e45c61afd208491e299ddfc469  ok  gas 56757  verdict 10 detail 10000000
+agent raises own limit     (not sent)  reverted NotOwner  gas 0
+owner proposes $40/day     0x48566f772e734cea993ffa4167d456ece819623070844e9df5429628568fad8d  ok  gas 106805
+owner cancels it           0x9f9a8e929b0afe8a9f7bfc93dda4ed9bcc03bb8826ccca057680fe73ab5e1ca6  ok  gas 41497
+owner pauses               0x15aaf2b9fe487a6a202d656a5e23df7e06b2b400f5fc2da76e085a06eef3c42c  ok  gas 47743
+agent replaces own key     (not sent)  reverted NotOwner  gas 0
+owner replaces agent key   0xdda4044c90521d99c2b5eb8c58e20475ceeb48634abdc808e0c1d19a00b6f6bd  ok  gas 48400
+agent now 0x0000000000000000000000000000000000000000; 0x2a4b063926a52543289def9bc530522a07eb1b35 may pay from 1795554263 (2026-11-24T21:04:23.000Z)
+old key pays after that    (not sent)  reverted NotAgent  gas 0
+owner names the vault       0xf1ec1337f932079e55fadc14455c257000a64efeb22eec433d1028be72314334  ok  gas 45935
+launcher lists 1 vault(s) for the owner; the newest is 0x28c9496c736f833f3701158c2cb27e34c1d62c69, named "Evidence vault"
+after: vault 92 test dollars, recipient 8; per day 20, paused true, queued none

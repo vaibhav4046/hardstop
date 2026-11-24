@@ -1,0 +1,7 @@
+# https://hardstop-omega.vercel.app/mcp at 2026-11-23T22:54:49.143Z
+# tools: hardstop_status, hardstop_preview_payment, hardstop_pay, hardstop_recipients, hardstop_request_more
+
+## hardstop_pay {"to":"Cloud hosting","amount_usd":"15"}
+⛔ Refused: $15.00 to Cloud hosting. One payment may be at most $10.00.
+Left today: $20.00.
+Recorded on the in-memory demo network, which no explorer can show.

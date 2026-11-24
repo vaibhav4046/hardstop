@@ -20,8 +20,8 @@ ok   refused: Pay writing terms
 ok   refused: Pay replacing its own agent key
 ok   refused: Pay approving a recipient
 ...
-ok   refused: decide refusing on the last second the policy is valid
-                                   (91 lines starting ok: 47 refused, 6 controls, 8 source checks,
+ok   refused: exposure answering nothing for a span of no time
+                                   (92 lines starting ok: 48 refused, 6 controls, 8 source checks,
                                     23 edits they catch, 7 edits a test catches)
 
 $ gh run list -R vaibhav4046/hardstop -L 1
@@ -29,7 +29,7 @@ $ gh run list -R vaibhav4046/hardstop -L 1
                                     and every night on unpatched Fe master: .github/workflows/fe-master.yml)
 ```
 
-Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml).
+Output pasted from a run on 2026-11-23. [CI runs](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml).
 
 ## On one screen
 
@@ -42,7 +42,7 @@ Output pasted from a run on 2026-11-21. [CI runs](https://github.com/vaibhav4046
 | Owner changes happen at the chain's own time | `OwnerCall` carries the block time in a private field, read by `prove` from the concrete `Evm`; `Terms`'s functions take no time argument | a made-up time passed to `amend`: 8-0023; a hand-made proof with a made-up time: 2-0003 |
 | Owner actions need the real owner, once | sealed `OwnerCall`, `own`, not `Copy`, `#[must_use]`, `prove` takes the concrete `Evm` | hand-made proof or `Owner`: 2-0003; `authorize`'s proof or a stand-in `Ctx` passed to `prove`: 8-0000; no proof: 8-0012; reuse: 16-0002; drop: 8-0082 |
 | Verdict codes and the ratchet's laws hold | `const fn` + `static_assert` in `kernel.fe` | two verdict-code edits and five law-breaking kernel edits: 8-0081; `+` wrapping: 3-0034 |
-| The worst case is a promise: no signature raises it before the cooling period ends, no payment beats it, and an agent reaches it exactly | 271 `static_assert`s in `kernel/laws.fe` run `amend`, `cancel`, `decide` and `exposure` over a grid of 128 policies (16,384 pairs) | seven kernel edits no earlier check catches (`decide` ignoring a cap, the end date or a pause, or refusing on the last valid second; `exposure` forgetting later windows or a waiting raise): 8-0081 (3-0026 is also accepted beside it) |
+| The worst case is a promise: no signature raises it before the cooling period ends, no payment beats it, and an agent reaches it exactly (on a 72-policy grid in five setups) | 277 `static_assert`s in `kernel/laws.fe` run `amend`, `cancel`, `decide` and `exposure` over a grid of 128 policies (16,384 pairs) | seven kernel edits no earlier check catches (`decide` ignoring a cap, the end date or a pause, or refusing on the last valid second; `exposure` forgetting later windows or a waiting raise): 8-0081 (3-0026 is also accepted beside it) |
 | Checked when the code runs, not compiled | `open` and `founding` only while deploying; a copied `Approval` approves no one | `fe test`: `open_works_only_while_deploying`, `founding_works_only_while_deploying`, `a_copied_approval_approves_no_one`, `zeroed_terms_cannot_be_raised` |
 | Not covered by the compiler | an older `Approval` kept in a second storage map and put back (`Approval` is still `Copy`: Fe 26.6's `StorageMap::get` requires `V: Copy`, so a value kept in a map has to be); `Pay` writing its own ledger other than from the verdict | edits compile; a source check (text, not the compiler) allows one stored `Terms`, one approval map, and only `ledger = next` in `Pay`, and catches these edits and a second `Terms` field; `fe test`: `a_cancel_after_a_pause_keeps_the_agent_paused`, `a_cancel_after_lowering_a_limit_keeps_it_low`, `a_cancel_after_removing_a_recipient_keeps_it_removed` |
 | `Pay` pays only what the kernel allowed, to whom it allowed (2026-11-23) | `Books::judge` reads the caller and time from a sealed `Moment`, the rules from a sealed `TermsNow`, the agent from a sealed `AgentNow` and the recipient's sealed `Approval`; it counts the payment and returns a sealed, use-once `Payout`, the only thing in `vault.fe` that can send money | a hand-made `Payout`, `Moment`, `TermsNow`, `AgentNow`, `Approval` or `Books`: 2-0003; a payout sent twice: 16-0002 |
@@ -249,8 +249,8 @@ policies (each cap 0, 1, 100 or the largest number; an end date before,
 inside, at the end of, or after the cooling period; paused or not) and runs
 `amend`, `cancel`, `decide` and `exposure` on them. `decide`, `exposure` and
 two helpers were marked `const fn` for this; every compiled contract is
-byte-identical to before, so the deployed vaults are unchanged. 271
-`static_assert`s state seven laws:
+byte-identical to before, so the deployed vaults are unchanged. 277
+`static_assert`s state eight laws:
 
 1. No policy loosens itself, and `meet` of any two is looser than neither
    (all 16,384 pairs).
@@ -272,19 +272,27 @@ byte-identical to before, so the deployed vaults are unchanged. 271
    smaller grid of 72 policies with bounded caps, so it can spend all of it).
 7. A raise signed now is counted in the worst case of a span in which it
    takes effect (72 × 9 pairs).
+8. The worst case stays exact at the edges and under other schedules: a
+   span of no time, a span of one second, the last second of a window and
+   the first of the next, hour windows with a one-minute cooling period,
+   and day windows over two days (72 policies × 5 setups). Laws 1 to 7 use
+   one setup (10-minute windows, a one-hour cooling period, signing at
+   second 1000); law 8 was added after an independent judge planted a bug
+   that answered nothing for a span of no time and still built.
 
-They add about 30 seconds to a build (about 35 s against 5 s for
+They add about 50 seconds to a build (about 55 s against 5 s for
 `fe check` on this machine). Each check uses half of the work Fe allows one
 `static_assert` (its step limit, error 3-0026), so a harmless change to the
 kernel still compiles; a broken kernel can also fail with 3-0026 rather
-than 8-0081, and either way it does not build. Ten broken kernels were
-tried; all ten fail the build. Eight of them pass every earlier check,
+than 8-0081, and either way it does not build. Twelve broken kernels were
+tried; all twelve fail the build. Ten of them pass every earlier check,
 because no earlier compile-time check ran `decide` or `exposure`: `decide`
 checking the window cap instead of what is left in it, ignoring the
 payment cap, the end date or a pause, or refusing on the last second the
 policy is valid; `exposure` forgetting the windows after this one, a raise
-that takes effect in the span, or what was already spent this window. CI
-runs seven of them on every push (section 8 of
+that takes effect in the span, what was already spent this window, one
+window at a window edge, or
+anything for a span of no time. CI runs eight of them on every push (section 8 of
 [`scripts/pay-cannot-loosen.sh`](scripts/pay-cannot-loosen.sh)), and a
 source check keeps `laws.fe` free of any `pub` item, since it makes owner
 proofs by hand. What this is not: a proof for every input. The grid is

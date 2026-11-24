@@ -1,0 +1,71 @@
+# D:\hardstop-film-scratch\fe-laws = copy of D:\hardstop\fe made 2026-11-23, one line changed:
+416c416
+<     if policy.paused {
+---
+>     if false {
+# then: cd D:/hardstop-film-scratch/fe-laws && time D:/tools/fe/fe.exe check   (fe 26.6.0 (5b3f96a))
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:644:15
+    │
+644 │ static_assert(a_payment_fits_the_worst_case(from: 64, count: 32))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:645:15
+    │
+645 │ static_assert(a_payment_fits_the_worst_case(from: 96, count: 32))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:652:15
+    │
+652 │ static_assert(the_worst_case_is_exact(from: 48, count: 12))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:653:15
+    │
+653 │ static_assert(the_worst_case_is_exact(from: 60, count: 12))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:668:15
+    │
+668 │ static_assert(a_waiting_raise_is_counted(from: 48, count: 4))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:669:15
+    │
+669 │ static_assert(a_waiting_raise_is_counted(from: 52, count: 4))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:670:15
+    │
+670 │ static_assert(a_waiting_raise_is_counted(from: 56, count: 4))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:671:15
+    │
+671 │ static_assert(a_waiting_raise_is_counted(from: 60, count: 4))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:672:15
+    │
+672 │ static_assert(a_waiting_raise_is_counted(from: 64, count: 4))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+error[8-0081]: static assertion failed
+    ┌─ src/kernel/laws.fe:673:15
+    │
+673 │ static_assert(a_waiting_raise_is_counted(from: 68, count: 4))
+    │               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `static_assert` evaluated to `false`
+
+
+real	0m48.851s
+user	0m0.031s
+sys	0m0.015s
+exit 1
