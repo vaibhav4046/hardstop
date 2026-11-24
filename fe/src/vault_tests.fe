@@ -1009,6 +1009,7 @@ contract Reopener uses (ctx: Ctx) {
             ctx,
             owner: ctx.caller(),
             agent: ctx.address(),
+            token: ctx.address(),
             schedule: Schedule {
                 anchor: Instant::at(0),
                 window_secs: Seconds::of(DAY),
@@ -1034,6 +1035,7 @@ contract Reopener uses (ctx: Ctx) {
                 ctx,
                 owner: ctx.caller(),
                 agent: ctx.address(),
+                token: ctx.address(),
                 schedule: Schedule {
                     anchor: Instant::at(0),
                     window_secs: Seconds::of(DAY),
@@ -1204,12 +1206,26 @@ fn agent_cannot_replace_its_own_key() uses (evm: mut Evm) {
     )
 }
 
-#[test]
+#[test(should_revert, selector = 0xd06b96b1)]
 fn the_owner_cannot_name_itself_the_agent() uses (evm: mut Evm) {
     let w = world()
+    // Refused with InvalidPolicy: it would leave a leaked key working.
     replace_agent(w, who: evm.address())
-    assert!(agent_of(w) == w.agent)
+}
+
+#[test]
+fn the_vault_pays_in_the_token_it_was_created_with() uses (evm: mut Evm) {
+    let w = world()
+    let token: Address = evm
+        .call(
+            addr: w.vault,
+            gas: GAS,
+            value: Wei::zero(),
+            message: VaultMsg::Token {},
+        )
+    assert!(token == w.token)
     assert!(agent_pays(w, to: w.shop, amount: 4 * USD, nonce: 0) == 0)
+    assert!(balance(w, of: w.shop) == 4 * USD)
 }
 
 #[test]

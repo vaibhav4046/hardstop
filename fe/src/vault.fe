@@ -264,6 +264,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             ctx,
             owner: owner_,
             agent: agent_,
+            token: token_,
             schedule: Schedule {
                 anchor: now,
                 window_secs: Seconds::of(window_secs),
@@ -299,7 +300,6 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
         Pay { to, amount, nonce } -> u8 uses (
             ctx,
             seat,
-            token,
             terms,
             approved_from,
             mut ledger,
@@ -312,18 +312,7 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             let agent = seat.now(ctx)
             let approval = approved_from.get(key: to)
             let at = moment(ctx)
-            let pay_in = token
-            let verdict = ledger
-                .judge(
-                    at,
-                    terms: rules,
-                    seat: agent,
-                    approval,
-                    token: pay_in,
-                    to,
-                    amount,
-                    nonce,
-                )
+            let verdict = ledger.judge(at, terms: rules, seat: agent, approval, to, amount, nonce)
             match verdict {
                 Verdict::Pay(payout) => {
                     payout.send()
@@ -433,15 +422,19 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             )
         }
 
-        Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
+        Withdraw { amount } uses (ctx, owner, ledger, mut call, mut log) {
             let proof = only(owner, ctx)
+            let token = ledger.token()
             withdraw(proof, owner, token, amount)
             log.emit(Withdrawn { amount })
         }
 
         SetAgent { who } uses (ctx, owner, terms, mut seat, mut log) {
             let proof = only(owner, ctx)
-            seat.replace(proof, terms, owner, who)
+            if !seat.replace(proof, terms, owner, who) {
+                // Naming the owner as the agent would leave a leaked key working.
+                revert_error(InvalidPolicy {})
+            }
             let (next, from) = seat.waiting(now: seconds(ctx.timestamp()))
             log.emit(AgentChanged { next, from: from.secs() })
         }
@@ -457,8 +450,8 @@ pub contract Vault uses (ctx: Ctx, call: mut Call, log: mut Log) {
             let (next, from) = seat.waiting(now: seconds(ctx.timestamp()))
             (next, from.secs())
         }
-        Token -> Address uses (token) {
-            token
+        Token -> Address uses (ledger) {
+            ledger.token()
         }
 
         ScheduleOf -> (u64, u64, u64) uses (terms) {

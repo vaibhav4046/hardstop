@@ -78,8 +78,9 @@ pub struct Approval { who: Address, from: Instant }
 /// old seat cannot be kept aside and put back.
 pub struct Seat { agent: Address, next: Address, from: Instant }
 
-/// What the agent has spent, as only a payment the kernel allowed changes it.
-pub struct Books { ledger: Ledger }
+/// What the agent has spent, as only a payment the kernel allowed changes
+/// it, and the token the vault pays in, fixed when the vault is created.
+pub struct Books { ledger: Ledger, token: Address }
 
 /// The vault's rules as they are stored, read out so a payment can be judged
 /// against them. Only `Terms::now` makes one; nothing else can build it.
@@ -140,12 +141,14 @@ pub fn open(
     _ ctx: Evm,
     owner: Address,
     agent: Address,
+    token: Address,
     schedule: Schedule,
     policy: Policy,
 ) -> Option<(Owner, Seat, Terms, Books)> {
     if ctx.extcodesize(ctx.address()) != 0
         || owner == Address::zero()
         || agent == Address::zero()
+        || token == Address::zero()
         || agent == owner
         || schedule.window_secs == Seconds::of(0) {
         return Option::None
@@ -156,7 +159,7 @@ pub fn open(
             Owner { address: owner },
             Seat { agent, next: Address::zero(), from: NOT_SET },
             Terms { rules },
-            Books { ledger: Ledger { window: 0, spent: 0, next_nonce: 0 } },
+            Books { ledger: Ledger { window: 0, spent: 0, next_nonce: 0 }, token },
         ),
     )
 }
@@ -285,12 +288,23 @@ impl Seat {
 
     /// The owner replaces the agent's key. The key in use stops at once (a
     /// tightening); the new one waits out the cooling period (a loosening),
-    /// and naming the zero address leaves the vault with no agent.
-    pub fn replace(mut self, _ proof: own OwnerCall, terms: Terms, owner: Owner, who: Address) {
+    /// and naming the zero address leaves the vault with no agent. False,
+    /// and nothing changed, when `who` is the owner: the vault refuses that.
+    #[must_use]
+    pub fn replace(
+        mut self,
+        _ proof: own OwnerCall,
+        terms: Terms,
+        owner: Owner,
+        who: Address,
+    ) -> bool {
         let now = proof.now
         let _ = kernel_proof(proof)
-        if terms.blank() || who == owner.address {
-            return
+        if who == owner.address {
+            return false
+        }
+        if terms.blank() {
+            return true
         }
         self.agent = Address::zero()
         self.next = who
@@ -299,12 +313,18 @@ impl Seat {
         } else {
             matures_at(terms.rules.schedule, now)
         }
+        true
     }
 }
 
 impl Books {
     pub fn ledger(self) -> Ledger {
         self.ledger
+    }
+
+    /// The token the vault pays in.
+    pub fn token(self) -> Address {
+        self.token
     }
 
     /// The agent's payment of `amount` to `to`, judged by the kernel at the
@@ -316,7 +336,6 @@ impl Books {
         terms: TermsNow,
         seat: AgentNow,
         approval: Approval,
-        token: Address,
         to: Address,
         amount: u256,
         nonce: u64,
@@ -332,7 +351,7 @@ impl Books {
         match decide(rules: terms.rules, ledger: self.ledger, request, now) {
             Decision::Allow(next) => {
                 self.ledger = next
-                Verdict::Pay(Payout { token, to, amount })
+                Verdict::Pay(Payout { token: self.token, to, amount })
             },
             Decision::Deny(reason) => Verdict::Refuse(reason),
         }

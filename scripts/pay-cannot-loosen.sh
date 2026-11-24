@@ -350,17 +350,7 @@ check_pay() {
       need["            let agent = seat.now(ctx)"] = 0
       need["            let approval = approved_from.get(key: to)"] = 0
       need["            let at = moment(ctx)"] = 0
-      need["            let pay_in = token"] = 0
-      need["            let verdict = ledger"] = 0
-      need["                .judge("] = 0
-      need["                    at,"] = 0
-      need["                    terms: rules,"] = 0
-      need["                    seat: agent,"] = 0
-      need["                    approval,"] = 0
-      need["                    token: pay_in,"] = 0
-      need["                    to,"] = 0
-      need["                    amount,"] = 0
-      need["                    nonce,"] = 0
+      need["            let verdict = ledger.judge(at, terms: rules, seat: agent, approval, to, amount, nonce)"] = 0
       need["            match verdict {"] = 0
       need["                Verdict::Pay(payout) => {"] = 0
       need["                    payout.send()"] = 0
@@ -528,19 +518,19 @@ refused_file 'SetAgent saving the old key aside to put it back later' 'cannot mo
 # Terms kept under another name, an allowance granted to the caller, or a
 # made-up time all fail here.
 SHAPE_HEADS='init(owner_: Address, agent_: Address, token_: Address, per_payment: u256, per_window: u256, valid_until: u64, window_secs: u64, cooling_secs: u64, payee_a: Address, payee_b: Address, payee_c: Address) uses (ctx, mut owner, mut seat, mut token, mut terms, mut ledger, mut approved_from) {
-Pay { to, amount, nonce } -> u8 uses (ctx, seat, token, terms, approved_from, mut ledger, mut call, mut log) {
+Pay { to, amount, nonce } -> u8 uses (ctx, seat, terms, approved_from, mut ledger, mut call, mut log) {
 Preview { caller, to, amount, nonce } -> (u8, u256) uses (ctx, seat, terms, ledger, approved_from) {
 Exposure { until } -> u256 uses (ctx, terms, ledger) {
 Propose { per_payment, per_window, valid_until, paused } uses (ctx, owner, mut terms, mut log) {
 CancelQueued uses (ctx, owner, mut terms, mut log) {
 Pause uses (ctx, owner, mut terms, mut log) {
 SetRecipient { who, approved } uses (ctx, owner, terms, mut approved_from, mut log) {
-Withdraw { amount } uses (ctx, owner, token, mut call, mut log) {
+Withdraw { amount } uses (ctx, owner, ledger, mut call, mut log) {
 SetAgent { who } uses (ctx, owner, terms, mut seat, mut log) {
 Owner -> Address uses (owner) {
 Agent -> Address uses (ctx, seat) {
 NextAgent -> (Address, u64) uses (ctx, seat) {
-Token -> Address uses (token) {
+Token -> Address uses (ledger) {
 ScheduleOf -> (u64, u64, u64) uses (terms) {
 PolicyOf -> (u256, u256, u64, bool) uses (ctx, terms) {
 QueuedOf -> (u256, u256, u64, bool, u64) uses (ctx, terms) {
@@ -642,9 +632,9 @@ shape_check_catches 'a new handler that moves money with no owner check' \
 # source check, not a compiler guarantee: any change to that code fails here
 # until the pin below is updated, so it cannot go in unnoticed.
 PIN_PRELUDE=7983df44994504d1458498cd90b5825d29b37dcfc00900d40997e7a82aad3b4b
-PIN_INIT=11073bb26adda48b39bbf09e1495ab384095291048e2544288d8d303311a102a
-PIN_VAULT=d2de25f6badd7ce3a5246e6ac83f54109cb1997dd3510f4a9ea54b2ab728bdac
-PIN_SEALED=0902b50a5ac4f81c651b7c236078846fc50a22c3c5fca5b0cc312714ba47c2f5
+PIN_INIT=6e8737b66d61097f038a776378c67155a8e9353900ef898ad666034721003662
+PIN_VAULT=396a650d64c23b7331d38d0f749bca3f17898431a067a615c12325a1e5359229
+PIN_SEALED=a161b7bcd0636745b9158fdf4cdda55907b07206a0a14be7d005bd37980abb27
 code_sha() { sed 's#//.*##; s/[ \t]*$//' | grep -v '^$' | sha256sum | cut -d' ' -f1; }
 prelude_of() { awk '/^pub contract Vault/ { exit } { print }' "$1"; }
 init_of() { awk '/^    init\(/ { on = 1 } on { print } on && /^    }$/ { exit }' "$1"; }
