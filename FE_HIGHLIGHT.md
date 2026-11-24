@@ -304,8 +304,10 @@ and the differential test.
 The asserts add no bytecode: all 24 compiled outputs are byte-identical
 with or without them. The `const` markings on `amend`, `cancel`,
 `matures_at`, `Queued::none`, `Instant::at` and `Seconds::of` do change it:
-the vault's runtime was 65 bytes smaller (7,983 bytes then; 6,883 on chain
-now that `Terms` changes in place), and since the
+the vault's runtime was 65 bytes smaller (7,983 bytes then; 6,883 in the builds
+before 2026-11-23, once `Terms` changed in place; 7,971 on the current
+contracts, v3 of 2026-11-24, after the sealed payout and the agent's key
+replacement were added), and since the
 launcher carries the vault's code, the launcher's deterministic address
 changed with it.
 

@@ -170,6 +170,14 @@ this was built on, Fe 26.6.0: `fe check` takes about 55 s with them and
 about 5 s without. Every compiled contract (20 `.bin` files) is byte-identical with
 and without them, compared by sha256 against the build of `64b5501`.
 
+Four counts of broken kernels appear in these docs, each for a different
+check. **15**: the seeded adversary's mutants, caught when the tests run
+(`fe test` and natively). **12**: the kernels below, tried against the
+compile-time laws; all 12 fail the build. **10**: those of the 12 that pass
+every check that existed before the laws (the 70-second film shows a
+different ten: the table's first ten rows). **8**: those of the 12 that CI re-runs on every push (section 8 of
+`scripts/pay-cannot-loosen.sh`).
+
 Each kernel below was broken by one edit and compiled with the laws in
 place. "Earlier asserts" are the `static_assert`s at the end of `kernel.fe`
 that existed before; "law asserts" are the ones in `laws.fe`.

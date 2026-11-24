@@ -1,22 +1,23 @@
 # Progress
 
-Updated 2026-11-22. Submission deadline: 2026-11-24 23:59 UTC. The README is
+Updated 2026-11-24. Submission deadline: 2026-11-24 23:59 UTC. The README is
 the reference; this page only says where things stand.
 
-## Verified on 2026-11-22 (this commit's tree)
+## Verified on 2026-11-24 (main, current contracts v3)
 
 | Check | Result |
 |---|---|
 | `fe fmt --check` | clean |
-| `fe test` (EVM) | 106 passed, 0 failed |
+| `fe test` (EVM) | 113 passed, 0 failed |
 | `fe test --backend native` (WSL) | 54 passed, 0 failed |
-| Native campaign, 20,000 games of 40 requests | `violation 0` |
-| `scripts/pay-cannot-loosen.sh` | 80 lines starting `ok`: 30 compiler refusals, 7 controls that must compile, 7 source checks, 29 edits they must catch, 7 edits a test must catch |
-| Committed web artifacts vs a fresh build | identical |
-| `npm test` (web) | 108 tests, passing locally and in CI |
-| `npx tsc --noEmit` | clean |
-| Browser suite | 64 tests; green in CI (GitHub Actions) |
-| Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app |
+| `scripts/pay-cannot-loosen.sh` | 92 lines starting `ok`: 48 compiler refusals, 6 controls that must compile, 8 source checks, 23 edits they must catch, 7 edits a test must catch |
+| `npm test` (web) | 125 tests, passing locally and in CI |
+| `npx tsc --noEmit`, lint, `next build` | clean |
+| Browser suite | 65 tests, passing locally and in CI |
+| Live site | `web/e2e/live-check.mjs` passes against https://hardstop-omega.vercel.app, including `/mcp`, `/mcp/tricked` and `/alerts` |
+
+The 2026-11-22 numbers this page held before (106 Fe tests, 80 `ok` lines,
+108 web tests) are from that day's build.
 
 ## Done
 
@@ -29,11 +30,15 @@ the reference; this page only says where things stand.
   compile time. CI proves each with an edit the compiler must refuse.
 - Web app with a practice vault in the browser and real vaults on Base
   Sepolia or Sepolia through the visitor's wallet. The current contracts
-  run on Base Sepolia (launcher, a vault, payments, a refusal, a cancelled
-  raise and a pause, 2026-11-21; transactions in the README).
-- MCP server for AI agents (five agent tools, no owner tools) and a 24/7
-  watcher for the owner that catches up after a restart.
-- A 2 min narrated demo film (1080p, synthetic voice, music and captions, with live-site screen recordings), and a 1 min 47 s silent walkthrough (built in HyperFrames from real site footage, compiler output and on-chain receipts).
+  run on Base Sepolia (v3, 2026-11-24: launcher, vaults, payments,
+  refusals, a cancelled raise, a pause, the agent's key replaced, a vault
+  holding testnet USDC; transactions in `docs/EVIDENCE.md`).
+- MCP server for AI agents (five agent tools, no owner tools), a hosted
+  practice server at `/mcp`, a hosted alert feed per vault at `/alerts`, and
+  a 24/7 watcher for the owner that catches up after a restart.
+- AI assistants through their own MCP clients: Claude Code, Cursor and
+  Antigravity on the 2026-11-22 contracts, Cursor's agent on v3.
+- A 70 s narrated film of the compile-time laws (2026-11-23), a 43 s silent clip of the v3 runs (2026-11-24), an 85 s update film, a 2 min narrated demo film (1080p, synthetic voice, music and captions, with live-site screen recordings), and a 1 min 47 s silent walkthrough (built in HyperFrames from real site footage, compiler output and on-chain receipts).
 - Three rounds of independent AI judge reviews; the findings that survived
   were fixed.
 - Six Fe compiler issues filed upstream with reproductions (argotorg/fe

@@ -88,8 +88,9 @@ export default function Home() {
           <li className="card">
             <span className="tricked-when mono">Any time</span>
             <p>
-              The vault&rsquo;s worst case jumps from $40 to <strong>$1,020</strong>, computed by the contract, so the
-              danger has a number before any money moves.
+              The vault&rsquo;s worst case over the next 24 hours jumps from $40 to <strong>$1,020</strong>, computed by the
+              contract: those 24 hours reach the second the raise would start. Up to that second it stays $40. The danger
+              has a number before any money moves.
             </p>
           </li>
           <li className="card">

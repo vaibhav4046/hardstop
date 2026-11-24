@@ -47,10 +47,12 @@ cap was not broken; the path that changes it was. HARDSTOP attacks that path:
 2. **The danger is a number before it happens, and the compiler checks the
    number.** The contract's `exposure` computes the most the agent can move
    over any span, counting the waiting raise: $40 over the next 24 hours
-   before the tricked approval, $1,020 after, shown a day before the raise
-   could be used. `fe/src/kernel/laws.fe` makes the Fe compiler itself run
+   before the tricked approval, $1,020 after (the next 24 hours reach the
+   second the raise starts; up to that second it stays $40), shown a day
+   before the raise could be used. `fe/src/kernel/laws.fe` makes the Fe compiler itself run
    `amend`, `decide` and `exposure` over a grid of 128 policies (16,384
-   pairs) on every build: for every pair on that grid, whatever the owner signs, that number cannot go up
+   pairs) on every build (one schedule, starting from a vault with nothing
+   waiting): for every pair on that grid, whatever the owner signs, that number cannot go up
    before the cooling period ends; no payment beats it; and an agent that
    spends all it can gets exactly it. Break the kernel so any of these fails
    and the contract does not build.
@@ -241,9 +243,9 @@ watcher (which also reports payments, refusals and a raise withdrawn
 between two checks). A stolen owner key is
 out of scope. Fixed windows let a full cap be spent at the end of one window
 and again at the start of the next (`exposure` counts it). On the site the
-agent is a trial key kept in the browser. The current contracts were
-exercised through the MCP client, not by an AI assistant; the assistant
-runs were on earlier ones (2026-11-22). No human user testing: the personas in `qa/` are scripts.
+agent is a trial key kept in the browser. On the current contracts
+(v3) one AI assistant ran, Cursor's agent; Claude Code, Cursor and
+Antigravity all ran on earlier ones (2026-11-22). No human user testing: the personas in `qa/` are scripts.
 The native build needs Linux, macOS or WSL. MetaMask's site scanner warns
 before connecting (a review was requested on 2026-11-18). Full list in
 `docs/LIMITATIONS.md`.

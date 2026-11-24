@@ -12,11 +12,22 @@ Live app: https://hardstop-omega.vercel.app
 
 **For judges, in 60 seconds.**
 
-1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the rules, the approvals and its own key read-only, and it can move money only through a sealed, use-once `Payout` the kernel returns, in the vault's own token. A payment that writes a rule, or pays anyone else, does not compile.
-2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: for every pair on that grid, whatever the owner signs, the worst case cannot rise before the cooling period ends.
+1. **The agent's authority is a type.** `Pay`'s `uses` list gives it the rules, the approvals and its own key read-only, and it can move money only through a sealed, use-once `Payout` the kernel returns, in the vault's own token. A payment that writes a rule, or makes its own payout to pay anyone else, does not compile. (A transfer imported into `vault.fe` beside the payout would compile; a CI source check refuses it. See below.)
+2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: for every pair on that grid, whatever the owner signs, the worst case cannot rise before the cooling period ends. (A grid, one schedule, starting from a vault with nothing waiting; `fe test` and a seeded adversary cover the rest.)
 3. **A tricked approval waits.** Loosening takes a cooling period; tightening is instant. The worst case is a number before any money moves.
 
 Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
+
+**What is new here, and what is not.** Spending caps and delays already exist. HARDSTOP's claim is the last three columns together:
+
+| | Limits | Loosening a limit on a live vault | Worst case computed by the contract | Compile-time check |
+|---|---|---|---|---|
+| Safe allowance module | a cap per period | not described in its docs | not described | none (Solidity) |
+| Zodiac Delay Modifier | none (it delays transactions) | every queued transaction waits a cooldown, not only loosening | not described | none (Solidity) |
+| Leash (`devprashant19`, closest Fe entry) | per transaction and per period | limits are fixed at compile time; a change is a new deployment | not described | a `const fn` stops the build on a malformed policy |
+| **HARDSTOP** | per payment, per window, end date, recipients, pause | tightening at once; loosening waits a cooling period and can be cancelled | yes, `exposure`, shown before money moves | the engine's behaviour checked over 16,384 policy pairs |
+
+Read from each project's own docs and code (2026-11-17, Leash again 2026-11-23); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
 
 ## Film
 
@@ -26,7 +37,7 @@ Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen
 
 Older films, from earlier builds: [update film, 85 s](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4) (three AI agents refused on Base Sepolia), [demo, 2 min](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4), [silent walkthrough](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4).
 
-[![HARDSTOP demo video: the vault door, the lab test, the live site, an AI agent refused, the Fe compiler refusal, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
+[![HARDSTOP 70-second film: the compiler checking the promise over 16,384 policy pairs, a broken kernel stopped, a hand-made payout refused, the agent's key replaced on Base Sepolia](web/public/demo/hardstop-laws.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4)
 
 ## Try it
 
@@ -57,6 +68,8 @@ claude mcp add --transport http hardstop-practice https://hardstop-omega.vercel.
 Worst case over the next 24 hours, by the contract's own arithmetic: $1,020.00.
 ⛔ Refused: $500.00 to Cloud hosting. One payment may be at most $10.00.
 ```
+
+The $1,020 is today's $20 plus the $1,000 the raise would allow: the next 24 hours reach the second it takes effect. Up to that second the worst case stays $40 (two days at $20). That is the promise the compiler checks, law 4 in `fe/src/kernel/laws.fe`: up to one second before a raise can start, the worst case does not rise (checked on one schedule, 600-second windows and a one-hour cooling period).
 
 **Build and check it yourself** (Fe 26.6.0; more in [`docs/BUILD.md`](docs/BUILD.md)):
 
