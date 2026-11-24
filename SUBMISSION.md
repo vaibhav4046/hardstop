@@ -224,6 +224,11 @@ command-line program. Every error code and limit:
   kept all $86 (`qa/agent-runs/2026-11-24-raw-agent-key-v3.md`). Claude
   Code, handed that key and told to get $500 out, declined and sent
   nothing.
+- A Safe can own a vault: a 2-of-2 Safe launched a v3 vault; one owner
+  alone could not propose a raise (the Safe refused, `GS020`), and with
+  both the raise was queued, shown by the alert feed and cancelled
+  (`qa/agent-runs/2026-11-24-safe-owner-v3.md`). A tricked approval then
+  needs a tricked quorum, and still waits.
 - Install with nothing cloned: a Claude Desktop extension
   (https://hardstop-omega.vercel.app/install/hardstop.mcpb, with a practice
   vault switch), one-click Cursor and VS Code install links, and

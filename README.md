@@ -38,7 +38,7 @@ Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen
 | Leash (`devprashant19`, closest Fe entry) | per transaction and per period | limits are fixed at compile time; a change is a new deployment | not described | a `const fn` stops the build on a malformed policy |
 | **HARDSTOP** | per payment, per window, end date, recipients, pause | tightening at once; loosening waits a cooling period and can be cancelled | yes, `exposure`, shown before money moves | the engine's behaviour checked over 16,384 policy pairs |
 
-What Leash does that HARDSTOP does not: a rolling 24-hour window (HARDSTOP's windows are fixed), a circuit breaker, and running as a module on a Safe. Read from each project's own docs and code (2026-11-17, Leash again 2026-11-23); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
+What Leash does that HARDSTOP does not: a rolling 24-hour window (HARDSTOP's windows are fixed), a circuit breaker, and running as a module inside a Safe (a HARDSTOP vault is instead a contract a Safe can own: [run](qa/agent-runs/2026-11-24-safe-owner-v3.md)). Read from each project's own docs and code (2026-11-17, Leash again 2026-11-23); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
 
 ## Film
 
@@ -132,6 +132,7 @@ What already works the way a real team would use it:
 
 - **A real stablecoin.** A v3 vault held Circle's testnet USDC, paid 2 USDC and refused 4 on Base Sepolia ([run](qa/agent-runs/2026-11-24-usdc-vault.md)). Since v3 a vault can hold an existing token instead of the test dollar.
 - **Real AI assistants, no code.** Claude Code, Cursor and Antigravity connect through their own MCP clients ([runs](qa/agent-runs/)); the server is in the official MCP Registry, Claude Desktop has an extension (`hardstop.mcpb`), and any assistant can try `https://hardstop-omega.vercel.app/mcp` first.
+- **A Safe as the owner.** A 2-of-2 Safe launched a v3 vault and owns it: one signer alone could not even propose a raise (the Safe refused, `GS020`); with both, the raise was queued, shown by the alert feed and cancelled ([run](qa/agent-runs/2026-11-24-safe-owner-v3.md)). A tricked approval then needs a tricked quorum, and it still waits.
 - **The owner hears about a raise.** Each vault's alert feed shows a waiting raise to any feed reader; the self-hosted watcher pushes it to a phone (ntfy), a webhook or the desktop.
 - **Costs, measured on Base Sepolia:** a payment 80,858 gas (132,146 for a vault's first), a refusal 56,671, a new vault 1,982,063 ([gas table](docs/EVIDENCE.md)).
 
