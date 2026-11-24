@@ -44,13 +44,15 @@ What the others do that HARDSTOP does not: mubudot's leash checks three compiled
 
 ## Film
 
-**[Watch the 70-second film](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4)** ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4); narrated by a synthetic voice, captions, every shot a real run; [sources](docs/FILM_SOURCES_2026-11-23.md)): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. It was recorded on the 2026-11-23 contracts; v3 (2026-11-24) only seals the token and refuses the owner as agent.
+**[Watch the 77-second film](https://hardstop-omega.vercel.app/demo/hardstop-v3-narrated.mp4)** (the current contracts, v3; narrated by a synthetic voice, captions, every shot a real capture; [sources](docs/FILM_SOURCES_2026-11-24-narrated.md)): the published problem, the Fe compiler refusing to build a broken kernel (64 of its 373 checks fail), the agent's raw key refused on Base Sepolia, a 2-of-2 Safe refusing one signer, and the alert feed.
+
+Earlier, **[the 70-second film](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4)** ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4); narrated by a synthetic voice, captions, every shot a real run; [sources](docs/FILM_SOURCES_2026-11-23.md)): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. It was recorded on the 2026-11-23 contracts; v3 (2026-11-24) only seals the token and refuses the owner as agent.
 
 **[On v3, 43 seconds](https://hardstop-omega.vercel.app/demo/hardstop-v3.mp4)** (silent, captioned, every frame a real capture; [sources](docs/FILM_SOURCES_2026-11-24.md)): Cursor's AI agent on the current contracts, its $3 paid and its GPU Market and $15 payments refused on Base Sepolia, and the hosted alert feed showing a waiting raise.
 
 Older films, from earlier builds: [update film, 85 s](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4) (three AI agents refused on Base Sepolia), [demo, 2 min](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4), [silent walkthrough](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4).
 
-[![HARDSTOP 70-second film: the compiler checking the promise over 16,384 policy pairs, a broken kernel stopped, a hand-made payout refused, the agent's key replaced on Base Sepolia](web/public/demo/hardstop-laws.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4)
+[![HARDSTOP 77-second film on the current contracts: the published problem, the Fe compiler refusing a broken kernel, the agent's raw key refused on Base Sepolia, a Safe refusing one signer, and the alert feed](web/public/demo/hardstop-v3-narrated.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-v3-narrated.mp4)
 
 ## Try it
 
