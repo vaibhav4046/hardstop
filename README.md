@@ -29,16 +29,18 @@ Live app: https://hardstop-omega.vercel.app
 
 Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
-**What is new here, and what is not.** Spending caps and delays already exist. HARDSTOP's claim is the last three columns together:
+**What is new here, and what is not.** Spending caps and delays already exist. In every other Fe entry we found on this theme, a limit changes, or is overridden, as soon as the owner acts (in devprashant19's Leash, by deploying a new module); that is the path the study's agents went through. HARDSTOP's claim is the last three columns together:
 
 | | Limits | Loosening a limit on a live vault | Worst case computed by the contract | Compile-time check |
 |---|---|---|---|---|
 | Safe allowance module | a cap per period | not described in its docs | not described | none (Solidity) |
 | Zodiac Delay Modifier | none (it delays transactions) | every queued transaction waits a cooldown, not only loosening | not described | none (Solidity) |
 | Leash (`devprashant19`, closest Fe entry) | per transaction and per period | limits are fixed at compile time; a change is a new deployment | not described | a `const fn` stops the build on a malformed policy |
+| leash (`mubudot`, Fe entry) | per payment, per fixed window, payees | the owner reconfigures at once; an owner-signed exception may exceed both caps at once | headroom left in the window (`remaining`) | a shared `const fn` validates the limits |
+| SpendGuard (`Abdul99090`, Fe entry) | one cumulative cap per session, targets, expiry | the owner opens a session or allows a target at once | not described | typed units (`Wei`, `Duration`) |
 | **HARDSTOP** | per payment, per window, end date, recipients, pause | tightening at once; loosening waits a cooling period and can be cancelled | yes, `exposure`, shown before money moves | the engine's behaviour checked over 16,384 policy pairs |
 
-What Leash does that HARDSTOP does not: a rolling 24-hour window (HARDSTOP's windows are fixed), a circuit breaker, and running as a module inside a Safe (a HARDSTOP vault is instead a contract a Safe can own: [run](qa/agent-runs/2026-11-24-safe-owner-v3.md)). Read from each project's own docs and code (2026-11-17, Leash again 2026-11-23); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
+What the others do that HARDSTOP does not: mubudot's leash checks three compiled variants (Fe with Sonatina, and two Solidity builds) against each other, and SpendGuard is small enough to audit in one sitting. What devprashant19's Leash does that HARDSTOP does not: a rolling 24-hour window (HARDSTOP's windows are fixed), a circuit breaker, and running as a module inside a Safe (a HARDSTOP vault is instead a contract a Safe can own: [run](qa/agent-runs/2026-11-24-safe-owner-v3.md)). Read from each project's own docs and code (2026-11-17; Leash again 2026-11-23; mubudot/leash and SpendGuard again 2026-11-24, unchanged since 5 and 13 Nov); the cells say "not described" where their docs did not say. Sources and more entries: [`research/COMPETITOR_MATRIX.md`](research/COMPETITOR_MATRIX.md).
 
 ## Film
 

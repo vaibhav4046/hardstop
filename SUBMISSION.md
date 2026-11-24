@@ -69,7 +69,11 @@ detail with the closest Fe entry, Leash, whose policy is fixed at compile
 time. Leash also checks at compile time, with a `const fn` that refuses a
 badly configured policy, and a script that proves it; HARDSTOP's
 compile-time laws instead check how its engine behaves on every policy of
-a grid.
+a grid. The two other Fe entries on this theme change a limit at once
+from the owner's key: mubudot/leash reconfigures an agent's budget, and an
+owner-signed exception may exceed both caps; SpendGuard opens sessions and
+allows targets. None of the three delays a raise or reports a worst case
+that counts one (their READMEs, read 2026-11-24).
 
 ## What is built in Fe
 
