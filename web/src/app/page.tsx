@@ -18,7 +18,7 @@ export default function Home() {
           </h1>
           <p className="lede mt-7">
             Put a budget in a vault. Your agent can ask it to pay, and nothing else. Outside your rules, the answer is
-            no.
+            no. And if someone talks you into raising the limit, the raise waits, and you can cancel it.
           </p>
           <p className="mt-9 flex flex-wrap items-center gap-3">
             <Link href="/protect" className="btn btn-primary btn-large">

@@ -1,9 +1,20 @@
 # HARDSTOP
 
-**Pitch:** HARDSTOP is a spending firewall for AI agents: the owner's limits
-are enforced by a Fe contract the agent cannot talk its way past, raising a
-limit takes a waiting period that the owner can cancel, and the worst-case
-loss is a number you can read before anything goes wrong.
+**The problem.** In a controlled test published in October 2026
+([preprint](https://arxiv.org/html/2610.35835v3),
+[CoinDesk](https://www.coindesk.com/tech/2026/11/01/ai-agents-bypassed-crypto-spending-limits-without-human-approval-researchers-find-in-a-new-test)),
+AI agents holding a wallet with a daily spending cap raised that cap
+themselves in 9 of 10 models tested. The cap's arithmetic held. The path
+that *changes* the cap is what failed.
+
+**HARDSTOP guards that path.** Most spending limits guard the cap; this one
+also guards every change to it:
+
+- a raise waits out a cooling period, and the owner can cancel it until then; a tighter limit applies at once;
+- what the raise could cost is a number the contract computes before any money moves;
+- on every build, the Fe compiler itself checks that no signature raises that number before the cooling period ends.
+
+So a tricked owner, or an agent that gets an approval it should not have, makes a visible, cancellable pending change, not a loss. Two AI assistants, Claude Code and Cursor, were pointed at the current contracts on Base Sepolia (2026-11-24) and moved $0 past its limits ([Claude Code](qa/agent-runs/2026-11-24-claude-code-native-v3.md), [Cursor](qa/agent-runs/2026-11-24-cursor-native-v3.md)).
 
 Fe Builders Challenge 2026 entry. Fe `26.6.0 (5b3f96a)`. MIT.
 Live app: https://hardstop-omega.vercel.app
@@ -114,6 +125,17 @@ The table with every detail: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#the-claims-ta
 - **Not guarded by the compiler:** a transfer imported into `vault.fe` and called beside the payout, and an older `Approval` put back (`Approval` is `Copy`). Source checks and tests catch both. CI pins 48 compiler refusals, 6 controls, 8 source checks and 23 edits they catch, and 7 edits a test catches.
 
 The full list: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md#what-the-compiler-does-and-does-not-guard-in-full). Every error code: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md). The problem and its sources, every result and gas figure: [`docs/EVIDENCE.md`](docs/EVIDENCE.md). Design and accounts: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md). Build and test commands: [`docs/BUILD.md`](docs/BUILD.md).
+
+## From test network to real use
+
+What already works the way a real team would use it:
+
+- **A real stablecoin.** A v3 vault held Circle's testnet USDC, paid 2 USDC and refused 4 on Base Sepolia ([run](qa/agent-runs/2026-11-24-usdc-vault.md)). Since v3 a vault can hold an existing token instead of the test dollar.
+- **Real AI assistants, no code.** Claude Code, Cursor and Antigravity connect through their own MCP clients ([runs](qa/agent-runs/)); the server is in the official MCP Registry, Claude Desktop has an extension (`hardstop.mcpb`), and any assistant can try `https://hardstop-omega.vercel.app/mcp` first.
+- **The owner hears about a raise.** Each vault's alert feed shows a waiting raise to any feed reader; the self-hosted watcher pushes it to a phone (ntfy), a webhook or the desktop.
+- **Costs, measured on Base Sepolia:** a payment 80,858 gas (132,146 for a vault's first), a refusal 56,671, a new vault 1,982,063 ([gas table](docs/EVIDENCE.md)).
+
+What a team would need before real money, and why it is not done here: an independent audit, and a compiler its makers call production-ready (Fe's own docs say it is not yet). Until then it is for test networks, as the banner says.
 
 ## Limitations
 

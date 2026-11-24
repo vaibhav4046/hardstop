@@ -13,16 +13,16 @@ push, and check that commit's CI run is green.
 | Fe version | 26.6.0 (5b3f96a) |
 | Upstream to Fe (background, not part of the entry: the contest puts compiler work out of scope) | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | Newest film, 70 s, recorded the evening of 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4 (the compiler running the vault's engine over 16,384 policy pairs and stopping a kernel that ignores a pause, a hand-made payout refused with 2-0003, the agent's key replaced on Base Sepolia and the old key refused (on the 2026-11-23 contracts, before v3), and the practice server refusing $15; every shot a real run; synthetic voice, captions, no music). On the current contracts (v3), a 43 s silent, captioned clip: https://hardstop-omega.vercel.app/demo/hardstop-v3.mp4 (Cursor's AI agent paid $3 and was refused GPU Market and $15 on Base Sepolia, and the hosted alert feed showed a waiting raise; every frame a real capture, sources in `docs/FILM_SOURCES_2026-11-24.md`). Update film, 85 s, recorded the morning of 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the compiler refusals and Fe tests as they stood that morning, 30 and 106; narrated by a synthetic voice, captions burned in, no music). It was recorded before that evening's changes (the compile-time laws, the sealed payout, key replacement and the practice server; now 48 refusals and 113 tests), which are under Evidence below. The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (v3, 2026-11-24), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4 (70 s, narrated, 2026-11-23): the Fe compiler running the vault's engine over 16,384 policy pairs and refusing to build a kernel that ignores a pause, a hand-made payout refused at compile time, and the agent's key replaced on Base Sepolia. On the current contracts (v3, 2026-11-24): https://hardstop-omega.vercel.app/demo/hardstop-v3.mp4 (43 s, silent, captioned): Cursor's AI agent paid $3 and was refused GPU Market and $15 on Base Sepolia, and the hosted alert feed showed a waiting raise. Every shot is a real run; the narration is a synthetic voice. Older films are listed in the README. |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
 ## One-line pitch
 
-A spending firewall for AI agents: the owner's limits are enforced by a Fe
-contract the agent cannot talk its way past, raising a limit takes a
-waiting period the owner can cancel, and the worst-case loss is a number you
-can read before anything goes wrong.
+Spending limits for AI agents that a tricked owner can still save:
+a raise waits out a cooling period the owner can cancel, what it could cost
+is a number the contract computes before any money moves, and the Fe
+compiler checks that promise on every build.
 
 ## The problem, in two sentences
 
