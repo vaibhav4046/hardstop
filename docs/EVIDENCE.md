@@ -6,7 +6,7 @@ The full results, on-chain transactions and gas figures, moved here from the [RE
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `113 passed; 0 failed` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `115 passed; 0 failed` |
 | The compiler refuses edits that would let the agent change the rules or approve a recipient, build or write rules or approvals by hand, or forge or reuse the owner's proof; source checks pin what the compiler cannot (the time given to the kernel, the handler list, the transfer, full `vault.fe`) | `FE=fe bash scripts/pay-cannot-loosen.sh` | 92 lines starting `ok` |
 | The compiler checks the worst-case promise over a grid of 128 policies (16,384 pairs): no signature raises it before the cooling period ends, no payment beats it, an agent reaches it exactly | `cd fe && fe check` | no output (about 72 s); a kernel broken so a law fails stops the build (8-0081, or 3-0026) |
 | A contract the owner calls cannot act as the owner (the vault checks the caller, not the transaction's origin) | `web/tests/vault.test.ts`, "the vault checks the caller, not the origin"; on a vault built with `prove` also accepting `ctx.origin()` that test fails (run 2026-11-23, below) | passes on the real vault |
@@ -73,7 +73,7 @@ Measured from 2026-11-17 to 2026-11-24; raw output in [`EVIDENCE_LOG.md`](../EVI
 
 | What | Result |
 |---|---|
-| `fe test` (EVM) | 113 passed, 0 failed |
+| `fe test` (EVM) | 115 passed, 0 failed |
 | `fe test --backend native` | 54 passed, 0 failed |
 | Same verdicts on both targets | 200 games x 40 requests = 8,000 verdicts, identical fingerprint `885356084767103301` asserted on both |
 | Adversary vs broken kernels | 15 of 15 mutants caught, on both targets (the 15th, a cancel that lands a raise at once, added after the third review) |

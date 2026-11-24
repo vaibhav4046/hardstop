@@ -27,7 +27,7 @@ Live app: https://hardstop-omega.vercel.app
 2. **The promise is checked by the compiler.** On every build, Fe itself runs the vault's engine over 16,384 policy pairs: for every pair on that grid, whatever the owner signs, the worst case cannot rise before the cooling period ends. (A grid, on two schedules, from a vault with nothing waiting and from one with a raise already waiting; `fe test` and a seeded adversary cover the rest.)
 3. **A tricked approval waits.** Loosening takes a cooling period; tightening is instant. The worst case is a number before any money moves.
 
-Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
+Check it: `cd fe && fe test` (115 passed), `FE=fe bash scripts/pay-cannot-loosen.sh` (92 lines `ok`: 48 attack edits the compiler refuses), or point any AI assistant at `https://hardstop-omega.vercel.app/mcp` and ask it to pay $15. What the compiler does not cover is listed, not hidden: [`FE_HIGHLIGHT.md`](FE_HIGHLIGHT.md).
 
 **What is new here, and what is not.** Spending caps and delays already exist. In every other Fe entry we found on this theme, a limit changes, or is overridden, as soon as the owner acts (in devprashant19's Leash, by deploying a new module); that is the path the study's agents went through. HARDSTOP's claim is the last three columns together:
 
@@ -88,7 +88,7 @@ The $1,020 is today's $20 plus the $1,000 the raise would allow: the next 24 hou
 
 ```bash
 cd fe
-fe test                           # 113 tests on the EVM
+fe test                           # 115 tests on the EVM
 fe test --backend native          # the 54 kernel + adversary tests again, natively
 fe build --backend native         # writes out/hardstop
 ./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
@@ -102,7 +102,7 @@ Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](
 
 | Claim | Check it | Expect |
 |---|---|---|
-| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `113 passed; 0 failed` |
+| Kernel, vault, launcher and attacker pass their tests | `cd fe && fe test` | `115 passed; 0 failed` |
 | The compiler refuses attack edits; source checks pin what it cannot | `FE=fe bash scripts/pay-cannot-loosen.sh` | 92 lines starting `ok` |
 | The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 72 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel in a way a law covers and the build fails (8-0081, or 3-0026 if the broken kernel runs past Fe's compile-time step limit) |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |

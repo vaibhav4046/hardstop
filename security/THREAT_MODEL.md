@@ -12,11 +12,11 @@ outside this system and HARDSTOP says nothing about it.
 
 | Party | Holds | Trusted? |
 |---|---|---|
-| Owner | The key that deployed the vault. Can propose rule changes, cancel a queued change, pause, add/remove recipients, withdraw to itself. | Yes, but assumed to be **trickable**: it may be talked into signing a change it did not mean. |
+| Owner | The key (or contract, such as a Safe) that launched the vault. Can propose rule changes, cancel a queued change, pause, add/remove recipients, replace the agent's key (the new key waits out the cooling period), withdraw to itself. | Yes, but assumed to be **trickable**: it may be talked into signing a change it did not mean. |
 | Agent | A separate key. Can call `pay` and nothing else of consequence. | **No.** Assumed fully compromised: prompt-injected, buggy, or malicious. |
 | LLM / policy assistant | Nothing. It can suggest a policy as text. | No. Its output is a draft the owner must read and sign. It is never consulted when a payment is decided. |
 | Web app | Nothing. It formats what the contract says. | No. A wrong or hostile web page can mislead the owner but cannot move money or change a verdict. |
-| Token | The ERC-20 contract fixed at vault creation. | Yes. A malicious token is out of scope (see below). |
+| Token | The ERC-20 contract fixed at vault creation: the launcher's test dollar, or since v3 any existing token the owner names at launch. | Yes. A malicious or unusual token is out of scope (see item 5). |
 | Recipients | An address on the owner's list. | Trusted to be the right address, nothing more. |
 | Everyone else | Nothing. | No. |
 
@@ -75,7 +75,7 @@ Each line is a test. `F` = `fe/src/vault_tests.fe`, `K` = `fe/src/tests.fe`,
 |---|---|
 | A caller that is not the agent cannot spend, and cannot write to the log, even during a pause. | F `stranger_cannot_pay`, `stranger_is_reverted_even_while_paused` (exact error `NotAgent()`), C, D (113 stranger calls) |
 | The agent cannot change limits, recipients, the queue or pause state, and cannot withdraw. | F `agent_cannot_*` (exact error `NotOwner()`), C |
-| Owner, agent, token, window length and cooling period cannot change at all. | Owner, agent and token are immutable contract fields: no handler lists them `mut`. The window length and cooling period live in the sealed `Terms`, which owner handlers do list `mut`; they stay fixed because `Terms` can only change through the kernel's `amend` and `cancel`, which copy the schedule unchanged, and the grid laws in `fe/src/kernel/laws.fe` run both. |
+| Owner, token, window length and cooling period cannot change at all; the agent changes only by the owner's `setAgent`, under the cooling period. | Owner and token are immutable: no handler lists them `mut`, and since v3 the token is also sealed in the kernel's `Books`. The agent's key sits in `seat`, which only `SetAgent` lists `mut` and only through the kernel: the old key stops at once, the new one may pay only after the cooling period, and the owner's own address is refused. The window length and cooling period live in the sealed `Terms`, which owner handlers do list `mut`; they stay fixed because `Terms` can only change through the kernel's `amend` and `cancel`, which copy the schedule unchanged, and the grid laws in `fe/src/kernel/laws.fe` run both. |
 | A tricked owner can freeze the agent, not rob the owner. | By design: a pause, a zero cap or a past end date applies at once, and undoing it is a loosening, so it waits out the cooling period; a pause also drops a waiting raise. `withdraw` works throughout, so the money stays the owner's. Found in the fourth review (security/AUDIT.md, item 21). |
 | Owner and agent are different addresses, and the cooling period is at least a minute. | F `owner_and_agent_must_differ`, `cooling_period_under_a_minute_is_rejected`, C |
 | A denied payment moves nothing and leaves the ledger as it was. | F `over_limit_payment_moves_nothing`, D (every request) |
@@ -95,7 +95,8 @@ Stated plainly, because a security tool that overstates itself is worse than
 none.
 
 1. **A stolen owner key.** Whoever holds it can pause, tighten, queue a
-   loosening and `withdraw` to the owner address. Because `withdraw` only
+   loosening, replace the agent's key (the new key waits out the cooling
+   period) and `withdraw` to the owner address. Because `withdraw` only
    pays the owner address, a thief with the owner key still has to move the
    money out of the owner's wallet, which is outside this system. The ratchet
    helps only if the real owner notices and cancels a queued change in time,
@@ -117,7 +118,14 @@ none.
    counts this; a description of the cap as "per rolling 24 hours" would be
    wrong.
 5. **A malicious or unusual token.** The token is fixed at creation and
-   trusted. A token that lies about transfers, charges fees, rebases, or
+   trusted; since v3 the owner may name any existing token at launch, so
+   this is the owner's choice. Three ways an unusual token breaks the
+   accounting: a fee-on-transfer token pays the recipient less than
+   `Paid.amount`; a token that charges its fee on top, from the sender,
+   takes more from the vault than the caps allow; and a token contract with
+   a catch-all fallback lets `pay` record `Paid` while nothing moves (only an
+   address with no code is caught, by a test). A token whose `transfer`
+   returns nothing, as USDT's does, pays exactly (also tested). A token that lies about transfers, charges fees, rebases, or
    re-enters could break the accounting between the ledger and real
    balances, or freeze `pay` and `withdraw` by always failing. The vault
    updates its ledger before calling the token, and a test with a

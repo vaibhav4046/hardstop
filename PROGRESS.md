@@ -8,7 +8,7 @@ the reference; this page only says where things stand.
 | Check | Result |
 |---|---|
 | `fe fmt --check` | clean |
-| `fe test` (EVM) | 113 passed, 0 failed |
+| `fe test` (EVM) | 115 passed, 0 failed |
 | `fe test --backend native` (WSL) | 54 passed, 0 failed |
 | `scripts/pay-cannot-loosen.sh` | 92 lines starting `ok`: 48 compiler refusals, 6 controls that must compile, 8 source checks, 23 edits they must catch, 7 edits a test must catch |
 | `npm test` (web) | 125 tests, passing locally and in CI |

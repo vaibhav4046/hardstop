@@ -1,0 +1,161 @@
+//! Tokens that are not well behaved, since a v3 vault can hold an existing
+//! token: one whose `transfer` returns nothing (as USDT's does) pays exactly
+//! and still meets the caps; an address with no code cannot be paid from, and
+//! the refused payment leaves the ledger as it was. Written by an independent
+//! security review on 2026-11-24.
+#![cfg(target = "evm")]
+
+use std::evm::{Address, Call, Evm, StorageMap}
+use ingot::vault::{Vault, VaultMsg}
+
+const USD: u256 = 1000000
+const GAS: u256 = 3000000
+const DAY: u64 = 86400
+const FAR_FUTURE: u64 = 4000000000
+
+msg TokenProbeActorMsg {
+    #[selector = sol("pay(address,address,uint256,uint64)")]
+    Pay { vault: Address, to: Address, amount: u256, nonce: u64 } -> u8,
+}
+
+contract TokenProbeActor uses (call: mut Call) {
+    recv TokenProbeActorMsg {
+        Pay { vault, to, amount, nonce } -> u8 uses (mut call) {
+            call.call(
+                addr: vault,
+                gas: 1500000,
+                value: Wei::zero(),
+                message: VaultMsg::Pay { to, amount, nonce },
+            )
+        }
+    }
+}
+
+/// USDT-style: `transfer` returns no data.
+msg QuietMsg {
+    #[selector = sol("transfer(address,uint256)")]
+    Transfer { to: Address, amount: u256 },
+    #[selector = sol("mint(address,uint256)")]
+    Mint { to: Address, amount: u256 },
+    #[selector = sol("balanceOf(address)")]
+    BalanceOf { who: Address } -> u256,
+}
+
+contract QuietToken uses (ctx: Ctx) {
+    mut balances: StorageMap<Address, u256>,
+    recv QuietMsg {
+        Transfer { to, amount } uses (ctx, mut balances) {
+            let from = ctx.caller()
+            let have = balances.get(key: from)
+            assert!(have >= amount, "low")
+            balances.set(key: from, value: have - amount)
+            balances.set(key: to, value: balances.get(key: to) + amount)
+        }
+        Mint { to, amount } uses (mut balances) {
+            balances.set(key: to, value: balances.get(key: to) + amount)
+        }
+        BalanceOf { who } -> u256 uses (balances) {
+            balances.get(key: who)
+        }
+    }
+}
+
+fn vault_for(token: Address, agent: Address, salt: u256) -> Address
+uses (evm: mut Evm)
+{
+    evm.create2<Vault>(
+        value: Wei::zero(),
+        args: (
+            evm.address(),
+            agent,
+            token,
+            10 * USD,
+            20 * USD,
+            FAR_FUTURE,
+            DAY,
+            DAY,
+            Address::new(0x5109),
+            Address::zero(),
+            Address::zero(),
+        ),
+        salt,
+    )
+}
+
+fn ledger(_ vault: Address) -> (u64, u256, u64) uses (evm: mut Evm) {
+    evm.call(
+        addr: vault,
+        gas: GAS,
+        value: Wei::zero(),
+        message: VaultMsg::LedgerOf {},
+    )
+}
+
+#[test]
+fn a_token_address_without_code_cannot_be_paid_from() uses (evm: mut Evm) {
+    let agent = evm.create2<TokenProbeActor>(value: Wei::zero(), args: (), salt: 70)
+    let vault = vault_for(token: Address::new(0x7777), agent, salt: 71)
+    let outcome = evm
+        .try_call(
+            addr: agent,
+            gas: GAS,
+            value: Wei::zero(),
+            message: TokenProbeActorMsg::Pay {
+                vault,
+                to: Address::new(0x5109),
+                amount: 4 * USD,
+                nonce: 0,
+            },
+        )
+    assert!(!outcome.success())
+    let (_, spent, next_nonce) = ledger(vault)
+    assert!(spent == 0 && next_nonce == 0)
+}
+
+#[test]
+fn a_token_whose_transfer_returns_nothing_pays_exactly() uses (evm: mut Evm) {
+    let token = evm.create2<QuietToken>(value: Wei::zero(), args: (), salt: 72)
+    let agent = evm.create2<TokenProbeActor>(value: Wei::zero(), args: (), salt: 73)
+    let vault = vault_for(token, agent, salt: 74)
+    evm.call(
+        addr: token,
+        gas: GAS,
+        value: Wei::zero(),
+        message: QuietMsg::Mint { to: vault, amount: 100 * USD },
+    )
+    let code: u8 = evm
+        .call(
+            addr: agent,
+            gas: GAS,
+            value: Wei::zero(),
+            message: TokenProbeActorMsg::Pay {
+                vault,
+                to: Address::new(0x5109),
+                amount: 4 * USD,
+                nonce: 0,
+            },
+        )
+    assert!(code == 0)
+    let shop: u256 = evm
+        .call(
+            addr: token,
+            gas: GAS,
+            value: Wei::zero(),
+            message: QuietMsg::BalanceOf { who: Address::new(0x5109) },
+        )
+    assert!(shop == 4 * USD)
+    // Over the cap is still refused with this token.
+    let refused: u8 = evm
+        .call(
+            addr: agent,
+            gas: GAS,
+            value: Wei::zero(),
+            message: TokenProbeActorMsg::Pay {
+                vault,
+                to: Address::new(0x5109),
+                amount: 11 * USD,
+                nonce: 1,
+            },
+        )
+    assert!(refused == 10)
+}

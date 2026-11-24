@@ -7,7 +7,7 @@ claim built on it is false.
 |---|---|---|---|
 | 1 | The owner key is held by the owner and is not available to the agent. | Every owner-only control. | The agent can queue a raise and, after the cooling period, spend under it. During the cooling period the exposure bound still holds. |
 | 2 | The owner looks at pending changes at least once per cooling period. | The ratchet. | A raise the owner did not intend takes effect unnoticed. |
-| 3 | The token behaves like a plain ERC-20: `transfer` moves exactly `amount` or fails. | Ledger equals money moved. | The ledger and real balances can disagree. |
+| 3 | The token behaves like a plain ERC-20: `transfer` moves exactly `amount` or fails (returning nothing, as USDT does, is fine and tested). Since v3 the owner picks the token at launch, so this is the owner's assumption to check. | Ledger equals money moved. | The ledger and real balances can disagree: a fee-on-transfer token pays less than recorded, a fee charged on top takes more than the caps, a contract with a catch-all fallback records payments that move nothing. |
 | 4 | `block.timestamp` is within a few seconds of real time and never goes backwards. | Windows, expiry, cooling. | Limits shift by the same few seconds. |
 | 5 | The vault was created with the cooling period and window length the owner intended. Both are immutable. | The ratchet, the exposure bound. | A short cooling period is a weak ratchet. The constructor rejects anything under 60 seconds, nothing more. |
 | 6 | Approved recipients are the addresses the owner meant. | Allowlist. | Payments within the caps go to the wrong party. |

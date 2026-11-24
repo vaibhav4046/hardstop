@@ -12,7 +12,7 @@ With Fe 26.6.0 on your path, from the repository root:
 
 ```
 $ cd fe && fe test
-test result: ok. 113 passed; 0 failed
+test result: ok. 115 passed; 0 failed
 
 $ cd .. && FE=fe bash scripts/pay-cannot-loosen.sh
 ok   control: Pay may read its own spending
@@ -270,7 +270,7 @@ byte-identical to before, so the deployed vaults are unchanged. 373
    already waiting, due at second 2000 or 4599 (2 × 16,384 pairs). A kernel
    in which a new signature inherits the waiting raise's earlier due time
    builds against every other law and fails 64 asserts of 4c (the tests
-   catch it too, when they run: 5 of 113 fail, among them
+   catch it too, when they run: 5 of the 113 tests then fail, among them
    `proposing_again_restarts_the_wait`; 4c makes it a build error).
 5. `decide` never allows more than the worst case `exposure` reports, and a
    payment uses up at least its own amount of it (1,536 requests; the
