@@ -13,7 +13,7 @@ push, and check that commit's CI run is green.
 | Fe version | 26.6.0 (5b3f96a) |
 | Upstream to Fe (background, not part of the entry: the contest puts compiler work out of scope) | six issues, argotorg/fe #2035 to #2040, and three pull requests: #2048 merged into Fe on 2026-11-20 and #2042 (the capability-seal fix) on 2026-11-21, both by maintainer sbillig; #2041 open |
 | Live app | https://hardstop-omega.vercel.app |
-| Demo video | Newest film, 70 s, recorded the evening of 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4 (the compiler running the vault's engine over 16,384 policy pairs and stopping a kernel that ignores a pause, a hand-made payout refused with 2-0003, the agent's key replaced on Base Sepolia and the old key refused (on the 2026-11-23 contracts, before v3), and the practice server refusing $15; every shot a real run; synthetic voice, captions, no music). Update film, 85 s, recorded the morning of 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the compiler refusals and Fe tests as they stood that morning, 30 and 106; narrated by a synthetic voice, captions burned in, no music). It was recorded before that evening's changes (the compile-time laws, the sealed payout, key replacement and the practice server; now 48 refusals and 113 tests), which are under Evidence below. The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (v3, 2026-11-24), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
+| Demo video | Newest film, 70 s, recorded the evening of 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4 (the compiler running the vault's engine over 16,384 policy pairs and stopping a kernel that ignores a pause, a hand-made payout refused with 2-0003, the agent's key replaced on Base Sepolia and the old key refused (on the 2026-11-23 contracts, before v3), and the practice server refusing $15; every shot a real run; synthetic voice, captions, no music). On the current contracts (v3), a 43 s silent, captioned clip: https://hardstop-omega.vercel.app/demo/hardstop-v3.mp4 (Cursor's AI agent paid $3 and was refused GPU Market and $15 on Base Sepolia, and the hosted alert feed showed a waiting raise; every frame a real capture, sources in `docs/FILM_SOURCES_2026-11-24.md`). Update film, 85 s, recorded the morning of 2026-11-23: https://hardstop-omega.vercel.app/demo/hardstop-update.mp4 (the tricked-owner run, the three AI agents refused on Base Sepolia with their explorer pages, the compiler refusals and Fe tests as they stood that morning, 30 and 106; narrated by a synthetic voice, captions burned in, no music). It was recorded before that evening's changes (the compile-time laws, the sealed payout, key replacement and the practice server; now 48 refusals and 113 tests), which are under Evidence below. The earlier launch film: https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4 (plays in the browser; 2 min, narrated by a synthetic voice, with music and captions; also in the repo at `web/public/demo/hardstop-demo.mp4`). The launch film and the walkthrough were recorded on 2026-11-19, before the current contracts (v3, 2026-11-24), the AI-agent runs, the tricked-owner demo and the MCP Registry listing; those are in the update film and under Evidence below. A silent walkthrough with test output and receipts (its on-screen test counts are from that day): https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4 |
 | Licence | MIT |
 | Team | Vaibhav Lalwani ([@vaibhav4046](https://github.com/vaibhav4046)), solo |
 
@@ -182,7 +182,7 @@ command-line program. Every error code and limit:
 ## Evidence it works
 
 - `fe test`: 113 passed on the EVM; 54 passed natively.
-- Web: 120 unit tests (including the MCP server and watcher) and 64 browser
+- Web: 125 unit tests (including the MCP server and watcher) and 65 browser
   tests (Chromium, production build).
   CI runs the Fe tests, the native campaign, the compile-refusal check,
   the unit tests and the browser suite on every push
@@ -209,10 +209,11 @@ command-line program. Every error code and limit:
   refused on chain, and, asked to raise its own limit, had no tool that could:
   the one tool for it only drafted a request to the owner. Every receipt was read back
   (`qa/agent-runs/2026-11-22-claude-code-native.md`, `-cursor-native.md`,
-  `-antigravity-native.md`). On the current contracts (v3, 2026-11-24) the
-  same six steps ran through the official MCP client, not an assistant (the
-  Claude Code CLI's sign-in had expired), with the same results and
-  receipts read back (`qa/agent-runs/2026-11-24-mcp-client-v3.md`; the same
+  `-antigravity-native.md`). On the current contracts (v3, 2026-11-24) Cursor's agent ran the
+  same six steps, with the same results and receipts read back
+  (`qa/agent-runs/2026-11-24-cursor-native-v3.md`; the Claude Code CLI's
+  sign-in had expired, so it was not repeated), and so did the official MCP
+  client (`qa/agent-runs/2026-11-24-mcp-client-v3.md`; the same
   for the 2026-11-23 contracts:
   `qa/agent-runs/2026-11-23-mcp-client-current-build.md`).
 - Install with nothing cloned: a Claude Desktop extension
@@ -233,8 +234,11 @@ command-line program. Every error code and limit:
 Test networks only, with a test token the launcher mints (a v3 vault can
 instead hold Circle's testnet USDC; tried once, by script, not from the
 site); unaudited; one vault, one token, one agent, and vaults cannot be
-upgraded. The cooling period only helps an owner who looks or runs the
-self-hosted watcher; the site itself sends nothing. A stolen owner key is
+upgraded. The cooling period only helps an owner who looks, follows the vault's
+hosted alert feed (`/alerts?chain=…&vault=…`, which shows a waiting raise to
+any feed reader, as fast as the reader polls) or runs the self-hosted
+watcher (which also reports payments, refusals and a raise withdrawn
+between two checks). A stolen owner key is
 out of scope. Fixed windows let a full cap be spent at the end of one window
 and again at the start of the next (`exposure` counts it). On the site the
 agent is a trial key kept in the browser. The current contracts were

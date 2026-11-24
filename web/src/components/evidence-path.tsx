@@ -95,8 +95,9 @@ export function EvidencePath() {
       </div>
       <p className="small soft">
         &ldquo;In the test&rdquo; is how the limit was raised in the test described above. &ldquo;With a HARDSTOP
-        vault&rdquo; is what the vault&rsquo;s contract does; you can try each step on the <Link href="/#live-example">practice vault</Link>. This site sends no alerts itself; the optional
-        watcher you run yourself (<code>npx -y github:vaibhav4046/hardstop --watch</code>) reports a waiting raise around the clock.
+        vault&rdquo; is what the vault&rsquo;s contract does; you can try each step on the <Link href="/#live-example">practice vault</Link>. A waiting raise shows in each vault&rsquo;s alert
+        feed on this site (<code>/alerts?chain=…&amp;vault=…</code>, for any feed reader), and the optional watcher you run
+        yourself (<code>npx -y github:vaibhav4046/hardstop --watch</code>) reports it around the clock.
       </p>
     </div>
   )

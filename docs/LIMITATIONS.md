@@ -34,12 +34,17 @@ The full list, moved here from the [README](../README.md).
   vault someone else deployed with the same code and you as owner can carry
   founding recipients you did not choose. My vaults lists only vaults your
   wallet launched; a vault opened from a link is checked by its code only.
-- **Alerts need the watcher running.** The site sends nothing (its only
-  server route is the practice MCP server, which knows no real vault): every page shows a waiting loosening with a cancel button while
-  it is open. The optional, self-hosted watcher (`web/mcp/watch.ts`) checks
-  the vault around the clock and alerts by phone push (ntfy), webhook or desktop notification,
-  but only while someone runs it. Without it, the ratchet only helps an
-  owner who looks.
+- **Hosted alerts are a feed, not a push.** The site serves each vault an
+  Atom feed (`/alerts?chain=…&vault=…`, read from the chain on each request,
+  no key, nothing stored) that shows a rule change that loosens a limit while it waits, a pause
+  and an end date near or passed. A feed reader alerts only as fast as it
+  polls, and a raise proposed and withdrawn between two polls is not seen;
+  the feed does not report payments, refusals, recipients added or a new
+  agent key waiting ([run](../qa/agent-runs/2026-11-24-alert-feed.md)). The
+  optional, self-hosted watcher (`web/mcp/watch.ts`) reports all of those
+  around the clock, by phone push (ntfy), webhook or desktop notification,
+  but only while someone runs it. Every page shows a waiting loosening with
+  a cancel button while it is open.
 - **Fixed windows.** A full cap can be spent at the end of one window and
   again at the start of the next. `exposure` accounts for it.
 - **Replacing the agent's key takes a cooling period.** In vaults made through the current

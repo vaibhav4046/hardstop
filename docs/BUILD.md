@@ -23,10 +23,10 @@ fe build --backend native         # writes out/hardstop
 
 cd ../web
 npm ci
-npm test                          # 120 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
+npm test                          # 125 tests: the contract, the launcher, the wallet path, the MCP server and watcher, the differential test, the session log
 
 npx playwright install chromium   # once
-npm run e2e                       # 64 browser tests against the production build
+npm run e2e                       # 65 browser tests against the production build
 ```
 
 Every command above except the `decide` example, the browser suite included, runs in

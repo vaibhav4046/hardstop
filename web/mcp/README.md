@@ -131,6 +131,8 @@ Each tool returns one block of plain text a person can read in the chat: a mark 
 
 ## The watcher
 
+**Nothing to run: the hosted alert feed.** `https://hardstop-omega.vercel.app/alerts?chain=84532&vault=0x…` is an Atom feed for any vault, read from the chain on each request, with no key and nothing stored. Add it to a feed reader and it alerts you when a rule change that loosens a limit is waiting (with the time it takes effect and a link to cancel it), when the vault is paused, and when the end date is a day away or has passed. It is as quick as your reader polls, and it does not see a raise proposed and withdrawn between two polls, nor payments, refusals, recipients added or a new agent key waiting. The watcher below sees all of those.
+
 `watch.ts` is for the owner. It only reads, so it needs the vault address and a network but no key at all. If `HARDSTOP_AGENT_KEY` is set in its environment, it ignores it. It checks the vault every `HARDSTOP_WATCH_SECS` seconds (default 30) and reports:
 
 - **a loosening waiting out its cooling period** (`loosening_waiting`): what it would allow, when it takes effect, and the worst case one window after that. If the owner did not ask for it, this is the moment to cancel. Later it reports `loosening_in_force` or `loosening_cancelled`.

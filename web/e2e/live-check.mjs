@@ -150,6 +150,21 @@ for (const path of ['/mcp', '/mcp/tricked']) {
   }
 }
 
+// The hosted alert feed reads a real v3 vault from Base Sepolia, and refuses a network with real money.
+try {
+  const vault = '0x76b5cc6fc87102a36fb95ca2f9d8c20c98201acb'
+  const feed = await fetch(`${base}/alerts?chain=84532&vault=${vault}`)
+  const xml = await feed.text()
+  if (feed.status !== 200 || !/atom\+xml/.test(feed.headers.get('content-type') ?? '') || !xml.includes(`HARDSTOP alerts for vault ${vault}`)) {
+    problems.push(`/alerts: answered ${feed.status} ${xml.slice(0, 200)}`)
+  } else console.log(`ok   /alerts: ${xml.match(/<subtitle>(.*?)<\/subtitle>/)?.[1] ?? ''}`)
+  const mainnet = await fetch(`${base}/alerts?chain=1&vault=${vault}`)
+  if (mainnet.status !== 400) problems.push(`/alerts?chain=1: answered ${mainnet.status}, not 400`)
+  else console.log('ok   /alerts?chain=1: refused')
+} catch (error) {
+  problems.push(`/alerts: ${error.message}`)
+}
+
 if (problems.length > 0) {
   console.log(`\n${problems.length} problem(s):\n` + problems.map((problem) => `  ${problem}`).join('\n'))
   process.exit(1)

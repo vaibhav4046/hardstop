@@ -4,8 +4,9 @@ The contracts were rebuilt on 2026-11-24 (v3): the vault's token is sealed
 inside the kernel's `Books` from creation, so `Pay` cannot choose the token
 a payout pays in; `setAgent` with the owner's own address now reverts; and a
 vault can hold an existing token. The AI-assistant runs of 2026-11-22
-(Claude Code, Cursor, Antigravity) used earlier contracts. They were not
-repeated on v3: the Claude Code CLI's sign-in had expired on this machine.
+(Claude Code, Cursor, Antigravity) used earlier contracts. The Claude Code
+CLI's sign-in had expired on this machine, so it was not repeated on v3;
+Cursor's agent was, later the same day: `2026-11-24-cursor-native-v3.md`.
 
 So this run is **not an AI assistant**. It is the official MCP TypeScript
 SDK client (`@modelcontextprotocol/sdk`, `Client` over stdio) starting the

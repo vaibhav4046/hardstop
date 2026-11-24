@@ -71,7 +71,7 @@ const CLIENTS: Client[] = [
     id: 'watch',
     label: 'Watch 24/7',
     where:
-      'For you, not the agent: run it on a machine that stays on. It only reads the vault and needs no key. Add HARDSTOP_ALERT_WEBHOOK=https://... to send each alert to a webhook.',
+      'For you, not the agent: run it on a machine that stays on. It only reads the vault and needs no key. Add HARDSTOP_ALERT_WEBHOOK=https://... to send each alert to a webhook. Nothing to run: add the feed https://hardstop-omega.vercel.app/alerts?chain=<chain>&vault=<vault> to any feed reader instead.',
     text: ({ vault, chainId }) =>
       `HARDSTOP_VAULT=${vault} HARDSTOP_CHAIN_ID=${chainId} npx -y ${PACKAGE} --watch >> hardstop-alerts.jsonl`,
   },

@@ -22,6 +22,8 @@ Check it: `cd fe && fe test` (113 passed), `FE=fe bash scripts/pay-cannot-loosen
 
 **[Watch the 70-second film](https://hardstop-omega.vercel.app/demo/hardstop-laws.mp4)** ([`web/public/demo/hardstop-laws.mp4`](web/public/demo/hardstop-laws.mp4); narrated by a synthetic voice, captions, every shot a real run; [sources](docs/FILM_SOURCES_2026-11-23.md)): the compiler checking the promise over 16,384 policy pairs and stopping a broken kernel, a hand-made payout refused at compile time, the agent's key replaced on Base Sepolia, and the practice server refusing $15. It was recorded on the 2026-11-23 contracts; v3 (2026-11-24) only seals the token and refuses the owner as agent.
 
+**[On v3, 43 seconds](https://hardstop-omega.vercel.app/demo/hardstop-v3.mp4)** (silent, captioned, every frame a real capture; [sources](docs/FILM_SOURCES_2026-11-24.md)): Cursor's AI agent on the current contracts, its $3 paid and its GPU Market and $15 payments refused on Base Sepolia, and the hosted alert feed showing a waiting raise.
+
 Older films, from earlier builds: [update film, 85 s](https://hardstop-omega.vercel.app/demo/hardstop-update.mp4) (three AI agents refused on Base Sepolia), [demo, 2 min](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4), [silent walkthrough](https://hardstop-omega.vercel.app/demo/hardstop-walkthrough.mp4).
 
 [![HARDSTOP demo video: the vault door, the lab test, the live site, an AI agent refused, the Fe compiler refusal, and a Base Sepolia receipt](web/public/demo/hardstop-demo.jpg)](https://hardstop-omega.vercel.app/demo/hardstop-demo.mp4)
@@ -65,7 +67,7 @@ fe test --backend native          # the 54 kernel + adversary tests again, nativ
 fe build --backend native         # writes out/hardstop
 ./out/hardstop decide 1000000 86400 86400  10 20 3592000 0  0 0 0 1 0  0 0 0  80 0 1 1  1000005
 cd ../web
-npm test                          # 120 web tests
+npm test                          # 125 web tests
 ```
 
 Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](web/mcp/README.md). Listed in the official MCP Registry as `io.github.vaibhav4046/hardstop` (version 0.1.1, published the morning of 2026-11-23, before that evening's contracts; the extension on the site is newer, 0.1.2).
@@ -79,10 +81,10 @@ Claude Desktop, Cursor, VS Code and Antigravity installs: [`web/mcp/README.md`](
 | The compiler checks the worst-case promise over 16,384 policy pairs | `cd fe && fe check` (about 55 s; the laws are in `fe/src/kernel/laws.fe`) | no output; break the kernel in a way a law covers and the build fails (8-0081, or 3-0026 if the broken kernel runs past Fe's compile-time step limit) |
 | Same verdicts natively | `scripts/native.sh` (Linux, macOS, WSL) | `54 passed` |
 | A seeded attacker never beats the worst case | `./fe/out/hardstop campaign 5206533097626292048 20000 40` | `violation 0` |
-| Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `120` pass |
-| Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 120; `fe-time`: 4 passed |
-| The whole site in a browser | `cd web && npm run e2e` | 64 tests |
-| An agent cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) the same six steps through the official MCP client, not an assistant | $0 past the limits |
+| Web app, wallet path, MCP server, watcher | `cd web && npm ci && npm test` | `125` pass |
+| Time-dependent rules hold on the compiled vault (a raise applies only after the cooling period, to the second; the day resets) | `web/tests/vault.test.ts`: the Fe-compiled bytecode on an EVM whose clock the test moves (`fe test` cannot move time); and `fe-time/` runs the vault at a present-day block time on Fe master, nightly (Fe 26.6 tests run at time 1) | part of the 125; `fe-time`: 4 passed |
+| The whole site in a browser | `cd web && npm run e2e` | 65 tests |
+| An agent cannot spend past it | [`qa/agent-runs/`](qa/agent-runs/): Claude Code, Cursor and Antigravity on earlier contracts (2026-11-22); on the current ones (v3, 2026-11-24) Cursor's agent ([run](qa/agent-runs/2026-11-24-cursor-native-v3.md)) and the official MCP client | $0 past the limits |
 | It ran on a public network | Base Sepolia transactions and gas for the current contracts (v3, 2026-11-24), including a vault holding testnet USDC: [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | `status 1` each |
 | Fe bugs found, fixes sent upstream | issues [#2035](https://github.com/argotorg/fe/issues/2035) to [#2040](https://github.com/argotorg/fe/issues/2040); PRs [#2041](https://github.com/argotorg/fe/pull/2041), [#2042](https://github.com/argotorg/fe/pull/2042), [#2048](https://github.com/argotorg/fe/pull/2048); CI job `patched-fe` | #2048 and #2042 merged; #2041 open; job green |
 | All of the above runs on every push | [CI](https://github.com/vaibhav4046/hardstop/actions/workflows/ci.yml) | green |
@@ -102,7 +104,7 @@ The full list: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md#what-the-compiler-d
 
 ## Limitations
 
-Test networks only (Base Sepolia, Sepolia), not professionally audited, and built on a young compiler. One vault holds one token (the launcher's test dollar, or since v3 an existing token such as testnet USDC), has one agent and three recipients at creation. Alerts need the self-hosted watcher running. A stolen owner key and a malicious token are out of scope. The full list, including two MetaMask issues: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+Test networks only (Base Sepolia, Sepolia), not professionally audited, and built on a young compiler. One vault holds one token (the launcher's test dollar, or since v3 an existing token such as testnet USDC), has one agent and three recipients at creation. Each vault has a hosted alert feed (`/alerts?chain=…&vault=…`) that shows a waiting raise to any feed reader; payments, refusals and a raise withdrawn between two polls need the self-hosted watcher. A stolen owner key and a malicious token are out of scope. The full list, including two MetaMask issues: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 ## Declaration
 

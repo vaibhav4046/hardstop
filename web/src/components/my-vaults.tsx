@@ -231,6 +231,11 @@ function VaultCard({ row, network, account }: { row: Row; network: Network; acco
         <pre className="code mt-3" tabIndex={0} aria-label="Watcher command">
           <code>{watch}</code>
         </pre>
+        <p className="small mt-3">
+          Or nothing to run: add{' '}
+          <a href={`/alerts?chain=${network.chainId}&vault=${row.vault}`}>this vault&rsquo;s alert feed</a> to any feed
+          reader. It says when a looser rule is waiting and until when you can cancel it.
+        </p>
       </details>
     </section>
   )
